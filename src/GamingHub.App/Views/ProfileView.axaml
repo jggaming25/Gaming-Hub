@@ -55,7 +55,7 @@
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="models:Badge">
-                                <Border Background="{StaticResource PanelBrush2}" CornerRadius="10" Padding="12" Width="230" Margin="0,0,10,10"
+                                <Border Background="{DynamicResource PanelBrush2}" CornerRadius="10" Padding="12" Width="230" Margin="0,0,10,10"
                                         Opacity="{Binding Earned, Converter={x:Static vm:CommonConverters.BadgeOpacity}}">
                                     <StackPanel Spacing="6">
                                         <StackPanel Orientation="Horizontal" Spacing="8">

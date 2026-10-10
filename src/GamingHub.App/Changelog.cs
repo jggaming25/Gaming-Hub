@@ -8,6 +8,18 @@ public static class Changelog
 {
     public static readonly ChangelogEntry[] Entries =
     {
+        new("0.4.1", "Oktober 2026", new[]
+        {
+            "Geschriebene Nachrichten erscheinen jetzt sofort im Chat (zuvor wurden sie teilweise erst nach Stunden sichtbar).",
+            "Anruf & Videoanruf nur noch in Direktnachrichten verfügbar (nicht im Allgemein-Chat).",
+            "Präzisere Empfehlung im System-Check: bekannte Spiele werden gegen ihre tatsächlichen Mindest-/Empfehlungswerte geprüft.",
+            "Web-Recherche zu Systemanforderungen verbessert (findet jetzt auch OMSI 2 & Co. korrekt).",
+            "Programm-Log für die Fehlersuche – wird bei Bugreports automatisch angehängt (Einstellungen → Programm-Log).",
+            "Automatische Updates werden zuverlässiger installiert und melden Fehler besser.",
+            "F11 für Vollbild · Prozesse im System-Check lassen sich jetzt beenden.",
+            "Dunkles Design überarbeitet (helles Design optional) · Einheiten bei „Frei“ auf Laufwerken ergänzt.",
+            "Programm-Kategorien verbessert (openCode & Co. landen korrekt unter KI-Tools)."
+        }),
         new("0.4.0", "Oktober 2026", new[]
         {
             "Kommunikation: Direktnachrichten per E-Mail-Adresse, Antworten auf Nachrichten und Dateiversand.",

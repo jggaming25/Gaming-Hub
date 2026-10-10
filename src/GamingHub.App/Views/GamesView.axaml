@@ -60,7 +60,14 @@
                             <ProgressBar Minimum="0" Maximum="100" Value="{Binding UsedPercent}" Height="8" />
                             <StackPanel Orientation="Horizontal" Spacing="2">
                                 <TextBlock FontSize="12" Classes="muted" Text="Frei: " VerticalAlignment="Center" />
-                                <TextBlock FontSize="12" FontWeight="SemiBold" Text="{Binding FreeValue}" VerticalAlignment="Center" />
+                                <TextBlock FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center">
+                                    <TextBlock.Text>
+                                        <MultiBinding StringFormat="{}{0} {1}">
+                                            <Binding Path="FreeValue" />
+                                            <Binding Path="UnitLabel" />
+                                        </MultiBinding>
+                                    </TextBlock.Text>
+                                </TextBlock>
                             </StackPanel>
                             <TextBlock FontSize="11" Classes="muted">
                                 <TextBlock.Text>
@@ -91,7 +98,7 @@
                                 <StackPanel Grid.Column="0" Spacing="4">
                                     <StackPanel Orientation="Horizontal" Spacing="10">
                                         <TextBlock Text="{Binding Name}" FontSize="16" FontWeight="SemiBold" />
-                                        <Border Background="{StaticResource PanelBrush2}" CornerRadius="6" Padding="7,2">
+                                        <Border Background="{DynamicResource PanelBrush2}" CornerRadius="6" Padding="7,2">
                                             <TextBlock Text="{Binding SourceName}" FontSize="10" Classes="muted" />
                                         </Border>
                                         <Border Background="#2A3550" CornerRadius="6" Padding="7,2">

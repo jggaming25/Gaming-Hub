@@ -20,6 +20,8 @@ public partial class App : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
+        LogService.Info($"App startet – Version {AppInfo.Version} · {Environment.OSVersion}");
+
         InstallCrashHandlers();
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
@@ -98,16 +100,30 @@ public partial class App : Application
                 // same path as the manual "Update installieren" button.
                 if (update.HasUpdate && AppServices.Settings.Settings.AutoInstallUpdates)
                 {
+                    LogService.Info($"Startup: Update {update.Version} gefunden, automatische Installation startet.");
                     _ = Dispatcher.UIThread.InvokeAsync(async () =>
                     {
                         try
                         {
                             await Task.Delay(800);
-                            await AppServices.Updater.DownloadAndRestartAsync();
+                            bool ok = await AppServices.Updater.DownloadAndRestartAsync(
+                                p => LogService.Info($"Startup: Update-Download {p} %"));
+                            if (!ok)
+                            {
+                                LogService.Warn("Startup: Update-Installation konnte nicht gestartet werden (Portable-Build?).");
+                                AppServices.Notifications.Show("Update fehlgeschlagen",
+                                    "Das Update konnte nicht automatisch installiert werden. Bitte nutze den Download auf der Website.");
+                            }
                         }
                         catch (Exception ex)
                         {
-                            CrashLog.Write("startup-update", ex);
+                            LogService.Error("startup-update", ex);
+                            try
+                            {
+                                AppServices.Notifications.Show("Update fehlgeschlagen",
+                                    "Der Download war nicht erfolgreich. Details stehen im Log unter Einstellungen.");
+                            }
+                            catch { /* ignore */ }
                         }
                     });
                 }

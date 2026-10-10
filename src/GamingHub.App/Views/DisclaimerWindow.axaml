@@ -8,7 +8,7 @@
         Title="Gaming Hub – Haftungsausschluss"
         Width="680" Height="560" CanResize="False"
         WindowStartupLocation="CenterScreen"
-        Background="{StaticResource AppBgGradient}">
+        Background="{DynamicResource AppBgGradient}">
 
     <Grid RowDefinitions="Auto,*,Auto" Margin="24">
         <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="14" Margin="0,0,0,16">

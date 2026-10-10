@@ -415,7 +415,19 @@ public partial class ChatViewModel : ViewModelBase
             return;
         }
         StatusText = string.Empty;
+        AppendSent(outcome.Message, target.ChannelId);
         await PollAsync();
+    }
+
+    /// <summary>Shows the sent message immediately (local echo) and remembers the new timestamp.</summary>
+    private void AppendSent(ChatMessage? msg, string channelId)
+    {
+        if (msg is null || msg.Id is not { Length: > 0 })
+            return;
+
+        if (Messages.All(m => m.Id != msg.Id))
+            AppendMessage(msg);
+        _lastTimestamps[channelId] = msg.CreatedAt;
     }
 
     [RelayCommand]
@@ -458,6 +470,7 @@ public partial class ChatViewModel : ViewModelBase
                 replyId, replyPrev, url, Path.GetFileName(path), data.Length);
             StatusText = outcome.Ok ? string.Empty : "Nachricht konnte nicht gesendet werden: " + outcome.Error;
             MessageInput = string.Empty;
+            AppendSent(outcome.Message, SelectedTarget.ChannelId);
             await PollAsync();
         }
         catch (Exception ex)

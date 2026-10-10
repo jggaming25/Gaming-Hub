@@ -1,5 +1,6 @@
 using System.Net.Http;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace GamingHub.Core.Services;
 
@@ -11,14 +12,16 @@ public sealed class WebResearchResult
     public string Summary { get; set; } = string.Empty;
     public List<WebResearchSource> Sources { get; } = new();
     public string? Error { get; set; }
+    public bool IsEstimate { get; set; }
 
     public bool Found => !string.IsNullOrWhiteSpace(Summary) || Sources.Count > 0;
 }
 
 /// <summary>
-/// Runs a lightweight background web lookup (DuckDuckGo Instant Answer API with a
-/// Wikipedia fallback) so the result can be shown inside the app instead of only
-/// opening a browser. No API key required.
+/// Background web lookup for "Systemanforderungen" of a game. Uses Wikipedia
+/// (de + en) with a title-relevance scoring, extracts the requirements section
+/// and falls back to DuckDuckGo HTML scraping when Wikipedia has no article.
+/// No API key required.
 /// </summary>
 public sealed class WebResearchService
 {
@@ -26,7 +29,7 @@ public sealed class WebResearchService
 
     private static HttpClient CreateClient()
     {
-        var client = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+        var client = new HttpClient { Timeout = TimeSpan.FromSeconds(18) };
         client.DefaultRequestHeaders.UserAgent.ParseAdd("GamingHub/1.0 (+https://jggaming25.github.io/Gaming-Hub/)");
         return client;
     }
@@ -37,48 +40,74 @@ public sealed class WebResearchService
         if (string.IsNullOrWhiteSpace(query))
             return result;
 
-        await TryDuckDuckGoAsync(query, result, ct).ConfigureAwait(false);
-        if (!result.Found && result.Error is null)
-            await TryWikipediaAsync(query, result, ct).ConfigureAwait(false);
+        string game = ExtractGameName(query);
+
+        await TryWikipediaAsync(game, result, ct).ConfigureAwait(false);
+        if (!result.Found)
+            await TryDuckDuckGoAsync(game, result, ct).ConfigureAwait(false);
 
         return result;
     }
 
-    private static async Task TryDuckDuckGoAsync(string query, WebResearchResult result, CancellationToken ct)
+    /// <summary>Strips suffixes such as "Systemanforderungen"/"system requirements".</summary>
+    private static string ExtractGameName(string query)
+    {
+        string q = Regex.Replace(query, @"\s+", " ").Trim();
+        q = Regex.Replace(q, @"\s*(systemanforderungen|system requirements|systemvoraussetzungen|requirements)\s*$", "", RegexOptions.IgnoreCase);
+        return q.Trim();
+    }
+
+    private static async Task TryWikipediaAsync(string game, WebResearchResult result, CancellationToken ct)
     {
         try
         {
-            string url = "https://api.duckduckgo.com/?q=" + Uri.EscapeDataString(query) +
-                         "&format=json&no_html=1&skip_disambig=1";
-            using var resp = await Http.GetAsync(url, ct).ConfigureAwait(false);
-            resp.EnsureSuccessStatusCode();
-            using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false));
-            var root = doc.RootElement;
+            var candidates = await SearchWikiAsync("de", game, 6, ct).ConfigureAwait(false);
+            if (candidates.Count == 0)
+                candidates = await SearchWikiAsync("en", game, 6, ct).ConfigureAwait(false);
 
-            string abstractText = GetString(root, "AbstractText");
-            string abstractUrl = GetString(root, "AbstractURL");
-            string heading = GetString(root, "Heading");
+            // Relevance: require at least one significant token of the game name
+            // to appear in the candidate title; single-token names must be contained.
+            var tokens = SignificantTokens(game);
+            var relevant = candidates
+                .Where(c => IsRelevant(c.Title, tokens, game))
+                .ToList();
 
-            if (!string.IsNullOrWhiteSpace(abstractText))
+            if (relevant.Count == 0)
+                return;
+
+            var best = relevant[0];
+            string snippetTitle = TitleWithoutTemplate(best.Title);
+            var (extract, url) = await FetchExtractAsync("de", best.Title, ct).ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(extract))
+                (extract, url) = await FetchExtractAsync("en", best.Title, ct).ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(extract))
+                return;
+
+            result.Error = null;
+            string requirements = ExtractRequirementsSection(extract);
+
+            if (!string.IsNullOrWhiteSpace(requirements))
             {
-                result.Summary = abstractText;
-                if (!string.IsNullOrWhiteSpace(abstractUrl))
-                    result.Sources.Add(new WebResearchSource(string.IsNullOrWhiteSpace(heading) ? "DuckDuckGo" : heading, abstractUrl, abstractText));
+                result.Summary = requirements;
+                result.IsEstimate = false;
+            }
+            else
+            {
+                result.Summary = Truncate(extract, 1400);
+                result.IsEstimate = true;
             }
 
-            if (root.TryGetProperty("RelatedTopics", out var topics) && topics.ValueKind == JsonValueKind.Array)
+            result.Sources.Add(new WebResearchSource(snippetTitle, string.IsNullOrWhiteSpace(url) ? WikiUrl("de", best.Title) : url, Truncate(extract, 260)));
+
+            foreach (var extra in relevant.Skip(1).Take(2))
             {
-                foreach (var topic in topics.EnumerateArray())
-                {
-                    if (result.Sources.Count >= 6)
-                        break;
-                    if (topic.ValueKind != JsonValueKind.Object)
-                        continue;
-                    string text = GetString(topic, "Text");
-                    string firstUrl = GetString(topic, "FirstURL");
-                    if (!string.IsNullOrWhiteSpace(text) && !string.IsNullOrWhiteSpace(firstUrl))
-                        result.Sources.Add(new WebResearchSource(FirstWords(text), firstUrl, text));
-                }
+                var (e2, u2) = await FetchExtractAsync("de", extra.Title, ct).ConfigureAwait(false);
+                if (string.IsNullOrWhiteSpace(e2))
+                    (e2, u2) = await FetchExtractAsync("en", extra.Title, ct).ConfigureAwait(false);
+                if (string.IsNullOrWhiteSpace(e2))
+                    continue;
+                result.Sources.Add(new WebResearchSource(TitleWithoutTemplate(extra.Title),
+                    string.IsNullOrWhiteSpace(u2) ? WikiUrl("de", extra.Title) : u2, Truncate(e2, 260)));
             }
         }
         catch (OperationCanceledException)
@@ -91,40 +120,147 @@ public sealed class WebResearchService
         }
     }
 
-    private static async Task TryWikipediaAsync(string query, WebResearchResult result, CancellationToken ct)
+    private static async Task<List<(string Title, string Snippet)>> SearchWikiAsync(string lang, string game, int limit, CancellationToken ct)
+    {
+        var list = new List<(string Title, string Snippet)>();
+
+        string searchUrl = $"https://{lang}.wikipedia.org/w/api.php?action=query&list=search&format=json&srlimit={limit}&srsearch=" +
+                           Uri.EscapeDataString(game);
+        using var resp = await Http.GetAsync(searchUrl, ct).ConfigureAwait(false);
+        resp.EnsureSuccessStatusCode();
+        using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false));
+        if (!doc.RootElement.TryGetProperty("query", out var q) ||
+            !q.TryGetProperty("search", out var arr) || arr.ValueKind != JsonValueKind.Array)
+            return list;
+
+        foreach (var item in arr.EnumerateArray())
+        {
+            string title = GetString(item, "title");
+            if (!string.IsNullOrWhiteSpace(title))
+                list.Add((title, GetString(item, "snippet")));
+        }
+
+        return list;
+    }
+
+    private static async Task<(string Extract, string PageUrl)> FetchExtractAsync(string lang, string title, CancellationToken ct)
+    {
+        string extractUrl = "https://" + lang + ".wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&format=json&redirects=1&exintro=0&titles=" +
+                            Uri.EscapeDataString(title.Replace(' ', '_'));
+        using var resp = await Http.GetAsync(extractUrl, ct).ConfigureAwait(false);
+        resp.EnsureSuccessStatusCode();
+        using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false));
+
+        string extract = string.Empty;
+        if (doc.RootElement.TryGetProperty("query", out var q) &&
+            q.TryGetProperty("pages", out var pages))
+        {
+            foreach (var page in pages.EnumerateObject())
+            {
+                if (!page.Value.TryGetProperty("extract", out var ex) || ex.ValueKind != JsonValueKind.String)
+                    continue;
+                extract = ex.GetString() ?? string.Empty;
+                break;
+            }
+        }
+
+        string pageUrl = "https://" + lang + ".wikipedia.org/wiki/" + Uri.EscapeDataString(title.Replace(' ', '_'));
+        return (extract, pageUrl);
+    }
+
+    private static string WikiUrl(string lang, string title)
+        => "https://" + lang + ".wikipedia.org/wiki/" + Uri.EscapeDataString(title.Replace(' ', '_'));
+
+    private static List<string> SignificantTokens(string game)
+    {
+        return Regex.Split(game.ToLowerInvariant(), @"[^a-z0-9\u00e4\u00f6\u00fc\u00df]+")
+            .Where(t => t.Length >= 3 && !StopWords.Contains(t))
+            .Distinct()
+            .ToList();
+    }
+
+    private static readonly HashSet<string> StopWords = new()
+    {
+        "the", "and", "der", "die", "das", "den", "dem", "des", "ein", "eine", "einer", "eines", "mit",
+        "von", "vom", "auf", "für", "fuer", "und", "oder", "im", "in", "for", "edition", "game", "spiel"
+    };
+
+    private static bool IsRelevant(string title, List<string> tokens, string game)
+    {
+        string t = Regex.Replace(title.ToLowerInvariant(), @"[^a-z0-9\u00e4\u00f6\u00fc\u00df]", string.Empty);
+        if (tokens.Count == 0)
+            return false;
+
+        if (tokens.Count == 1)
+            return t.Contains(tokens[0]);
+
+        int hits = tokens.Count(tok => t.Contains(tok));
+        return hits >= 1;
+    }
+
+    private static string ExtractRequirementsSection(string extract)
+    {
+        string[] markers =
+        {
+            "systemanforderungen", "system requirements", "systemvoraussetzungen",
+            "systemanforderung", "mindestanforderungen", "minimum requirements"
+        };
+
+        int best = -1;
+        foreach (var m in markers)
+        {
+            int i = extract.IndexOf(m, StringComparison.OrdinalIgnoreCase);
+            if (i >= 0 && (best == -1 || i < best))
+                best = i;
+        }
+
+        if (best < 0)
+            return string.Empty;
+
+        string section = extract[best..];
+        int end = section.Length;
+        int nextHeading = section.IndexOf("\n==", 8);
+        if (nextHeading > 0)
+            end = Math.Min(end, nextHeading);
+        int wz = section.IndexOf("[bearbeiten]", StringComparison.OrdinalIgnoreCase);
+        if (wz > 0 && end == section.Length)
+            end = Math.Min(end, wz);
+        if (end > 3200)
+            end = 3200;
+
+        return Truncate(section[..end].Trim(), 2400);
+    }
+
+    private static async Task TryDuckDuckGoAsync(string game, WebResearchResult result, CancellationToken ct)
     {
         try
         {
-            // Wikipedia search API (German), then fetch the top extract.
-            string searchUrl = "https://de.wikipedia.org/w/api.php?action=query&list=search&format=json&srlimit=1&srsearch=" +
-                               Uri.EscapeDataString(query);
-            using var searchResp = await Http.GetAsync(searchUrl, ct).ConfigureAwait(false);
-            searchResp.EnsureSuccessStatusCode();
-            using var searchDoc = JsonDocument.Parse(await searchResp.Content.ReadAsStringAsync(ct).ConfigureAwait(false));
-            if (!searchDoc.RootElement.TryGetProperty("query", out var q) ||
-                !q.TryGetProperty("search", out var arr) || arr.ValueKind != JsonValueKind.Array || arr.GetArrayLength() == 0)
-                return;
+            // DuckDuckGo HTML page – parse result links. This is a fallback only.
+            string url = "https://html.duckduckgo.com/html/?q=" + Uri.EscapeDataString(game + " system requirements");
+            using var resp = await Http.GetAsync(url, ct).ConfigureAwait(false);
+            resp.EnsureSuccessStatusCode();
+            string html = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
 
-            string title = GetString(arr[0], "title");
-            if (string.IsNullOrWhiteSpace(title))
-                return;
-
-            string extractUrl = "https://de.wikipedia.org/api/rest_v1/page/summary/" + Uri.EscapeDataString(title);
-            using var extResp = await Http.GetAsync(extractUrl, ct).ConfigureAwait(false);
-            extResp.EnsureSuccessStatusCode();
-            using var extDoc = JsonDocument.Parse(await extResp.Content.ReadAsStringAsync(ct).ConfigureAwait(false));
-            var ext = extDoc.RootElement;
-
-            string extract = GetString(ext, "extract");
-            string pageUrl = string.Empty;
-            if (ext.TryGetProperty("content_urls", out var cu) &&
-                cu.TryGetProperty("desktop", out var dt))
-                pageUrl = GetString(dt, "page");
-
-            if (!string.IsNullOrWhiteSpace(extract))
+            var links = new List<(string Title, string Url, string Snippet)>();
+            foreach (Match m in Regex.Matches(html, @"<a[^>]+class=""result__a""[^>]+href=""([^""]+)""[^>]*>(.*?)</a>", RegexOptions.Singleline | RegexOptions.IgnoreCase))
             {
-                result.Summary = extract;
-                result.Sources.Add(new WebResearchSource(title, pageUrl, extract));
+                string href = System.Net.WebUtility.HtmlDecode(m.Groups[1].Value);
+                string title = StripTags(System.Net.WebUtility.HtmlDecode(m.Groups[2].Value));
+                if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(href))
+                    continue;
+                string snippet = string.Empty;
+                var s = Regex.Match(html[m.Index..], @"class=""result__snippet""[^>]*>(.*?)</a>", RegexOptions.Singleline | RegexOptions.IgnoreCase);
+                if (s.Success)
+                    snippet = StripTags(System.Net.WebUtility.HtmlDecode(s.Groups[1].Value));
+                links.Add((title, href, snippet));
+            }
+
+            if (links.Count > 0)
+            {
+                result.Summary = Truncate(links[0].Title + " – " + links[0].Snippet, 1400);
+                result.IsEstimate = true;
+                foreach (var l in links.Take(6))
+                    result.Sources.Add(new WebResearchSource(l.Title, l.Url, string.IsNullOrWhiteSpace(l.Snippet) ? l.Url : l.Snippet));
                 result.Error = null;
             }
         }
@@ -134,15 +270,17 @@ public sealed class WebResearchService
         }
         catch (Exception ex)
         {
-            result.Error ??= ex.Message;
+            result.Error = ex.Message;
         }
     }
 
-    private static string FirstWords(string text)
-    {
-        var words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        return words.Length <= 6 ? text : string.Join(' ', words.Take(6)) + "…";
-    }
+    private static string TitleWithoutTemplate(string title)
+        => Regex.Replace(title, @"[\[{].*?[\]}]", "").Trim();
+
+    private static string StripTags(string html) => Regex.Replace(html, "<.*?>", string.Empty).Trim();
+
+    private static string Truncate(string text, int max)
+        => text.Length <= max ? text : text[..max] + " …";
 
     private static string GetString(JsonElement el, string prop)
         => el.TryGetProperty(prop, out var v) && v.ValueKind == JsonValueKind.String

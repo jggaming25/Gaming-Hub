@@ -9,7 +9,7 @@
         Icon="/Assets/logo.ico"
         Title="Gaming Hub"
         Width="1220" Height="780" MinWidth="980" MinHeight="640"
-        Background="{StaticResource AppBgGradient}">
+        Background="{DynamicResource AppBgGradient}">
 
     <Design.DataContext>
         <vm:MainViewModel />
@@ -17,7 +17,7 @@
 
     <Grid ColumnDefinitions="252,*">
         <!-- Sidebar -->
-        <Border Grid.Column="0" Background="{StaticResource SidebarBrush}">
+        <Border Grid.Column="0" Background="{DynamicResource SidebarBrush}">
             <Grid RowDefinitions="Auto,*,Auto">
                 <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="18,22,18,18" Spacing="12">
                     <Image Source="/Assets/logo.png" Width="38" Height="38" />
@@ -55,9 +55,11 @@
 
         <!-- Content -->
         <Grid Grid.Column="1" RowDefinitions="*,Auto">
-            <ContentControl Grid.Row="0" Content="{Binding SelectedView}" Margin="8" />
+            <Border Grid.Row="0" Margin="8" Classes="transition-root" x:Name="ContentHost">
+                <ContentControl Content="{Binding SelectedView}" />
+            </Border>
 
-            <Border Grid.Row="1" Background="#0F1122" Padding="16,7">
+            <Border Grid.Row="1" Background="{DynamicResource BottomBarBrush}" Padding="16,7">
                 <Grid ColumnDefinitions="*,Auto">
                     <TextBlock Grid.Column="0" Text="Haftungsausschluss: Nutzung auf eigene Gefahr – keine Haftung für Schäden an Hard- oder Software."
                                FontSize="11" Classes="muted" VerticalAlignment="Center" />

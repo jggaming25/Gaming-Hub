@@ -19,7 +19,8 @@ public sealed class BugService
             ["steps"] = steps,
             ["app_version"] = AppInfo.Version,
             ["reporter_email"] = string.IsNullOrWhiteSpace(user?.Email) ? null : user!.Email,
-            ["reporter_id"] = string.IsNullOrWhiteSpace(user?.Id) ? null : user!.Id
+            ["reporter_id"] = string.IsNullOrWhiteSpace(user?.Id) ? null : user!.Id,
+            ["log_text"] = LogService.Dump()
         };
 
         var result = await client.InsertAsync("bugs", row);

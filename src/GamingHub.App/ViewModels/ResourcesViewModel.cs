@@ -8,7 +8,10 @@ using GamingHub.Core.Services;
 
 namespace GamingHub.App.ViewModels;
 
-public sealed record ProcessRow(string Name, string CpuText, string MemText, bool IsOurs);
+public sealed record ProcessRow(string Name, string CpuText, string MemText, int Pid, bool IsOurs)
+{
+    public string CanStopDisplay => IsOurs ? "—" : "Beenden";
+}
 
 public sealed record NetworkRow(string Name, string DownloadText, string UploadText);
 
@@ -52,6 +55,8 @@ public partial class ResourcesViewModel : ViewModelBase
     public ObservableCollection<string> ResultBottlenecks { get; } = new();
 
     [ObservableProperty] private string _webSearchUrl = string.Empty;
+    [ObservableProperty] private bool _isBusy;
+    [ObservableProperty] private string _statusText = string.Empty;
     [ObservableProperty] private bool _isResearching;
     [ObservableProperty] private bool _webSearchEnabled = true;
     [ObservableProperty] private bool _hasWebResult;
@@ -131,7 +136,37 @@ public partial class ResourcesViewModel : ViewModelBase
             ProcessItems.Add(new ProcessRow(p.Name,
                 $"{p.CpuPercent:0.0} %",
                 Format.Bytes(p.WorkingSetBytes),
+                p.Pid,
                 p.IsOurs));
+    }
+
+    [RelayCommand]
+    private async Task StopProcessAsync(ProcessRow? row)
+    {
+        if (row is null || row.IsOurs || row.Pid <= 0)
+        {
+            if (row is not null && row.IsOurs)
+                StatusText = "Der eigene Gaming-Hub-Prozess kann nicht beendet werden.";
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            using var p = System.Diagnostics.Process.GetProcessById(row.Pid);
+            LogService.Info($"Beende Prozess {row.Name} (PID {row.Pid}).");
+            p.Kill(entireProcessTree: true);
+            StatusText = $"Prozess „{row.Name}“ wurde beendet.";
+        }
+        catch (Exception ex)
+        {
+            LogService.Warn($"Prozess {row.Name} kann nicht beendet werden.", ex);
+            StatusText = $"Prozess „{row.Name}“ konnte nicht beendet werden ({ex.Message}). Möglicherweise sind Administratorrechte nötig.";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
     }
 
     private static void PushHistory(ObservableCollection<double> history, double value)
@@ -200,13 +235,15 @@ public partial class ResourcesViewModel : ViewModelBase
 
         try
         {
-            var res = await AppServices.WebResearch.ResearchAsync(name + " Systemanforderungen");
+var res = await AppServices.WebResearch.ResearchAsync(name);
             WebSummary = res.Summary;
             foreach (var s in res.Sources)
                 WebSources.Add(s);
             HasWebResult = res.Found;
             WebStatus = res.Found
-                ? $"Ergebnisse für „{name}\" geladen."
+                ? (res.IsEstimate
+                    ? $"Ergebnisse für „{name}“ geladen (Schätzung ohne präzise Systemanforderungen) – Details: {res.Sources.FirstOrDefault()?.Title}."
+                    : $"Ergebnisse für „{name}“ geladen – Systemanforderungen gefunden.")
                 : res.Error is null ? "Keine Treffer gefunden." : "Fehler: " + res.Error;
         }
         catch (Exception ex)

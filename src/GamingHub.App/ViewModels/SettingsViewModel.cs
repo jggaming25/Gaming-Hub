@@ -203,7 +203,40 @@ public partial class SettingsViewModel : ViewModelBase
     private async Task InstallUpdateAsync()
     {
         UpdateStatus = "Update wird heruntergeladen…";
-        await AppServices.Updater.DownloadAndRestartAsync(p => UpdateStatus = $"Update wird heruntergeladen… {p}%");
+        bool ok = await AppServices.Updater.DownloadAndRestartAsync(
+            p => UpdateStatus = $"Update wird heruntergeladen… {p}%");
+        if (!ok)
+            UpdateStatus = "Das Update konnte nicht installiert werden. Details: " + LogService.LogFile;
+    }
+
+    public string LogPath => LogService.LogFile;
+
+    [RelayCommand]
+    private void OpenLogFolder()
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo("explorer.exe", LogService.LogFolder) { UseShellExecute = true });
+        }
+        catch { /* ignore */ }
+    }
+
+    [RelayCommand]
+    private void OpenLogFile()
+    {
+        try
+        {
+            if (File.Exists(LogService.LogFile))
+                Process.Start(new ProcessStartInfo(LogService.LogFile) { UseShellExecute = true });
+        }
+        catch { /* ignore */ }
+    }
+
+    [RelayCommand]
+    private void ClearLog()
+    {
+        LogService.Clear();
+        AdminStatusText = "Log wurde geleert.";
     }
 
     [RelayCommand]

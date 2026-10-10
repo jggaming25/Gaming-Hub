@@ -77,11 +77,15 @@ create table if not exists public.bugs (
     category       text,
     steps          text,
     app_version    text,
+    log_text       text,            -- Programm-Log (automatisch angehängt)
     status         text not null default 'open',   -- open | in_progress | done | rejected
     admin_reply    text,
     created_at     timestamptz not null default now(),
     updated_at     timestamptz not null default now()
 );
+
+-- Nachträglich für bestehende Installationen:
+alter table public.bugs add column if not exists log_text text;
 
 create table if not exists public.bug_comments (
     id          uuid primary key default gen_random_uuid(),

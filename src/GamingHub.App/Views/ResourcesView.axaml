@@ -132,16 +132,17 @@
                     <Border Classes="card" Grid.Column="0" Margin="0,0,10,0" Padding="12">
                         <StackPanel Spacing="6">
                             <TextBlock Text="Top-Prozesse (Top 12)" FontWeight="SemiBold" />
-                            <Grid ColumnDefinitions="*,80,90">
+                            <Grid ColumnDefinitions="*,68,78,86">
                                 <TextBlock Grid.Column="0" Text="Prozess" FontSize="10" Classes="muted" />
                                 <TextBlock Grid.Column="1" Text="CPU" FontSize="10" Classes="muted" HorizontalAlignment="Right" />
                                 <TextBlock Grid.Column="2" Text="Arbeitsspeicher" FontSize="10" Classes="muted" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="3" Text="Aktion" FontSize="10" Classes="muted" HorizontalAlignment="Center" />
                             </Grid>
                             <Border Height="1" Background="#2A3550" />
                             <ItemsControl ItemsSource="{Binding ProcessItems}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="vm:ProcessRow">
-                                        <Grid ColumnDefinitions="*,80,90" Margin="0,3">
+                                        <Grid ColumnDefinitions="*,68,78,86" Margin="0,3">
                                             <StackPanel Orientation="Horizontal" Spacing="8" Grid.Column="0">
                                                 <TextBlock Text="{Binding Name}" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                                                 <Border IsVisible="{Binding IsOurs}" Background="#22D3EE33" CornerRadius="4" Padding="5,1" VerticalAlignment="Center">
@@ -150,10 +151,16 @@
                                             </StackPanel>
                                             <TextBlock Grid.Column="1" Text="{Binding CpuText}" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Right" VerticalAlignment="Center" />
                                             <TextBlock Grid.Column="2" Text="{Binding MemText}" FontSize="12" Classes="muted" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                            <Button Grid.Column="3" Content="{Binding CanStopDisplay}" FontSize="10" Padding="6,2"
+                                                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                    IsVisible="{Binding !IsOurs}"
+                                                    Command="{Binding $parent[UserControl].((vm:ResourcesViewModel)DataContext).StopProcessCommand}"
+                                                    CommandParameter="{Binding}" />
                                         </Grid>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
+                            <TextBlock Text="{Binding StatusText}" FontSize="11" Classes="muted" TextWrapping="Wrap" />
                         </StackPanel>
                     </Border>
 

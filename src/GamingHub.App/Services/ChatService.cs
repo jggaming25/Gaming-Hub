@@ -4,7 +4,7 @@ using GamingHub.Core.Services;
 
 namespace GamingHub.App.Services;
 
-public sealed record SendOutcome(bool Ok, string? Error);
+public sealed record SendOutcome(bool Ok, string? Error, ChatMessage? Message = null);
 
 /// <summary>A friendship together with the other participant's display info.</summary>
 public sealed record FriendEntry(string FriendshipId, string OtherId, string OtherName, string Status, bool Incoming)
@@ -89,9 +89,21 @@ public sealed class ChatService
         };
 
         var result = await client.InsertAsync("chat_messages", row);
-        return result.Ok
-            ? new SendOutcome(true, null)
-            : new SendOutcome(false, string.IsNullOrWhiteSpace(result.Body) ? "Senden fehlgeschlagen." : result.Body);
+        if (!result.Ok)
+            return new SendOutcome(false, string.IsNullOrWhiteSpace(result.Body) ? "Senden fehlgeschlagen." : result.Body);
+
+        // return=representation: die Antwort enthält die eingefügte Zeile – so können
+        // wir die eigene Nachricht sofort lokal anzeigen (sonst würde sie der Poll-Schutz
+        // überspringen und nie im Chat auftauchen).
+        try
+        {
+            var msg = JsonSerializer.Deserialize<ChatMessage>(result.Body, Json);
+            return msg is null ? new SendOutcome(true, null) : new SendOutcome(true, null, msg);
+        }
+        catch
+        {
+            return new SendOutcome(true, null);
+        }
     }
 
     /// <summary>Soft-deletes a message (author or admin; enforced by RLS).</summary>

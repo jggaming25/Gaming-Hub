@@ -16,10 +16,10 @@ public static class GameClassifier
         (["dlc", "content pack", "additional content", "add-on", "addon", "mod pack", "modpack", "workshop", "asset pack", "sdk", "toolbox", "soundtrack", "sound pack", "extra content", "map pack", "level pack", "skin pack", "bundle"], GameCategory.GameContent),
 
         // Launchers & gamer helper tools
-        (["epic games", "ea app", "origin client", "ubisoft connect", "battle.net", "battlenet", "gog galaxy", "playnite", "razer cortex", "game booster", "game bar", "msi afterburner", "rtss", "riva tuner", "overwolf", "discord", "teamspeak", "curseforge", "geforce experience", "nvidia app", "xbox app"], GameCategory.GameTool),
+        (["epic games", "ea app", "origin client", "ubisoft connect", "battle.net", "battlenet", "gog galaxy", "playnite", "razer cortex", "game booster", "game bar", "msi afterburner", "rtss", "riva tuner", "overwolf", "discord", "teamspeak", "curseforge", "geforce experience", "nvidia app", "xbox app", "omsi-tools", "omsi tool", "omsi tools"], GameCategory.GameTool),
 
         // AI tools
-        (["chatgpt", "chat gpt", "copilot", "claude", "gemini", "midjourney", "stable diffusion", "autogpt", "llama", "ollama", "whisper", "elevenlabs", "runway", "ai studio", "notebooklm", "grok", "perplexity", "jan ai", "lm studio"], GameCategory.AiTool),
+        (["chatgpt", "chat gpt", "copilot", "github copilot", "claude", "claude code", "gemini", "midjourney", "stable diffusion", "autogpt", "llama", "ollama", "whisper", "elevenlabs", "runway", "ai studio", "notebooklm", "grok", "perplexity", "jan ai", "lm studio", "opencode", "open code", "open-code", "cursor", "windsurf", "aider", "continue ai", "ollama"], GameCategory.AiTool),
 
         // Office & productivity
         (["microsoft office", "word", "excel", "powerpoint", "outlook", "onenote", "access", "publisher", "libreoffice", "onlyoffice", "openoffice", "slack", "notion", "obsidian", "evernote", "todoist", "pomodoro", "adobe acrobat", "foxit", "ghostscript"], GameCategory.Office),

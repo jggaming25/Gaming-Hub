@@ -35,7 +35,7 @@
                         <DataTemplate x:DataType="vm:ChatTargetItem">
                             <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,2">
                                 <Border Grid.Column="0" Width="34" Height="34" CornerRadius="17"
-                                        Background="{StaticResource PanelBrush2}" VerticalAlignment="Center">
+                                        Background="{DynamicResource PanelBrush2}" VerticalAlignment="Center">
                                     <TextBlock Text="{Binding Initial}" FontWeight="Bold"
                                                HorizontalAlignment="Center" VerticalAlignment="Center" />
                                 </Border>
@@ -118,9 +118,9 @@
                                     IsVisible="{Binding CanBlockSelected}" />
                             <Button Content="Entsperren" Command="{Binding UnblockSelectedCommand}" FontSize="11" Padding="8,3"
                                     IsVisible="{Binding CanUnblockSelected}" />
-                            <Button Content="Anruf" Command="{Binding CallVoiceCommand}" IsEnabled="{Binding CanCallVoice}" />
+                            <Button Content="Anruf" Command="{Binding CallVoiceCommand}" IsVisible="{Binding CanCallVoice}" />
                             <Button Content="Videoanruf" Command="{Binding CallVideoCommand}" Classes="accent"
-                                    IsEnabled="{Binding CanCallVideo}" />
+                                    IsVisible="{Binding CanCallVideo}" />
                         </StackPanel>
                     </Grid>
                 </Border>
@@ -182,7 +182,7 @@
 
                 <StackPanel Grid.Row="2" IsVisible="{Binding IsLoggedIn}">
                     <!-- Antwort-Banner -->
-                    <Border Margin="12,8,12,0" Padding="10,6" Background="#1B1F3A" CornerRadius="8"
+                    <Border Margin="12,8,12,0" Padding="10,6" Background="{DynamicResource ChatInputBrush}" CornerRadius="8"
                             IsVisible="{Binding IsReplying}">
                         <Grid ColumnDefinitions="*,Auto">
                             <TextBlock Grid.Column="0" Text="{Binding ReplyPreview}" FontSize="11" Classes="muted"
@@ -207,7 +207,7 @@
                     <ProgressBar IsIndeterminate="True" Height="3" IsVisible="{Binding IsUploading}" />
                 </StackPanel>
 
-                <Border Grid.Row="2" Margin="12" IsVisible="{Binding !IsLoggedIn}" Background="#1B1F3A" CornerRadius="8" Padding="14">
+                <Border Grid.Row="2" Margin="12" IsVisible="{Binding !IsLoggedIn}" Background="{DynamicResource ChatInputBrush}" CornerRadius="8" Padding="14">
                     <TextBlock Text="Melde dich im Tab „Profil“ an, um zu chatten." Classes="muted" TextWrapping="Wrap" />
                 </Border>
             </Grid>

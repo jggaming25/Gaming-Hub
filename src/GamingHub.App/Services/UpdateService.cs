@@ -26,9 +26,9 @@ public sealed class UpdateService
                     _manager = new UpdateManager(
                         new GithubSource(AppInfo.RepositoryUrl, accessToken: null, prerelease: false));
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // Not a Velopack-installed build (developer run).
+                    LogService.Warn("UpdateManager konnte nicht erstellt werden (Entwickler-/Portable-Build?).", ex);
                 }
             }
             return _manager;
@@ -41,7 +41,10 @@ public sealed class UpdateService
     {
         var mgr = Manager;
         if (mgr is null || !mgr.IsInstalled)
+        {
+            LogService.Info("Update-Check übersprungen (kein installierter Velopack-Build).");
             return new UpdateCheckResult(false, null, null, null);
+        }
 
         try
         {
@@ -49,19 +52,19 @@ public sealed class UpdateService
             if (update is null)
             {
                 _pendingUpdate = null;
+                LogService.Info("Update-Check: keine neue Version verfügbar.");
                 return new UpdateCheckResult(false, null, null, null);
             }
 
             _pendingUpdate = update;
+            var version = update.TargetFullRelease.Version.ToString();
+            LogService.Info($"Update-Check: Version {version} gefunden.");
 
-            return new UpdateCheckResult(
-                true,
-                update.TargetFullRelease.Version.ToString(),
-                update.TargetFullRelease.NotesMarkdown,
-                null);
+            return new UpdateCheckResult(true, version, update.TargetFullRelease.NotesMarkdown, null);
         }
         catch (Exception ex)
         {
+            LogService.Error("update-check", ex);
             return new UpdateCheckResult(false, null, null, ex);
         }
     }
@@ -69,19 +72,36 @@ public sealed class UpdateService
     /// <summary>
     /// Downloads the update found by the last <see cref="CheckForUpdatesAsync"/> and
     /// restarts the app into the new version. Falls back to a fresh check if needed.
+    /// Returns false when no update is available (or the build is not installed).
     /// </summary>
     public async Task<bool> DownloadAndRestartAsync(Action<int>? progress = null)
     {
         var mgr = Manager;
         if (mgr is null || !mgr.IsInstalled)
+        {
+            LogService.Warn("Update-Installation abgebrochen: kein installierter Velopack-Build.");
             return false;
+        }
 
-        var update = _pendingUpdate ?? await mgr.CheckForUpdatesAsync();
-        if (update is null)
+        try
+        {
+            var update = _pendingUpdate ?? await mgr.CheckForUpdatesAsync();
+            if (update is null)
+            {
+                LogService.Info("Update-Installation übersprungen: kein Update vorhanden.");
+                return false;
+            }
+
+            LogService.Info($"Update wird heruntergeladen (Version {update.TargetFullRelease.Version}).");
+            await mgr.DownloadUpdatesAsync(update, p => { progress?.Invoke(p); });
+            LogService.Info("Download abgeschlossen – Starte Neustart zum Installieren.");
+            mgr.ApplyUpdatesAndRestart(update);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            LogService.Error("update-install", ex);
             return false;
-
-        await mgr.DownloadUpdatesAsync(update, p => progress?.Invoke(p));
-        mgr.ApplyUpdatesAndRestart(update);
-        return true;
+        }
     }
 }

@@ -16,6 +16,19 @@ const FEATURES = [
 
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   {
+    version: "0.4.1",
+    date: "Oktober 2026",
+    items: [
+      "Geschriebene Nachrichten erscheinen jetzt sofort im Chat.",
+      "Anruf & Videoanruf nur noch in Direktnachrichten.",
+      "Präzisere Empfehlung im System-Check (Mindest-/Empfehlungswerte bekannter Spiele).",
+      "Web-Recherche zu Systemanforderungen verbessert.",
+      "Programm-Log für die Fehlersuche – bei Bugreports automatisch angehängt.",
+      "Automatische Updates zuverlässiger · F11 für Vollbild · Prozesse beenden · Dark/Light-Design.",
+      "Anmeldung auf der Website über Discord."
+    ]
+  },
+  {
     version: "0.4.0",
     date: "Oktober 2026",
     items: [
@@ -78,6 +91,13 @@ export function App() {
 
   const userEmail = session?.user?.email;
 
+  const signInDiscord = () => {
+    void supabase?.auth.signInWithOAuth({
+      provider: "discord",
+      options: { redirectTo: window.location.origin + window.location.pathname }
+    });
+  };
+
   const go = (p: Page) => {
     window.location.hash = p === "start" ? "#/" : `#/${p}`;
     setPage(p);
@@ -111,8 +131,8 @@ export function App() {
               </button>
             </>
           ) : (
-            <button className="btn" onClick={() => go("bugtracker")}>
-              Anmelden
+            <button className="btn ghost" onClick={signInDiscord}>
+              Mit Discord anmelden
             </button>
           )}
         </div>
@@ -217,6 +237,9 @@ export function App() {
                 Melde Probleme und verfolge den Bearbeitungsstatus. Melde dich an, um den Status deiner
                 Meldungen zu sehen.
               </p>
+              {supabase && (
+                <button className="btn" onClick={signInDiscord}>Mit Discord anmelden</button>
+              )}
             </div>
           )}
           <BugTracker configured={isSupabaseConfigured} onChanged={() => undefined} />

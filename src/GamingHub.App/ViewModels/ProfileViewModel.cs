@@ -39,6 +39,11 @@ public partial class ProfileViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsLoggedIn));
         OnPropertyChanged(nameof(DisplayName));
         StatusText = IsLoggedIn ? "Angemeldet." : "Abgemeldet.";
+        if (!IsLoggedIn)
+        {
+            Email = string.Empty;
+            Password = string.Empty;
+        }
     }
 
     public void RefreshBadges()

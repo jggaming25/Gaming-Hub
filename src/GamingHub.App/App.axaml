@@ -9,27 +9,50 @@
     </Application.DataTemplates>
 
     <Application.Resources>
-        <Color x:Key="AppBgColor">#0B0D1A</Color>
-        <Color x:Key="SidebarColor">#12142A</Color>
-        <Color x:Key="PanelColor">#171A34</Color>
-        <Color x:Key="PanelColor2">#1E2142</Color>
-        <Color x:Key="AccentColor">#22D3EE</Color>
-        <Color x:Key="Accent2Color">#A855F7</Color>
-        <SolidColorBrush x:Key="AppBgBrush" Color="{StaticResource AppBgColor}" />
-        <SolidColorBrush x:Key="SidebarBrush" Color="{StaticResource SidebarColor}" />
-        <SolidColorBrush x:Key="PanelBrush" Color="{StaticResource PanelColor}" />
-        <SolidColorBrush x:Key="PanelBrush2" Color="{StaticResource PanelColor2}" />
-        <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColor}" />
-        <SolidColorBrush x:Key="Accent2Brush" Color="{StaticResource Accent2Color}" />
-        <LinearGradientBrush x:Key="AccentGradient" StartPoint="0%,0%" EndPoint="100%,100%">
-            <GradientStop Color="#22D3EE" Offset="0" />
-            <GradientStop Color="#A855F7" Offset="1" />
-        </LinearGradientBrush>
-        <LinearGradientBrush x:Key="AppBgGradient" StartPoint="0%,0%" EndPoint="100%,100%">
-            <GradientStop Color="#0B0D1A" Offset="0" />
-            <GradientStop Color="#141033" Offset="1" />
-        </LinearGradientBrush>
-        <FontFamily x:Key="IconFont">Segoe Fluent Icons,Segoe MDL2 Assets</FontFamily>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Dark">
+                    <Color x:Key="AppBgColor">#0B0D1A</Color>
+                    <Color x:Key="SidebarColor">#12142A</Color>
+                    <Color x:Key="PanelColor">#171A34</Color>
+                    <Color x:Key="PanelColor2">#1E2142</Color>
+                    <Color x:Key="BottomBarColor">#0F1122</Color>
+                    <SolidColorBrush x:Key="AppBgBrush" Color="{StaticResource AppBgColor}" />
+                    <SolidColorBrush x:Key="SidebarBrush" Color="{StaticResource SidebarColor}" />
+                    <SolidColorBrush x:Key="PanelBrush" Color="{StaticResource PanelColor}" />
+                    <SolidColorBrush x:Key="PanelBrush2" Color="{StaticResource PanelColor2}" />
+                    <SolidColorBrush x:Key="BottomBarBrush" Color="{StaticResource BottomBarColor}" />
+                    <LinearGradientBrush x:Key="AppBgGradient" StartPoint="0%,0%" EndPoint="100%,100%">
+                        <GradientStop Color="#0B0D1A" Offset="0" />
+                        <GradientStop Color="#141033" Offset="1" />
+                    </LinearGradientBrush>
+                    <SolidColorBrush x:Key="ChatInputBrush" Color="#1B1F3A" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Light">
+                    <Color x:Key="AppBgColor">#EEF1FA</Color>
+                    <Color x:Key="SidebarColor">#E1E6F6</Color>
+                    <Color x:Key="PanelColor">#FFFFFF</Color>
+                    <Color x:Key="PanelColor2">#E5EAF7</Color>
+                    <Color x:Key="BottomBarColor">#DFE4F4</Color>
+                    <SolidColorBrush x:Key="AppBgBrush" Color="{StaticResource AppBgColor}" />
+                    <SolidColorBrush x:Key="SidebarBrush" Color="{StaticResource SidebarColor}" />
+                    <SolidColorBrush x:Key="PanelBrush" Color="{StaticResource PanelColor}" />
+                    <SolidColorBrush x:Key="PanelBrush2" Color="{StaticResource PanelColor2}" />
+                    <SolidColorBrush x:Key="BottomBarBrush" Color="{StaticResource BottomBarColor}" />
+                    <LinearGradientBrush x:Key="AppBgGradient" StartPoint="0%,0%" EndPoint="100%,100%">
+                        <GradientStop Color="#EEF1FA" Offset="0" />
+                        <GradientStop Color="#DCE2F5" Offset="1" />
+                    </LinearGradientBrush>
+                    <SolidColorBrush x:Key="ChatInputBrush" Color="#F1F4FB" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+
+            <LinearGradientBrush x:Key="AccentGradient" StartPoint="0%,0%" EndPoint="100%,100%">
+                <GradientStop Color="#22D3EE" Offset="0" />
+                <GradientStop Color="#A855F7" Offset="1" />
+            </LinearGradientBrush>
+            <FontFamily x:Key="IconFont">Segoe Fluent Icons,Segoe MDL2 Assets</FontFamily>
+        </ResourceDictionary>
     </Application.Resources>
 
     <Application.Styles>
@@ -47,14 +70,23 @@
             <Setter Property="Opacity" Value="0.65" />
         </Style>
         <Style Selector="Border.card">
-            <Setter Property="Background" Value="{StaticResource PanelBrush}" />
+            <Setter Property="Background" Value="{DynamicResource PanelBrush}" />
             <Setter Property="CornerRadius" Value="12" />
             <Setter Property="Padding" Value="16" />
         </Style>
         <Style Selector="Button.accent">
-            <Setter Property="Background" Value="{StaticResource AccentGradient}" />
+            <Setter Property="Background" Value="{DynamicResource AccentGradient}" />
             <Setter Property="Foreground" Value="#08101F" />
             <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+
+        <Style Selector="Border.transition-root">
+            <Setter Property="Opacity" Value="1" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.25" />
+                </Transitions>
+            </Setter>
         </Style>
     </Application.Styles>
 </Application>

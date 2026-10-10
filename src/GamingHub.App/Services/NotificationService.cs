@@ -50,6 +50,10 @@ public sealed class NotificationService
         Enqueue(NotificationKind.MissedCall, "Verpasster Anruf", caller);
     }
 
+    /// <summary>General-purpose toast (e.g. failed update at startup).</summary>
+    public void Show(string title, string body)
+        => Enqueue(NotificationKind.NewMessage, title, body);
+
     private void Enqueue(NotificationKind kind, string title, string body)
     {
         if (!AppServices.Settings.Settings.DesktopNotificationsEnabled)
