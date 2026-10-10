@@ -678,4 +678,3 @@ end;
 $$;
 
 grant execute on function public.fetch_premium_codes() to authenticated;
-
