@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { supabase, isCurrentUserAdmin } from "./supabase";
+import { supabase, isCurrentUserAdmin, isDownloadsEnabled } from "./supabase";
 import { BugTracker } from "./BugTracker";
 import { Admin } from "./Admin";
 import {
@@ -90,12 +90,13 @@ const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   }
 ];
 
-type Page = "start" | "bugtracker" | "admin";
+type Page = "start" | "bugtracker" | "admin" | "changelog" | "versionen";
 
 function parseHash(): Page {
   const h = window.location.hash.replace(/^#\/?/, "");
   if (h.startsWith("admin")) return "admin";
   if (h.startsWith("bugs") || h.startsWith("bugtracker")) return "bugtracker";
+  if (h.startsWith("changelog") || h.startsWith("versionen")) return "changelog";
   return "start";
 }
 
@@ -103,6 +104,7 @@ export function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [page, setPage] = useState<Page>(parseHash());
+  const [downloadsEnabled, setDownloadsEnabled] = useState(true);
 
   useEffect(() => {
     const onHash = () => setPage(parseHash());
@@ -122,6 +124,10 @@ export function App() {
     if (session) void isCurrentUserAdmin().then(setIsAdmin);
     else setIsAdmin(false);
   }, [session]);
+
+  useEffect(() => {
+    void isDownloadsEnabled().then(setDownloadsEnabled);
+  }, []);
 
   const userEmail = session?.user?.email;
 
@@ -147,14 +153,17 @@ export function App() {
           <button className={"navlink" + (page === "start" ? " active" : "")} onClick={() => go("start")}>
             Features
           </button>
+          <button className={"navlink" + (page === "changelog" ? " active" : "")} onClick={() => go("changelog")}>
+            Änderungsverlauf
+          </button>
+          <button className={"navlink" + (page === "bugtracker" ? " active" : "")} onClick={() => go("bugtracker")}>
+            Bugtracker
+          </button>
           {isAdmin && (
             <button className={"navlink" + (page === "admin" ? " active" : "")} onClick={() => go("admin")}>
               Admin
             </button>
           )}
-          <button className={"navlink" + (page === "bugtracker" ? " active" : "")} onClick={() => go("bugtracker")}>
-            Bugtracker
-          </button>
         </nav>
         <div className="nav-actions">
           {userEmail ? (
@@ -182,8 +191,15 @@ export function App() {
               Von Gamern für Gamer. Kostenlos für Windows.
             </p>
             <div className="hero-actions">
-              <a className="btn primary" href={DOWNLOAD_SETUP_URL}>Für Windows herunterladen</a>
-              <a className="btn ghost" href={DOWNLOAD_PORTABLE_URL}>Portable (ZIP)</a>
+              {(downloadsEnabled || isAdmin) && (
+                <>
+                  <a className="btn primary" href={DOWNLOAD_SETUP_URL}>Für Windows herunterladen</a>
+                  <a className="btn ghost" href={DOWNLOAD_PORTABLE_URL}>Portable (ZIP)</a>
+                </>
+              )}
+              {(!downloadsEnabled && !isAdmin) && (
+                <p className="muted small">Downloads sind aktuell deaktiviert.</p>
+              )}
             </div>
             <p className="muted small">
               Hinweis: Gaming Hub wird ohne Gewähr bereitgestellt. Nutzung auf eigene Gefahr.
@@ -238,68 +254,6 @@ export function App() {
               ))}
             </div>
           </section>
-
-          <section className="wide" id="changelog" style={{ margin: "10px 0 40px" }}>
-            <h2 className="section-title">Änderungsverlauf</h2>
-            <div className="changelog">
-              {CHANGELOG.map((c) => (
-                <div className="card changelog-item" key={c.version}>
-                  <span className="changelog-check">◆</span>
-                  <div>
-                    <h4>
-                      Version {c.version} <span className="muted small">· {c.date}</span>
-                    </h4>
-                    <ul className="changelog-list">
-                      {c.items.map((it, i) => (
-                        <li key={i}>{it}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <section className="wide" id="versionen" style={{ margin: "0 0 40px" }}>
-            <h2 className="section-title">Frühere Versionen</h2>
-            <p className="muted small">
-              Alle früheren Versionen bleiben dauerhaft herunterladbar. Hinweis: Nur die jeweils
-              <strong> neueste Version</strong> erhält automatische Updates – ältere Versionen
-              aktualisieren sich nicht von selbst und sind nur zu Test-/Archivzwecken gedacht.
-            </p>
-            <div className="changelog">
-              {CHANGELOG.map((c, i) => (
-                <div className="card changelog-item" key={c.version}>
-                  <span className="changelog-check">⬇</span>
-                  <div style={{ flex: 1 }}>
-                    <h4>
-                      Version {c.version}{" "}
-                      {i === 0 ? (
-                        <span className="badge-you">aktuell</span>
-                      ) : (
-                        <span className="muted small">· {c.date}</span>
-                      )}
-                    </h4>
-                    <div className="row" style={{ marginTop: 8 }}>
-                      <a className="btn tiny" href={releaseAssetUrl(c.version, "setup")}>
-                        Setup (.exe)
-                      </a>
-                      <a className="btn tiny ghost" href={releaseAssetUrl(c.version, "portable")}>
-                        Portable (.zip)
-                      </a>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <p className="muted small" style={{ marginTop: 12 }}>
-              Ältere Releases, Prüfsummen und alle Dateien findest du auch auf der{" "}
-              <a href={RELEASES_PAGE_URL} target="_blank" rel="noreferrer">
-                Releases-Seite
-              </a>
-              .
-            </p>
-          </section>
         </>
       )}
 
@@ -324,6 +278,79 @@ export function App() {
       {page === "admin" && (
         <section id="admin" style={{ marginTop: "24px" }}>
           <Admin />
+        </section>
+      )}
+
+      {page === "changelog" && (
+        <section id="changelog" style={{ marginTop: "24px" }}>
+          <h2 className="section-title">Änderungsverlauf</h2>
+          <div className="changelog">
+            {CHANGELOG.map((c) => (
+              <div className="card changelog-item" key={c.version}>
+                <span className="changelog-check">◆</span>
+                <div>
+                  <h4>
+                    Version {c.version} <span className="muted small">· {c.date}</span>
+                  </h4>
+                  <ul className="changelog-list">
+                    {c.items.map((it, i) => (
+                      <li key={i}>{it}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {page === "versionen" && (
+        <section id="versionen" style={{ marginTop: "24px" }}>
+          <h2 className="section-title">Frühere Versionen</h2>
+          <p className="muted small">
+            Alle früheren Versionen bleiben dauerhaft herunterladbar. Hinweis: Nur die jeweils
+            <strong> neueste Version</strong> erhält automatische Updates – ältere Versionen
+            aktualisieren sich nicht von selbst und sind nur zu Test-/Archivzwecken gedacht.
+          </p>
+          <div className="changelog">
+            {CHANGELOG.map((c, i) => (
+              <div className="card changelog-item" key={c.version}>
+                <span className="changelog-check">⬇</span>
+                <div style={{ flex: 1 }}>
+                  <h4>
+                    Version {c.version}{" "}
+                    {i === 0 ? (
+                      <span className="badge-you">aktuell</span>
+                    ) : (
+                      <span className="muted small">· {c.date}</span>
+                    )}
+                  </h4>
+<div className="row" style={{ marginTop: 8 }}>
+                      {(downloadsEnabled || isAdmin) && (
+                        <>
+                          <a className="btn tiny" href={releaseAssetUrl(c.version, "setup")}>
+                            Setup (.exe)
+                          </a>
+                          <a className="btn tiny ghost" href={releaseAssetUrl(c.version, "portable")}>
+                            Portable (.zip)
+                          </a>
+                        </>
+                      )}
+                      {(!downloadsEnabled && !isAdmin) && (
+                        <span className="muted small">Downloads deaktiviert</span>
+                      )}
+                    </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="muted small" style={{ marginTop: 12 }}>
+            Ältere Releases, Prüfsummen und alle Dateien findest du auch auf der{" "}
+            <a href={RELEASES_PAGE_URL} target="_blank" rel="noreferrer">
+              Releases-Seite
+            </a>
+            .
+          </p>
         </section>
       )}
 

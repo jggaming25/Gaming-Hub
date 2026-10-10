@@ -33,6 +33,7 @@ public partial class CleanupViewModel : ViewModelBase
 
     private double _lastFraction = -1;
     private DateTime _lastFractionAtUtc;
+    private readonly DispatcherTimer _etaTimer;
 
     public bool UseRecycleBin
     {
@@ -56,6 +57,21 @@ public partial class CleanupViewModel : ViewModelBase
                 ElapsedDisplay = Format.Elapsed(_stopwatch.Elapsed);
         };
         _elapsedTimer.Start();
+
+        // ETA-Timer: alle 10 Sekunden neu berechnen, damit die Anzeige
+        // auch bei Stillstand des Fortschritts (z. B. große Datei) aktualisiert wird.
+        _etaTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(10) };
+        _etaTimer.Tick += (_, _) =>
+        {
+            if (IsScanning && _lastFraction >= 0)
+            {
+                var now = DateTime.UtcNow;
+                double seconds = (now - _lastFractionAtUtc).TotalSeconds;
+                if (seconds >= 5) // nur aktualisieren, wenn letzter Messpunkt alt genug
+                    UpdateEta(_lastFraction);
+            }
+        };
+        _etaTimer.Start();
 
         var settings = AppServices.Settings.Settings;
         if (settings.CleanupScanPaths.Count > 0)
@@ -312,12 +328,13 @@ public partial class CleanupViewModel : ViewModelBase
 
     /// <summary>Live-Restzeitschätzung aus dem Gesamtfortschritt (0..1).
     /// Nutzt die Steigung zwischen zwei Messpunkten – funktioniert auch, wenn
-    /// sich der gerundete Prozentwert über lange Zeit nicht ändert.</summary>
+    /// sich der gerundete Prozentwert über lange Zeit nicht ändert.
+    /// Zeigt immer einen Wert an, sobald ein Fortschrittsbruch vorliegt.</summary>
     private void UpdateEta(double fraction)
     {
         if (fraction < 0)
         {
-            if (EtaDisplay.Length == 0)
+            if (IsScanning)
                 EtaDisplay = "Verbleibend: wird berechnet…";
             return;
         }
@@ -331,6 +348,13 @@ public partial class CleanupViewModel : ViewModelBase
             EtaDisplay = remainingSec is > 1 and < 6 * 3600
                 ? "Verbleibend: ca. " + Format.Elapsed(TimeSpan.FromSeconds(remainingSec))
                 : "Verbleibend: wird berechnet…";
+        }
+        else if (EtaDisplay.StartsWith("Verbleibend: wird"))
+        {
+            // Noch keine valide Rate – trotzdem einen groben Schätzwert zeigen,
+            // falls wir schon ein paar Prozent haben.
+            if (fraction > 0.02)
+                EtaDisplay = "Verbleibend: ca. " + Format.Elapsed(TimeSpan.FromSeconds(fraction / 0.02 * 10));
         }
 
         _lastFraction = fraction;

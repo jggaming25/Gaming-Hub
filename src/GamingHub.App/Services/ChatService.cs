@@ -26,6 +26,9 @@ public sealed class ChatService
 
     private static readonly JsonSerializerOptions Json = new() { PropertyNameCaseInsensitive = true };
 
+    /// <summary>Letzter Fehler beim Laden (für die Diagnose in der Oberfläche).</summary>
+    public string? LastError { get; private set; }
+
     private SupabaseClient? Client => AppServices.Auth.Client;
     public bool Available => Client is not null && AppServices.Auth.IsLoggedIn;
     public string? MyId => AppServices.Auth.CurrentUser?.Id;
@@ -52,7 +55,13 @@ public sealed class ChatService
             : $"select=*&channel_id=eq.{ch}&order=created_at.desc&limit={limit}";
 
         var result = await client.SelectAsync("chat_messages", query);
-        if (!result.Ok) return new();
+        if (!result.Ok)
+        {
+            LastError = result.Body;
+            LogService.Warn("chat-load", new Exception(result.Body));
+            return new();
+        }
+        LastError = null;
 
         var list = JsonSerializer.Deserialize<List<ChatMessage>>(result.Body, Json) ?? new();
         if (sinceUtc is null) list.Reverse();
@@ -90,21 +99,53 @@ public sealed class ChatService
 
         var result = await client.InsertAsync("chat_messages", row);
         if (!result.Ok)
+        {
+            LogService.Warn("chat-send", new Exception(result.Body));
             return new SendOutcome(false, string.IsNullOrWhiteSpace(result.Body) ? "Senden fehlgeschlagen." : result.Body);
+        }
 
         // return=representation: die Antwort enthält die eingefügte Zeile – so können
-        // wir die eigene Nachricht sofort lokal anzeigen (sonst würde sie der Poll-Schutz
-        // überspringen und nie im Chat auftauchen). PostgREST liefert dabei ein Array.
+        // wir die eigene Nachricht sofort lokal anzeigen. PostgREST liefert dafür je
+        // nach Anfrage ein Array ODER ein einzelnes Objekt – beide Formen akzeptieren.
+        var msg = ParseRepresentation(result.Body);
+        if (msg is null)
+        {
+            // Notnagel: neueste Nachricht des Kanals nachladen (lokales Echo wiederherstellen).
+            try
+            {
+                var latest = await LoadAsync(channelId, null, 5);
+                msg = latest.LastOrDefault(m => m.AuthorId == MyId) ?? latest.LastOrDefault();
+            }
+            catch (Exception ex)
+            {
+                LogService.Warn("chat-send-reload", ex);
+            }
+        }
+        return new SendOutcome(true, null, msg);
+    }
+
+    private static ChatMessage? ParseRepresentation(string body)
+    {
+        if (string.IsNullOrWhiteSpace(body))
+            return null;
         try
         {
-            var rows = JsonSerializer.Deserialize<List<ChatMessage>>(result.Body, Json);
-            var msg = rows is { Count: > 0 } ? rows[0] : null;
-            return msg is null ? new SendOutcome(true, null) : new SendOutcome(true, null, msg);
+            using var doc = JsonDocument.Parse(body);
+            var root = doc.RootElement;
+            if (root.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var el in root.EnumerateArray())
+                    return JsonSerializer.Deserialize<ChatMessage>(el.GetRawText(), Json);
+                return null;
+            }
+            if (root.ValueKind == JsonValueKind.Object)
+                return JsonSerializer.Deserialize<ChatMessage>(body, Json);
         }
         catch
         {
-            return new SendOutcome(true, null);
+            // ignore – Fallback übernimmt
         }
+        return null;
     }
 
     /// <summary>Soft-deletes a message (author or admin; enforced by RLS).</summary>

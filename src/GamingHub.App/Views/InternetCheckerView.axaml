@@ -1,0 +1,213 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:GamingHub.App.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="700"
+             x:Class="GamingHub.App.Views.InternetCheckerView"
+             x:DataType="vm:InternetCheckerViewModel">
+
+    <Grid RowDefinitions="Auto,*" Margin="8">
+        <!-- Header -->
+        <Border Grid.Row="0" Classes="card" Padding="16" Margin="0,0,0,8">
+            <StackPanel Spacing="8">
+                <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                        <TextBlock Text="🌐" FontSize="24" VerticalAlignment="Center" />
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Internet-Checker" FontSize="20" FontWeight="Bold" />
+                            <TextBlock Text="Prüft den Pfad: PC → Router → DNS → Internet → Web" Classes="muted" FontSize="12" />
+                        </StackPanel>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center" Spacing="6">
+                        <Border Padding="8,4" Background="{Binding OverallStatusColor}" CornerRadius="6">
+                            <TextBlock Text="{Binding OverallStatus}" Foreground="White" FontWeight="SemiBold" FontSize="13" />
+                        </Border>
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <StackPanel>
+                                <TextBlock Text="Online" FontSize="10" Classes="muted" />
+                                <TextBlock Text="{Binding CurrentLatencyText}" FontSize="14" FontWeight="Bold" Foreground="{Binding IsOnline, Converter={x:Static vm:CommonConverters.BoolToColor}, ConverterParameter=#4ADE80:#F87171}" />
+                            </StackPanel>
+                            <StackPanel>
+                                <TextBlock Text="Gateway" FontSize="10" Classes="muted" />
+                                <TextBlock Text="{Binding GatewayIpText}" FontSize="13" FontWeight="SemiBold" />
+                            </StackPanel>
+                            <StackPanel>
+                                <TextBlock Text="Paketverlust" FontSize="10" Classes="muted" />
+                                <TextBlock Text="{Binding PacketLossText}" FontSize="13" FontWeight="SemiBold" />
+                            </StackPanel>
+                        </StackPanel>
+                    </StackPanel>
+                    <Button Grid.Column="2" Content="{Binding TestButtonText}" Command="{Binding RunTestCommand}" Classes="accent" FontSize="13" Padding="16,8" IsEnabled="{Binding !IsTesting}" />
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!-- Offline hint -->
+        <Border Grid.Row="0" Classes="card" Padding="12" Margin="0,0,0,8"
+                Background="#F8717122" BorderBrush="#F87171" BorderThickness="1"
+                IsVisible="{Binding ShowOfflineHint}">
+            <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
+                <TextBlock Text="⚠" FontSize="18" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" Text="Keine Internetverbindung – Funktionen wie Web-Recherche sind deaktiviert." TextWrapping="Wrap" VerticalAlignment="Center" Margin="10,0" />
+                <Button Grid.Column="2" Content="Erneut prüfen" Command="{Binding RunTestCommand}" Classes="ghost" Margin="10,0,0,0" />
+            </Grid>
+        </Border>
+
+        <!-- Main content -->
+        <ScrollViewer Grid.Row="1" Padding="0,0,8,0">
+            <StackPanel Spacing="12">
+                <!-- Visual path test -->
+                <Border Classes="card" Padding="16">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="Visueller Verbindungspfad" FontWeight="SemiBold" FontSize="16" />
+                        <TextBlock Text="Jeder Schritt wird nacheinander getestet. Grün = OK, Rot = Problem an dieser Stelle." Classes="muted" FontSize="11" TextWrapping="Wrap" />
+                        <ItemsControl ItemsSource="{Binding Steps}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:InternetStep">
+                                    <Border Margin="0,6" Padding="12" Background="#0B0D1A" CornerRadius="8">
+                                        <Grid ColumnDefinitions="Auto,*,Auto,Auto" VerticalAlignment="Center">
+                                            <TextBlock Grid.Column="0" Text="{Binding Glyph}" FontSize="20" VerticalAlignment="Center" Margin="0,0,12,0" />
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" />
+                                                    <Border Width="10" Height="10" CornerRadius="5"
+                                                            Background="{Binding IsComplete, Converter={x:Static vm:CommonConverters.BoolToColor}, ConverterParameter=#4ADE80:#F87171}"
+                                                            IsVisible="{Binding IsComplete}"
+                                                            VerticalAlignment="Center" />
+                                                    <Border Width="10" Height="10" CornerRadius="5"
+                                                            Background="#F87171"
+                                                            IsVisible="{Binding IsFailed}"
+                                                            VerticalAlignment="Center" />
+                                                    <Border Width="10" Height="10" CornerRadius="5"
+                                                            Background="#FACC15"
+                                                            IsVisible="{Binding IsActive}"
+                                                            VerticalAlignment="Center" />
+                                                </StackPanel>
+                                                <TextBlock Text="{Binding Description}" FontSize="11" Classes="muted" />
+                                            </StackPanel>
+                                            <TextBlock Grid.Column="2" Text="{Binding LatencyText}" FontSize="12" FontWeight="SemiBold" Foreground="#A855F7" VerticalAlignment="Center" Margin="0,0,12,0" />
+                                            <TextBlock Grid.Column="3" Text="{Binding StatusText}" FontSize="12" FontWeight="SemiBold" Foreground="{Binding StatusColor}" VerticalAlignment="Center" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <!-- Assessment -->
+                <Border Classes="card" Padding="16" Background="#0C1120">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="📊 Ausfall-Einschätzung (letzte 24 h)" FontWeight="SemiBold" FontSize="14" />
+                        <TextBlock Text="{Binding AssessmentText}" TextWrapping="Wrap" FontSize="13" LineHeight="22" />
+                    </StackPanel>
+                </Border>
+
+                <!-- History charts (4 weeks) -->
+                <Border Classes="card" Padding="16" IsVisible="{Binding HasHistory}">
+                    <StackPanel Spacing="12">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="Verlauf (4 Wochen bei Premium)" FontWeight="SemiBold" FontSize="14" VerticalAlignment="Center" />
+                            <Border Background="#22D3EE22" CornerRadius="8" Padding="6,2" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding HistoryRetentionText}" FontSize="10" Classes="muted" />
+                            </Border>
+                        </StackPanel>
+                        <TextBlock Text="{Binding HistoryStatusText}" FontSize="11" Classes="muted" TextWrapping="Wrap" />
+
+                        <!-- Latency chart -->
+                        <Grid ColumnDefinitions="120,20,*" Height="80">
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="3">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <Border Width="10" Height="10" CornerRadius="2" Background="#22D3EE" VerticalAlignment="Center" />
+                                    <TextBlock Text="Latenz (ms)" FontSize="11" FontWeight="SemiBold" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding CurrentLatencyText}" FontSize="11" Classes="muted" />
+                            </StackPanel>
+                            <Grid Grid.Column="1" RowDefinitions="Auto,*,Auto" Margin="4,0">
+                                <TextBlock Grid.Row="0" Text="200" FontSize="9" Classes="muted" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Row="1" Text="100" FontSize="9" Classes="muted" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                <TextBlock Grid.Row="2" Text="0" FontSize="9" Classes="muted" HorizontalAlignment="Right" />
+                            </Grid>
+                            <Grid Grid.Column="2" ClipToBounds="True" Background="#0C1120">
+                                <Border VerticalAlignment="Top" Height="1" Background="#18FFFFFF" />
+                                <Border VerticalAlignment="Center" Height="1" Background="#18FFFFFF" />
+                                <Border VerticalAlignment="Bottom" Height="1" Background="#18FFFFFF" />
+                                <Polyline Stretch="Fill"
+                                          Points="{Binding LatencyHistory, Converter={x:Static vm:CommonConverters.SeriesToPoints}}"
+                                          Stroke="#22D3EE" StrokeThickness="2" />
+                            </Grid>
+                        </Grid>
+
+                        <!-- Online/Offline chart -->
+                        <Grid ColumnDefinitions="120,20,*" Height="60">
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="3">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <Border Width="10" Height="10" CornerRadius="2" Background="#4ADE80" VerticalAlignment="Center" />
+                                    <TextBlock Text="Online" FontSize="11" FontWeight="SemiBold" />
+                                </StackPanel>
+                            </StackPanel>
+                            <Grid Grid.Column="1" RowDefinitions="Auto,*,Auto" Margin="4,0">
+                                <TextBlock Grid.Row="0" Text="1" FontSize="9" Classes="muted" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Row="2" Text="0" FontSize="9" Classes="muted" HorizontalAlignment="Right" />
+                            </Grid>
+                            <Grid Grid.Column="2" ClipToBounds="True" Background="#0C1120">
+                                <Polyline Stretch="Fill"
+                                          Points="{Binding OnlineHistory, Converter={x:Static vm:CommonConverters.SeriesToPoints}}"
+                                          Stroke="#4ADE80" StrokeThickness="2" />
+                            </Grid>
+                        </Grid>
+
+                        <!-- Gateway & DNS latency -->
+                        <Grid ColumnDefinitions="120,20,*" Height="80">
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="3">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <Border Width="10" Height="10" CornerRadius="2" Background="#FACC15" VerticalAlignment="Center" />
+                                    <TextBlock Text="Gateway" FontSize="11" FontWeight="SemiBold" />
+                                </StackPanel>
+                            </StackPanel>
+                            <Grid Grid.Column="1" RowDefinitions="Auto,*,Auto" Margin="4,0">
+                                <TextBlock Grid.Row="0" Text="100" FontSize="9" Classes="muted" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Row="1" Text="50" FontSize="9" Classes="muted" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                <TextBlock Grid.Row="2" Text="0" FontSize="9" Classes="muted" HorizontalAlignment="Right" />
+                            </Grid>
+                            <Grid Grid.Column="2" ClipToBounds="True" Background="#0C1120">
+                                <Polyline Stretch="Fill"
+                                          Points="{Binding GatewayLatencyHistory, Converter={x:Static vm:CommonConverters.SeriesToPoints}}"
+                                          Stroke="#FACC15" StrokeThickness="2" />
+                            </Grid>
+                        </Grid>
+
+                        <Grid ColumnDefinitions="120,20,*" Height="80">
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="3">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <Border Width="10" Height="10" CornerRadius="2" Background="#A855F7" VerticalAlignment="Center" />
+                                    <TextBlock Text="DNS" FontSize="11" FontWeight="SemiBold" />
+                                </StackPanel>
+                            </StackPanel>
+                            <Grid Grid.Column="1" RowDefinitions="Auto,*,Auto" Margin="4,0">
+                                <TextBlock Grid.Row="0" Text="100" FontSize="9" Classes="muted" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Row="1" Text="50" FontSize="9" Classes="muted" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                <TextBlock Grid.Row="2" Text="0" FontSize="9" Classes="muted" HorizontalAlignment="Right" />
+                            </Grid>
+                            <Grid Grid.Column="2" ClipToBounds="True" Background="#0C1120">
+                                <Polyline Stretch="Fill"
+                                          Points="{Binding DnsLatencyHistory, Converter={x:Static vm:CommonConverters.SeriesToPoints}}"
+                                          Stroke="#A855F7" StrokeThickness="2" />
+                            </Grid>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- No history -->
+                <Border Classes="card" Padding="24" IsVisible="{Binding !HasHistory}">
+                    <StackPanel Spacing="8" HorizontalAlignment="Center">
+                        <TextBlock Text="📭" FontSize="32" />
+                        <TextBlock Text="Noch keine Internet-Daten aufgezeichnet." FontSize="14" HorizontalAlignment="Center" />
+                        <TextBlock Text="Der Hintergrund-Check läuft alle 15 Sekunden. Starte einen Test, um erste Daten zu sehen." TextWrapping="Wrap" Classes="muted" HorizontalAlignment="Center" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

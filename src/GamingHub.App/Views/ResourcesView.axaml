@@ -1,4 +1,4 @@
-﻿<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:GamingHub.App.ViewModels"
              xmlns:svc="using:GamingHub.Core.Services"
@@ -12,7 +12,7 @@
     <Grid RowDefinitions="Auto,*" Margin="12">
         <StackPanel Grid.Row="0" Spacing="2" Margin="0,0,0,12">
             <TextBlock Text="System-Ressourcen" Classes="h1" />
-            <TextBlock Text="Live-Auslastung (Task-Manager-artig) und EinschÃ¤tzung, ob dein PC ein Spiel schafft." Classes="muted" FontSize="12" />
+            <TextBlock Text="Live-Auslastung (Task-Manager-artig) und Einschätzung, ob dein PC ein Spiel schafft." Classes="muted" FontSize="12" />
         </StackPanel>
 
         <ScrollViewer Grid.Row="1">
@@ -123,7 +123,7 @@
                             </TextBlock>
                             <TextBlock Text="{Binding GpuName}" FontSize="10" Classes="muted" TextWrapping="Wrap" MaxHeight="28" />
                             <TextBlock FontSize="11" Classes="muted">
-                                <Run Text="DatentrÃ¤ger â€“ Lesen: " /><Run Text="{Binding DiskReadDisplay}" /><Run Text=" Â· Schreiben: " /><Run Text="{Binding DiskWriteDisplay}" />
+                                <Run Text="Datenträger – Lesen: " /><Run Text="{Binding DiskReadDisplay}" /><Run Text=" · Schreiben: " /><Run Text="{Binding DiskWriteDisplay}" />
                             </TextBlock>
                             <TextBlock FontSize="11" Classes="muted"><Run Text="VRAM: " /><Run Text="{Binding GpuVramDisplay}" /></TextBlock>
                         </StackPanel>
@@ -134,7 +134,7 @@
                 <Border Classes="card" Padding="14">
                     <StackPanel Spacing="8">
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBlock Text="Verlauf â€“ getrennt nach Messwert" FontWeight="SemiBold" FontSize="14" VerticalAlignment="Center" />
+                            <TextBlock Text="Verlauf – getrennt nach Messwert" FontWeight="SemiBold" FontSize="14" VerticalAlignment="Center" />
                             <Border Background="#22D3EE22" CornerRadius="8" Padding="8,3" VerticalAlignment="Center">
                                 <TextBlock Text="{Binding HistoryRetentionText}" FontSize="10" Classes="muted" />
                             </Border>
@@ -200,7 +200,7 @@
                                         <Border Width="10" Height="10" CornerRadius="2" Background="#A855F7" VerticalAlignment="Center" />
                                         <TextBlock Text="GPU-Auslastung" FontSize="11" FontWeight="SemiBold" />
                                     </StackPanel>
-                                    <TextBlock Text="falls verfÃ¼gbar" FontSize="10" Classes="muted" />
+                                    <TextBlock Text="falls verfügbar" FontSize="10" Classes="muted" />
                                 </StackPanel>
                                 <Grid Grid.Column="1" RowDefinitions="Auto,*,Auto" Margin="4,0">
                                     <TextBlock Grid.Row="0" Text="100" FontSize="9" Classes="muted" HorizontalAlignment="Right" />
@@ -224,7 +224,7 @@
                                         <Border Width="10" Height="10" CornerRadius="2" Background="#FACC15" VerticalAlignment="Center" />
                                         <TextBlock Text="Prozessanzahl" FontSize="11" FontWeight="SemiBold" />
                                     </StackPanel>
-                                    <TextBlock Text="auf HÃ¶chstwert skaliert" FontSize="10" Classes="muted" />
+                                    <TextBlock Text="auf Höchstwert skaliert" FontSize="10" Classes="muted" />
                                 </StackPanel>
                                 <Grid Grid.Column="1" RowDefinitions="Auto,*,Auto" Margin="4,0">
                                     <TextBlock Grid.Row="0" Text="100" FontSize="9" Classes="muted" HorizontalAlignment="Right" />
@@ -369,14 +369,14 @@
                     <Border Classes="card" Grid.Column="0" Margin="0,0,10,0">
                         <StackPanel Spacing="12">
                             <TextBlock Text="Kann ich das spielen?" FontWeight="SemiBold" FontSize="16" />
-                            <TextBlock Text="Spiel auswÃ¤hlen (oder Name eintippen) und prÃ¼fen lassen. Die Empfehlung ist eine SchÃ¤tzung." Classes="muted" FontSize="11" TextWrapping="Wrap" />
+                            <TextBlock Text="Spiel auswählen (oder Name eintippen) und prüfen lassen. Die Empfehlung ist eine Schätzung." Classes="muted" FontSize="11" TextWrapping="Wrap" />
                             <ComboBox HorizontalAlignment="Stretch" IsEditable="True"
                                       ItemsSource="{Binding GameNames}"
                                       Text="{Binding SelectedGame, Mode=TwoWay}"
-                                      PlaceholderText="Spiel wÃ¤hlen oder eingebenâ€¦" />
+                                      PlaceholderText="Spiel wählen oder eingeben…" />
                             <TextBox Text="{Binding SelectedGameVersion, Mode=TwoWay}"
-                                     PlaceholderText="Optionale Version, z. B. 2.1 (fÃ¼r prÃ¤zisere Web-Recherche)" />
-                            <Button Content="EinschÃ¤tzung berechnen" Command="{Binding EvaluateCommand}" Classes="accent" HorizontalAlignment="Stretch" />
+                                     PlaceholderText="Optionale Version, z. B. 2.1 (für präzisere Web-Recherche)" />
+                            <Button Content="Einschätzung berechnen" Command="{Binding EvaluateCommand}" Classes="accent" HorizontalAlignment="Stretch" />
                         </StackPanel>
                     </Border>
 
@@ -395,7 +395,7 @@
                                 <TextBlock Text="{Binding ResultSummary}" TextWrapping="Wrap" FontSize="13" />
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <Button Content="Web-Recherche (im Programm)" Command="{Binding ResearchCommand}" FontSize="12" Classes="accent" IsVisible="{Binding WebSearchEnabled}" />
-                                    <Button Content="Im Browser Ã¶ffnen" Command="{Binding OpenWebSearchCommand}" FontSize="12" />
+                                    <Button Content="Im Browser öffnen" Command="{Binding OpenWebSearchCommand}" FontSize="12" />
                                 </StackPanel>
                                 <ProgressBar IsIndeterminate="True" Height="4" IsVisible="{Binding IsResearching}" />
 
@@ -431,7 +431,7 @@
                             </StackPanel>
                             <StackPanel Spacing="8" IsVisible="{Binding HasNoResult}">
                                 <TextBlock Text="Ergebnis erscheint hier nach der Berechnung." Classes="muted" FontSize="12" />
-                                <TextBlock Text="Der Web-Recherche-Button Ã¶ffnet deinen Browser mit Systemanforderungen-Anfragen." Classes="muted" FontSize="11" TextWrapping="Wrap" />
+                                <TextBlock Text="Der Web-Recherche-Button öffnet deinen Browser mit Systemanforderungen-Anfragen." Classes="muted" FontSize="11" TextWrapping="Wrap" />
                             </StackPanel>
                         </Grid>
                     </Border>

@@ -385,7 +385,9 @@ insert into public.app_settings (key, value) values
     ('websearch_enabled', true),
     ('cleanup_enabled', true),
     ('games_enabled', true),
-    ('bugreport_enabled', true)
+    ('bugreport_enabled', true),
+    ('downloads_enabled', true),
+    ('internet_checker_enabled', true)
 on conflict (key) do nothing;
 
 alter table public.app_settings enable row level security;
@@ -437,7 +439,10 @@ alter table public.profiles add column if not exists premium_banned boolean not 
 create table if not exists public.premium_codes (
     id         uuid primary key default gen_random_uuid(),
     code       text unique not null,
-    bonus_days int not null default 30,
+    -- Laufzeit in Tagen (null = unendlich). Alternative: valid_until.
+    duration_days int,
+    -- Gültig-bis-Datum (null = unendlich). Wenn beide gesetzt, gilt das spätere.
+    valid_until timestamptz,
     created_by uuid references auth.users(id) on delete set null,
     created_at timestamptz not null default now()
 );
@@ -518,6 +523,8 @@ $$;
 
 -- Code einlösen: pro Nutzer und Code nur einmal. Verlängert premium_until
 -- ab jetzt (bzw. ab aktuellem Ablauf, falls schon aktiv).
+-- duration_days und/oder valid_until bestimmen die Verlängerung.
+-- Wenn beide null → unendlich (premium_until = 'infinity').
 create or replace function public.redeem_premium_code(p_code text)
 returns jsonb
 language plpgsql
@@ -527,7 +534,9 @@ declare
     v_uid uuid := auth.uid();
     v_enabled boolean;
     v_code_id uuid;
-    v_bonus int;
+    v_duration int;
+    v_valid_until timestamptz;
+    v_new_until timestamptz;
 begin
     if v_uid is null then
         return jsonb_build_object('ok', false, 'error', 'login_required');
@@ -542,7 +551,7 @@ begin
         return jsonb_build_object('ok', false, 'error', 'codes_disabled');
     end if;
 
-    select id, bonus_days into v_code_id, v_bonus
+    select id, duration_days, valid_until into v_code_id, v_duration, v_valid_until
       from public.premium_codes
      where code = upper(trim(p_code))
      limit 1;
@@ -558,14 +567,31 @@ begin
         return jsonb_build_object('ok', false, 'error', 'already_used');
     end;
 
+    -- Berechne neues premium_until:
+    -- Basis ist max(now(), aktuelles premium_until).
+    -- Wenn duration_days gesetzt: addiere Tage zur Basis.
+    -- Wenn valid_until gesetzt: nimm max(Basis + duration, valid_until).
+    -- Wenn beide null: 'infinity'.
+    select greatest(coalesce(premium_until, now()), now()) into v_new_until
+      from public.profiles where id = v_uid;
+
+    if v_duration is not null then
+        v_new_until := v_new_until + make_interval(days => v_duration);
+    end if;
+    if v_valid_until is not null then
+        v_new_until := greatest(v_new_until, v_valid_until);
+    end if;
+    if v_duration is null and v_valid_until is null then
+        v_new_until := 'infinity'::timestamptz;
+    end if;
+
     update public.profiles
-       set premium_until = greatest(coalesce(premium_until, now()),
-                                    now() + make_interval(days => v_bonus))
+       set premium_until = v_new_until
      where id = v_uid;
 
     perform public.ensure_premium_and_badge(v_uid);
 
-    return jsonb_build_object('ok', true, 'bonus_days', v_bonus);
+    return jsonb_build_object('ok', true, 'premium_until', v_new_until);
 end;
 $$;
 
@@ -640,7 +666,8 @@ begin
     select coalesce(jsonb_agg(jsonb_build_object(
         'id', c.id,
         'code', c.code,
-        'bonus_days', c.bonus_days,
+        'duration_days', c.duration_days,
+        'valid_until', c.valid_until,
         'created_at', c.created_at,
         'uses', (select count(*) from public.premium_code_uses u where u.code_id = c.id),
         'last_used_at', (select max(u.used_at) from public.premium_code_uses u where u.code_id = c.id)

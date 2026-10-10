@@ -28,7 +28,27 @@ public sealed class BoolToBrushConverter : IValueConverter
         => throw new NotSupportedException();
 }
 
-public sealed class BoolToOpacityConverter : IValueConverter
+public sealed class BoolToColorConverter : IValueConverter
+    {
+        public string True { get; set; } = "#4ADE80";
+        public string False { get; set; } = "#F87171";
+
+        public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        {
+            if (parameter is string param && param.Contains(':'))
+            {
+                var parts = param.Split(':');
+                True = parts[0];
+                False = parts[1];
+            }
+            return Color.Parse(value is true ? True : False);
+        }
+
+        public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+            => throw new NotSupportedException();
+    }
+
+    public sealed class BoolToOpacityConverter : IValueConverter
 {
     public double True { get; set; } = 1.0;
     public double False { get; set; } = 0.45;
@@ -81,5 +101,6 @@ public static class CommonConverters
     public static readonly StringNotEmptyConverter NotEmpty = new();
     public static readonly BoolToAlignmentConverter MessageAlign = new();
     public static readonly BoolToBrushConverter MessageBrush = new() { True = "#2563EB", False = "#1B1F3A" };
+    public static readonly BoolToColorConverter BoolToColor = new();
     public static readonly SeriesToPointsConverter SeriesToPoints = new();
 }

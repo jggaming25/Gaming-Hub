@@ -37,6 +37,12 @@
                     <TextBlock TextWrapping="Wrap" LineHeight="20"
                                Text="5. Kein Support-Anspruch: Es besteht kein Anspruch auf Support, Fehlerbehebung oder Updates." />
                     <TextBlock TextWrapping="Wrap" LineHeight="20"
+                               Text="6. Internet-Monitoring (Premium): Bei aktivierter Internet-Prüfung werden Verbindungsdaten (Erreichbarkeit, Latenz, Abbrüche) lokal aufgezeichnet und in einem 4-Wochen-Diagramm dargestellt. Eine Datenübertragung an Dritte findet nicht statt. Daten können jederzeit gelöscht werden." />
+                    <TextBlock TextWrapping="Wrap" LineHeight="20"
+                               Text="7. Lokale Datensicherung: Alle 5 Tage wird ein verschlüsseltes Backup der lokalen Daten (Einstellungen, Verlauf, Internet-Protokoll) erstellt; nur das jüngste Backup wird vorgehalten. Backups bleiben bei Updates erhalten." />
+                    <TextBlock TextWrapping="Wrap" LineHeight="20"
+                               Text="8. Premium-Regeln: Premium-Codes sind pro Nutzer einmal einlösbar und verlängern bestehenden Premium-Status nahtlos. Admins können Premium für einzelne Nutzer sperren. Missbrauch führt zum Entzug." />
+                    <TextBlock TextWrapping="Wrap" LineHeight="20"
                                Text="Mit dem Klick auf „Akzeptieren“ bestätigst du, diesen Ausschluss gelesen und verstanden zu haben und dass du die App auf eigene Gefahr nutzt." />
                 </StackPanel>
             </ScrollViewer>

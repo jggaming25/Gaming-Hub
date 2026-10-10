@@ -11,7 +11,6 @@ import {
   fetchAppSettings,
   setAppSetting,
   fetchPremiumCodes,
-  createPremiumCodes,
   type Bug,
   type BugStatus,
   type Profile,
@@ -29,7 +28,8 @@ type Tab = "bugs" | "users" | "premium";
 
 const FLAG_LABEL: Record<string, string> = {
   premium_codes_enabled: "Freischalt-Codes",
-  premium_activity_enabled: "Aktivitäts-Premium (Abzeichen)"
+  premium_activity_enabled: "Aktivitäts-Premium (Abzeichen)",
+  downloads_enabled: "Downloads (Setup, Portable, alte Versionen)"
 };
 
 export function Admin() {
@@ -43,8 +43,8 @@ export function Admin() {
 
   const [flags, setFlags] = useState<Record<string, boolean>>({});
   const [codes, setCodes] = useState<PremiumCode[]>([]);
-  const [codeCount, setCodeCount] = useState(5);
-  const [bonusDays, setBonusDays] = useState(30);
+  const [durationDays, setDurationDays] = useState<number | null>(null);
+  const [validUntil, setValidUntil] = useState<string>("");
 
   const refresh = async () => {
     const admin = await isCurrentUserAdmin();
@@ -135,13 +135,24 @@ export function Admin() {
   }
 
   async function generateCodes() {
-    setStatus("Erstelle Codes…");
-    const res = await createPremiumCodes(codeCount, bonusDays);
-    if (!res.ok || !res.codes) setStatus(res.error ?? "Fehler");
-    else {
-      setStatus(`${res.codes.length} Codes erstellt.`);
-      await refresh();
-    }
+    setStatus("Erstelle Code…");
+    const { supabase: sb } = await import("./supabase");
+    if (!sb) { setStatus("Supabase nicht konfiguriert."); return; }
+    const { data: userData } = await sb.auth.getUser();
+    const creatorId = userData.user?.id ?? null;
+    const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    const rand = () => alphabet[Math.floor(Math.random() * alphabet.length)];
+    const part = () => Array.from({ length: 4 }, rand).join("");
+    const code = `GH-${part()}-${part()}`;
+    const payload: any = { code, created_by: creatorId };
+    if (durationDays !== null && durationDays > 0) payload.duration_days = durationDays;
+    if (validUntil) payload.valid_until = validUntil;
+    const { error } = await sb.from("premium_codes").insert(payload).select("code");
+    if (error) { setStatus("Fehler: " + error.message); return; }
+    setStatus("Code erstellt.");
+    setDurationDays(null);
+    setValidUntil("");
+    await refresh();
   }
 
   async function copyUnused() {
@@ -283,18 +294,22 @@ export function Admin() {
           </div>
 
           <h3>Freischalt-Codes</h3>
+          <p className="muted small">
+            Ein Code pro Nutzer einlösbar. Laufzeit (Tage) und/oder Gültig-bis (Datum).
+            Beide leer = unendlich. Die Laufzeit verlängert bestehenden Premium-Status nahtlos.
+          </p>
           <div className="row">
             <label className="row check-inline">
-              Anzahl
-              <input className="num tiny" type="number" min={1} max={50}
-                value={codeCount} onChange={(e) => setCodeCount(Number(e.target.value))} />
+              Laufzeit (Tage, optional)
+              <input className="num tiny" type="number" min={1} max={3650}
+                value={durationDays ?? ""} onChange={(e) => setDurationDays(e.target.value ? Number(e.target.value) : null)} />
             </label>
             <label className="row check-inline">
-              Tage pro Code
-              <input className="num tiny" type="number" min={1} max={365}
-                value={bonusDays} onChange={(e) => setBonusDays(Number(e.target.value))} />
+              Gültig bis (optional)
+              <input className="num tiny" type="date"
+                value={validUntil} onChange={(e) => setValidUntil(e.target.value)} />
             </label>
-            <button className="btn primary" onClick={generateCodes}>Codes erstellen</button>
+            <button className="btn primary" onClick={generateCodes}>Code erstellen</button>
             <button className="btn" onClick={copyUnused}>Unbenutzte kopieren</button>
           </div>
 
@@ -303,7 +318,10 @@ export function Admin() {
             {codes.map((c) => (
               <div className="user-row" key={c.id}>
                 <span className="code-monospace">{c.code}</span>
-                <span>{c.bonus_days} Tage</span>
+                <span>
+                  {c.duration_days ? `${c.duration_days} Tage` : "unendlich"}
+                  {c.valid_until && <span className="muted small"> · bis {new Date(c.valid_until).toLocaleDateString("de-DE")}</span>}
+                </span>
                 <span className="muted small">{new Date(c.created_at).toLocaleDateString("de-DE")}</span>
                 <span>
                   {(c.uses ?? 0) > 0 ? (

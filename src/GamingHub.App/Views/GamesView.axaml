@@ -95,8 +95,13 @@
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="vm:GameItemViewModel">
                         <Border Classes="card" Margin="0,0,0,10">
-                            <Grid ColumnDefinitions="*,Auto">
-                                <StackPanel Grid.Column="0" Spacing="4">
+                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                <Border Grid.Column="0" Width="32" Height="32" CornerRadius="6" Margin="0,0,12,0"
+                                        VerticalAlignment="Top"
+                                        IsVisible="{Binding Icon, Converter={x:Static vm:CommonConverters.NotEmpty}}">
+                                    <Image Source="{Binding Icon}" Stretch="Uniform" />
+                                </Border>
+                                <StackPanel Grid.Column="1" Spacing="4">
                                     <StackPanel Orientation="Horizontal" Spacing="10">
                                         <TextBlock Text="{Binding Name}" FontSize="16" FontWeight="SemiBold" />
                                         <Border Background="{DynamicResource PanelBrush2}" CornerRadius="6" Padding="7,2">
@@ -117,7 +122,7 @@
                                         <TextBlock FontSize="12"><Run Text="Zuletzt: " Foreground="#8FA0C8"/><Run Text="{Binding LastPlayedDisplay}"/></TextBlock>
                                     </StackPanel>
                                 </StackPanel>
-                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                                     <Button Content="Starten" Command="{Binding LaunchCommand}" IsEnabled="{Binding CanLaunch}" Classes="accent" />
                                     <Button Content="Stoppen" Command="{Binding StopCommand}" />
                                     <Button Content="Neustart" Command="{Binding RestartCommand}" IsEnabled="{Binding IsRunning}" />

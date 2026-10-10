@@ -145,7 +145,8 @@ export interface AppSetting {
 export interface PremiumCode {
   id: string;
   code: string;
-  bonus_days: number;
+  duration_days: number | null;
+  valid_until: string | null;
   created_at: string;
   // Ein Code ist pro Nutzer einmal einlösbar – "uses" zählt die Einlösungen.
   uses: number;
@@ -163,6 +164,16 @@ export async function setAppSetting(key: string, value: boolean) {
   if (!supabase) return { ok: false, error: "Supabase ist nicht konfiguriert." };
   const { error } = await supabase.from("app_settings").update({ value }).eq("key", key);
   return error ? { ok: false, error: error.message } : { ok: true };
+}
+
+export async function isDownloadsEnabled(): Promise<boolean> {
+  if (!supabase) return true;
+  const { data } = await supabase
+    .from("app_settings")
+    .select("value")
+    .eq("key", "downloads_enabled")
+    .maybeSingle();
+  return data?.value ?? true;
 }
 
 export async function fetchPremiumCodes(): Promise<{ codes: PremiumCode[]; error?: string }> {

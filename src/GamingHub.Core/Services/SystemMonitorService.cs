@@ -123,14 +123,15 @@ public sealed class SystemMonitorService
 
     /// <summary>
     /// Liest die GPU-Auslastung über den WMI-Leistungsindikator „GPU Engine“
-    /// (verfügbar ab Windows 10). Liefert -1, wenn kein Wert erhebbar ist.
+    /// (korrekte Klasse: Win32_PerfFormattedData_GPUPerformanceCounters_GPUEngine).
+    /// Liefert -1, wenn kein Wert erhebbar ist.
     /// </summary>
     private static double GetGpuUsage()
     {
         try
         {
             using var searcher = new ManagementObjectSearcher(
-                "SELECT UtilizationPercentage FROM Win32_PerfFormattedData_GPUEngine " +
+                "SELECT UtilizationPercentage FROM Win32_PerfFormattedData_GPUPerformanceCounters_GPUEngine " +
                 "WHERE InstanceName LIKE '%engtype_3D%'");
             double max = -1;
             foreach (var obj in searcher.Get())
@@ -142,7 +143,7 @@ public sealed class SystemMonitorService
             {
                 // Fallback: ohne engtype-Filter (alle Engines) den Max-Wert nehmen.
                 using var any = new ManagementObjectSearcher(
-                    "SELECT UtilizationPercentage FROM Win32_PerfFormattedData_GPUEngine");
+                    "SELECT UtilizationPercentage FROM Win32_PerfFormattedData_GPUPerformanceCounters_GPUEngine");
                 foreach (var obj in any.Get())
                 {
                     double v = Math.Max(0, Convert.ToDouble(obj["UtilizationPercentage"] ?? 0.0));

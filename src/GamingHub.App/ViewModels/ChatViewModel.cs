@@ -416,7 +416,7 @@ public partial class ChatViewModel : ViewModelBase
         }
         StatusText = string.Empty;
         AppendSent(outcome.Message, target.ChannelId);
-        await PollAsync();
+        await RefreshActiveAsync();
     }
 
     /// <summary>Shows the sent message immediately (local echo) and remembers the new timestamp.</summary>
@@ -428,6 +428,28 @@ public partial class ChatViewModel : ViewModelBase
         if (Messages.All(m => m.Id != msg.Id))
             AppendMessage(msg);
         _lastTimestamps[channelId] = msg.CreatedAt;
+    }
+
+    private async Task RefreshActiveAsync()
+    {
+        var target = SelectedTarget;
+        if (target is null || !IsLoggedIn) return;
+        try
+        {
+            var history = await AppServices.Chat.LoadAsync(target.ChannelId, null, 60);
+            foreach (var m in history)
+            {
+                if (_blocked.Contains(m.AuthorId ?? string.Empty)) continue;
+                if (Messages.All(x => x.Id != m.Id))
+                    AppendMessage(m);
+            }
+            if (history.Count > 0)
+                _lastTimestamps[target.ChannelId] = history[^1].CreatedAt;
+        }
+        catch (Exception ex)
+        {
+            LogService.Warn("chat-refresh", ex);
+        }
     }
 
     [RelayCommand]

@@ -1,4 +1,4 @@
-<Window xmlns="https://github.com/avaloniaui"
+﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:GamingHub.App.ViewModels"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -78,13 +78,28 @@
                                     Cursor="Hand"
                                     ToolTip.Tip="Klicken, um das Update direkt zu installieren">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <TextBlock Text="⬆" FontSize="12" />
+                                    <TextBlock Text="â¬†" FontSize="12" />
                                     <TextBlock Text="{Binding UpdateBannerText}" FontSize="11" TextWrapping="Wrap" TextAlignment="Center" />
                                 </StackPanel>
                             </Button>
                             <ProgressBar IsVisible="{Binding ShowUpdateInstalling}" IsIndeterminate="True" Height="4" />
                             <TextBlock Text="{Binding UpdateStatusText}" IsVisible="{Binding IsInstallingUpdate}"
                                        FontSize="11" Classes="muted" TextWrapping="Wrap" />
+
+                            <!-- Offline-Hinweis -->
+                            <Border IsVisible="{Binding ShowOfflineHint}"
+                                    Margin="0,12,0,0" Padding="12,10" CornerRadius="8"
+                                    Background="#F8717122" BorderBrush="#F87171" BorderThickness="1">
+                                <StackPanel Spacing="6">
+                                    <Grid ColumnDefinitions="Auto,*" VerticalAlignment="Center">
+                                        <TextBlock Grid.Column="0" Text="ðŸ“¡" FontSize="16" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="1" Text="Keine Internetverbindung â€“ Web-Recherche &amp; Online-Features deaktiviert."
+                                                   TextWrapping="Wrap" FontSize="11" VerticalAlignment="Center" Margin="8,0,0,0" />
+                                    </Grid>
+                                    <Button Content="ðŸ”„ Verbindung prÃ¼fen" Command="{Binding InternetCheckerViewModel.RunTestCommand}"
+                                            Classes="ghost" Padding="8,4" HorizontalAlignment="Left" FontSize="11" />
+                                </StackPanel>
+                            </Border>
                         </StackPanel>
                     </Border>
                 </StackPanel>
@@ -99,14 +114,14 @@
 
             <Border Grid.Row="1" Background="{DynamicResource BottomBarBrush}" Padding="16,7">
                 <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock Grid.Column="0" Text="Haftungsausschluss: Nutzung auf eigene Gefahr – keine Haftung für Schäden an Hard- oder Software."
+                    <TextBlock Grid.Column="0" Text="Haftungsausschluss: Nutzung auf eigene Gefahr â€“ keine Haftung fÃ¼r SchÃ¤den an Hard- oder Software."
                                FontSize="11" Classes="muted" VerticalAlignment="Center" />
                     <TextBlock Grid.Column="1" Text="{Binding VersionDisplay}" FontSize="11" Classes="muted" VerticalAlignment="Center" />
                 </Grid>
             </Border>
         </Grid>
 
-        <!-- Update-Popup: „Update installiert – Neustart erforderlich“ -->
+        <!-- Update-Popup: â€žUpdate installiert â€“ Neustart erforderlichâ€œ -->
         <Grid Grid.ColumnSpan="2" IsVisible="{Binding ShowRestartPopup}"
               Background="#99070A16" ZIndex="50">
             <Border Width="440" Padding="26,22" CornerRadius="16"
@@ -118,7 +133,7 @@
                     <TextBlock Text="{Binding RestartPopupText}" FontSize="12.5" Classes="muted"
                                TextWrapping="Wrap" TextAlignment="Center" />
                     <Grid ColumnDefinitions="*,*" Margin="0,6,0,0">
-                        <Button Grid.Column="0" Content="Später" Margin="0,0,6,0" Padding="10,8"
+                        <Button Grid.Column="0" Content="SpÃ¤ter" Margin="0,0,6,0" Padding="10,8"
                                 Command="{Binding RestartLaterCommand}" Background="Transparent" BorderBrush="#335482" />
                         <Button Grid.Column="1" Content="Jetzt neu starten" Margin="6,0,0,0" Padding="10,8"
                                 Classes="accent" Command="{Binding RestartNowCommand}" />
@@ -128,3 +143,4 @@
         </Grid>
     </Grid>
 </Window>
+

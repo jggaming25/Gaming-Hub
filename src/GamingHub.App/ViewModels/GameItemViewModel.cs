@@ -11,6 +11,8 @@ public partial class GameItemViewModel : ViewModelBase
 
     public GameInfo Model { get; }
 
+    public Avalonia.Media.Imaging.Bitmap? Icon => _icon;
+
     [ObservableProperty] private bool _isRunning;
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private long _sizeBytes;
@@ -23,7 +25,18 @@ public partial class GameItemViewModel : ViewModelBase
         _sizeBytes = model.SizeOnDisk;
         _playtime = model.TotalPlaytime;
         _isRunning = model.IsRunning;
+
+        if (!string.IsNullOrWhiteSpace(model.IconPath) && File.Exists(model.IconPath))
+        {
+            try
+            {
+                _icon = new Avalonia.Media.Imaging.Bitmap(model.IconPath);
+            }
+            catch { /* ignore */ }
+        }
     }
+
+    private Avalonia.Media.Imaging.Bitmap? _icon;
 
     public string Name => Model.Name;
     public string SourceName => Model.Source.ToString();

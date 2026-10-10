@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Drawing;
+using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -36,8 +38,12 @@ public sealed class GameLibraryService
     {
         _playtime = new PlaytimeStore(dataDirectory);
         _cachePath = Path.Combine(dataDirectory, "games-cache.json");
+        _iconCacheDir = Path.Combine(dataDirectory, "game-icons");
+        Directory.CreateDirectory(_iconCacheDir);
         _lastTickUtc = DateTime.UtcNow;
     }
+
+    private readonly string _iconCacheDir;
 
     /// <summary>Gibt an, ob bereits ein Scan-Cache aus einem früheren Lauf vorliegt.</summary>
     public bool HasCache => File.Exists(_cachePath);
@@ -74,9 +80,11 @@ public sealed class GameLibraryService
                 .OrderBy(g => g.Name, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
+            // Extract icons for games with executable paths
             foreach (var game in merged)
             {
                 game.Category = GameClassifier.Classify(game.Name, game.Source);
+                ExtractIconForGame(game);
                 MergePlaytime(game);
             }
 
@@ -97,6 +105,36 @@ public sealed class GameLibraryService
         var rec = _playtime.Get(game.Id);
         game.TotalPlaytime = TimeSpan.FromSeconds(rec.TotalSeconds);
         game.LastPlayedUtc = rec.LastPlayedUtc;
+    }
+
+    /// <summary>Extracts the associated icon from the game's executable and saves it as PNG.</summary>
+    private void ExtractIconForGame(GameInfo game)
+    {
+        try
+        {
+            string? exe = game.ExecutablePath;
+            if (string.IsNullOrWhiteSpace(exe) || !File.Exists(exe))
+                return;
+
+            string cacheFile = Path.Combine(_iconCacheDir, $"{game.Id}.png");
+            if (File.Exists(cacheFile))
+            {
+                game.IconPath = cacheFile;
+                return;
+            }
+
+            using var icon = System.Drawing.Icon.ExtractAssociatedIcon(exe);
+            if (icon is null)
+                return;
+
+            using var bitmap = icon.ToBitmap();
+            bitmap.Save(cacheFile, System.Drawing.Imaging.ImageFormat.Png);
+            game.IconPath = cacheFile;
+        }
+        catch
+        {
+            // ignore icon extraction failures
+        }
     }
 
     private void SaveCache(List<GameInfo> games, string markers)

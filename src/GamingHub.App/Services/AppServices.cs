@@ -15,6 +15,7 @@ public static class AppServices
     public static FileDeletionService FileDeletion { get; }
     public static SystemMonitorService SystemMonitor { get; }
     public static HistoryService History { get; }
+    public static InternetService Internet { get; }
     public static CompatibilityService Compatibility { get; }
     public static WebResearchService WebResearch { get; }
     public static UpdateService Updater { get; }
@@ -29,6 +30,7 @@ public static class AppServices
 
     public static void Shutdown()
     {
+        Internet.Stop();
         Calls.Stop();
         History.Stop();
         Notifications.Shutdown();
@@ -59,6 +61,7 @@ public static class AppServices
         FileDeletion = new FileDeletionService();
         SystemMonitor = new SystemMonitorService();
         History = new HistoryService();
+        Internet = new InternetService();
         Compatibility = new CompatibilityService();
         WebResearch = new WebResearchService();
         Updater = new UpdateService();
@@ -71,5 +74,6 @@ public static class AppServices
         Chat = new ChatService();
         Calls = new CallService();
         Calls.Start();
+        Internet.Start();
     }
 }

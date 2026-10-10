@@ -46,6 +46,11 @@ public partial class MainViewModel : ViewModelBase
     /// <summary>Popup „Update installiert – Neustart erforderlich“ im Hauptfenster.</summary>
     [ObservableProperty] private bool _showRestartPopup;
 
+    public InternetCheckerViewModel InternetCheckerViewModel { get; }
+
+    /// <summary>Offline-Hinweis in der Sidebar (wenn Internet weg, aber App läuft).</summary>
+    public bool ShowOfflineHint => AppServices.Internet.OfflineMode;
+
     public string RestartBannerText => RestartPending
         ? $"Neu starten, um Version {AppServices.Updater.PendingVersion ?? UpdateVersion} zu aktivieren"
         : string.Empty;
@@ -53,8 +58,8 @@ public partial class MainViewModel : ViewModelBase
     public bool ShowRestartBanner => RestartPending && !ShowRestartPopup && !IsInstallingUpdate;
 
     public string RestartPopupText => $"Das Update {AppServices.Updater.PendingVersion ?? UpdateVersion} wurde bereits installiert.\n\n" +
-                                      "Für die neue Version ist ein Neustart von Gaming Hub erforderlich.\n\n" +
-                                      "Möchtest du jetzt neu starten?";
+                                          "Für die neue Version ist ein Neustart von Gaming Hub erforderlich.\n\n" +
+                                          "Möchtest du jetzt neu starten?";
 
     public string RestartPopupTitle => $"Update {AppServices.Updater.PendingVersion ?? UpdateVersion} installiert";
 
@@ -133,12 +138,15 @@ public partial class MainViewModel : ViewModelBase
         var chat = new ChatViewModel();
         var profile = new ProfileViewModel();
         var settings = new SettingsViewModel();
+        var internetChecker = new InternetCheckerViewModel();
+        InternetCheckerViewModel = internetChecker;
 
         _allNav.Add(new NavItem { Title = "Spiele", Glyph = "\uE7FC", FlagKey = "games_enabled", ViewModel = games });
         _allNav.Add(new NavItem { Title = "Disk Cleanup", Glyph = "\uE74D", FlagKey = "cleanup_enabled", ViewModel = cleanup });
         _allNav.Add(new NavItem { Title = "System-Ressourcen", Glyph = "\uE9D9", ViewModel = resources });
         _allNav.Add(new NavItem { Title = "Bugreport", Glyph = "\uE7BA", FlagKey = "bugreport_enabled", ViewModel = bug });
         _allNav.Add(new NavItem { Title = "Kommunikation", Glyph = "\uE8BD", FlagKey = "chat_enabled", ViewModel = chat });
+        _allNav.Add(new NavItem { Title = "Internet-Checker", Glyph = "\uE727", FlagKey = "internet_checker_enabled", ViewModel = internetChecker });
         _allNav.Add(new NavItem { Title = "Profil", Glyph = "\uE77B", ViewModel = profile });
         _allNav.Add(new NavItem { Title = "Einstellungen", Glyph = "\uE713", ViewModel = settings });
 
@@ -171,6 +179,7 @@ public partial class MainViewModel : ViewModelBase
     private void RebuildNav(Dictionary<string, bool> flags)
     {
         bool isAdmin = AppServices.Profile?.IsAdmin == true;
+        bool isPremium = AppServices.Profile?.IsPremium == true;
         _lastSelected = SelectedNav;
 
         NavItems.Clear();
@@ -178,6 +187,7 @@ public partial class MainViewModel : ViewModelBase
         {
             bool enabled = item.FlagKey is null
                            || isAdmin
+                           || (item.FlagKey == "internet_checker_enabled" && isPremium)
                            || !flags.TryGetValue(item.FlagKey, out var v)
                            || v;
             if (enabled)

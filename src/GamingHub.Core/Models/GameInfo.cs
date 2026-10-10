@@ -43,6 +43,9 @@ public sealed class GameInfo
     /// <summary>Process name (without extension) used to detect a running instance.</summary>
     public string? ProcessName { get; set; }
 
+    /// <summary>Optional path to an extracted icon file (PNG/ICO) for display in the library.</summary>
+    public string? IconPath { get; set; }
+
     public long SizeOnDisk { get; set; }
 
     public GameCategory Category { get; set; } = GameCategory.Other;
