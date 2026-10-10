@@ -16,6 +16,7 @@ public static class AppServices
     public static SystemMonitorService SystemMonitor { get; }
     public static HistoryService History { get; }
     public static InternetService Internet { get; }
+    public static RgbService Rgb { get; }
     public static CompatibilityService Compatibility { get; }
     public static WebResearchService WebResearch { get; }
     public static UpdateService Updater { get; }
@@ -59,6 +60,7 @@ public static class AppServices
         SystemMonitor = new SystemMonitorService();
         History = new HistoryService();
         Internet = new InternetService();
+        Rgb = new RgbService(Settings.DataDirectory);
         Compatibility = new CompatibilityService();
         WebResearch = new WebResearchService();
         Updater = new UpdateService();

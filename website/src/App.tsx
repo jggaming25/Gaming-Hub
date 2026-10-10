@@ -22,6 +22,20 @@ const FEATURES = [
 
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   {
+    version: "0.5.6",
+    date: "Oktober 2026",
+    items: [
+      "Neuer „Beleuchtung“ Tab: RGB-Steuerung für Maus, Tastatur, Lüfter, GPU, Mainboard via OpenRGB",
+      "Premium-Status im Profil: Countdown mit verbleibender Zeit, Fortschrittsbalken",
+      "Spiel-Icons in der Bibliothek (automatische Extraktion via System.Drawing)",
+      "Internet-Checker: Pfad-Test, 4-Wochen-Verlauf, Router-vs-ISP Einschätzung, Offline-Hinweis",
+      "GPU-Auslastung repariert (korrekte WMI-Klasse), Cleanup-ETA immer sichtbar mit 10-Sek-Takt",
+      "Downloads: Neueste für alle, ältere 5 per Admin-Toggle sperrbar",
+      "Premium-Codes: Laufzeit/Gültig-bis, unendlich wenn leer, stapelt auf bestehendem Premium",
+      "Chat/Voice/Video komplett entfernt"
+    ]
+  },
+  {
     version: "0.5.1",
     date: "Oktober 2026",
     items: [

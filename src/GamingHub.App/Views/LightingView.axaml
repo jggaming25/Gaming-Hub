@@ -1,0 +1,189 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:GamingHub.App.ViewModels"
+             xmlns:models="using:GamingHub.Core.Services"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="1100" d:DesignHeight="700"
+             x:Class="GamingHub.App.Views.LightingView"
+             x:DataType="vm:LightingViewModel">
+
+    <Grid ColumnDefinitions="320,*" Margin="8">
+        <!-- Linke Spalte: Ger�te & Profile -->
+        <Border Grid.Column="0" Classes="card" Margin="0,0,8,0">
+            <StackPanel Spacing="12">
+                <!-- Header -->
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="??" FontSize="24" VerticalAlignment="Center" />
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="RGB Beleuchtung" FontWeight="Bold" FontSize="18" />
+                        <TextBlock Text="OpenRGB Integration" Classes="muted" FontSize="11" />
+                    </StackPanel>
+                    <Border Margin="10,0,0,0" Padding="6,2" CornerRadius="4"
+                            Background="{Binding IsConnected, Converter={x:Static vm:CommonConverters.MessageBrush}, ConverterParameter=#4ADE80:#F87171}">
+                        <TextBlock Text="{Binding IsConnected, Converter={x:Static vm:CommonConverters.BoolToText}, ConverterParameter=Verbunden:Getrennt}"
+                                   FontSize="10" Foreground="White" FontWeight="Bold" />
+                    </Border>
+                </StackPanel>
+
+                <!-- Verbindung -->
+                <Border Classes="card" Padding="10" Background="#0B0D1A">
+                    <StackPanel Spacing="8">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Content="Verbinden" Command="{Binding ConnectCommand}" IsVisible="{Binding !IsConnected}" Classes="accent" />
+                            <Button Content="Trennen" Command="{Binding DisconnectCommand}" IsVisible="{Binding IsConnected}" Classes="ghost" />
+                            <Button Content="Neu verbinden" Command="{Binding ConnectCommand}" IsVisible="{Binding IsConnected}" />
+                        </StackPanel>
+                        <TextBlock Text="{Binding StatusText}" FontSize="11" Classes="muted" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Ger�te -->
+                <Border Classes="card">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="?? Ger�te" FontWeight="SemiBold" FontSize="14" />
+                        <ItemsControl ItemsSource="{Binding Devices}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="models:RgbDevice">
+                                    <Border Classes="card" Margin="0,4" Padding="10" Background="#0B0D1A">
+                                        <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,4">
+                                            <TextBlock Grid.Column="0" Text="{Binding Type, Converter={x:Static vm:CommonConverters.RgbTypeToGlyph}}" FontSize="20" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13" />
+                                                <TextBlock Text="{Binding Type}" FontSize="10" Classes="muted" />
+                                            </StackPanel>
+                                            <Border Grid.Column="2" Width="32" Height="32" CornerRadius="6" VerticalAlignment="Center"
+                                                    Background="{Binding CurrentColor, Converter={x:Static vm:CommonConverters.ColorToBrush}}" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <!-- Profile -->
+                <Border Classes="card">
+                    <StackPanel Spacing="8">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="?? Profile" FontWeight="SemiBold" FontSize="14" VerticalAlignment="Center" />
+                            <Button Content="+" Command="{Binding SaveProfileCommand}" Classes="accent" Padding="8,4" FontSize="18" VerticalAlignment="Center" />
+                        </StackPanel>
+
+                        <ItemsControl ItemsSource="{Binding Profiles}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="models:RgbProfile">
+                                    <Border Classes="card" Padding="10" Margin="0,4" Background="#0B0D1A">
+                                        <Grid ColumnDefinitions="*,Auto" Margin="0,2">
+                                            <StackPanel Grid.Column="0" Spacing="2">
+                                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13" />
+                                                <TextBlock Text="{Binding CreatedAt, StringFormat='{}{0:dd.MM.yyyy HH:mm}'}" FontSize="10" Classes="muted" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                                <Button Content="Laden" Command="{Binding $parent[vm:LightingViewModel].LoadProfileCommand}" CommandParameter="{Binding }" Classes="ghost" Padding="6,2" FontSize="11" />
+                                                <Button Content="??" Command="{Binding $parent[vm:LightingViewModel].DeleteProfileCommand}" CommandParameter="{Binding }" Classes="ghost" Padding="6,2" FontSize="11" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </Border>
+
+        <!-- Rechte Spalte: Ger�te-Steuerung -->
+        <Border Grid.Column="1" Classes="card" Padding="16">
+            <StackPanel Spacing="16">
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                    <TextBlock Text="?? Steuerung" FontWeight="Bold" FontSize="18" VerticalAlignment="Center" />
+                    <Border Padding="6,2" CornerRadius="4" Background="#0B0D1A"
+                            IsVisible="{Binding !CanControl}">
+                        <TextBlock Text="Kein Ger�t ausgew�hlt oder nicht verbunden" Classes="muted" FontSize="11" VerticalAlignment="Center" />
+                    </Border>
+                </StackPanel>
+
+                <Border IsVisible="{Binding CanControl}" Classes="card" Padding="16">
+                    <StackPanel Spacing="16">
+                        <TextBlock Text="{Binding SelectedDevice.Name}" FontWeight="Bold" FontSize="18" />
+                        <TextBlock Text="{Binding SelectedDevice.Type}" Classes="muted" FontSize="11" />
+
+                        <!-- Farbe -->
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="?? Farbe" FontWeight="SemiBold" FontSize="14" />
+                            <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
+                                <Border Grid.Column="0" Width="48" Height="48" CornerRadius="8"
+                                        Background="{Binding SelectedColor, Converter={x:Static vm:CommonConverters.ColorToBrush}}" />
+                                <Grid Grid.Column="1" ColumnDefinitions="*,*,*" Margin="12,0" VerticalAlignment="Center">
+                                    <StackPanel Grid.Column="0" Spacing="4">
+                                        <TextBlock Text="R" FontSize="11" Classes="muted" />
+                                        <TextBox Text="{Binding SelectedColor.R, Mode=TwoWay}" Width="60" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Spacing="4" Margin="8,0">
+                                        <TextBlock Text="G" FontSize="11" Classes="muted" />
+                                        <TextBox Text="{Binding SelectedColor.G, Mode=TwoWay}" Width="60" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2" Spacing="4" Margin="8,0">
+                                        <TextBlock Text="B" FontSize="11" Classes="muted" />
+                                        <TextBox Text="{Binding SelectedColor.B, Mode=TwoWay}" Width="60" />
+                                    </StackPanel>
+                                </Grid>
+                                <TextBlock Grid.Column="2" Text="{Binding SelectedColor.ToHex}" FontSize="13" FontFamily="Consolas" VerticalAlignment="Center" Margin="12,0,0,0" />
+                            </Grid>
+                            <Button Content="Farbe anwenden" Command="{Binding ApplyColorCommand}" Classes="accent" HorizontalAlignment="Left" Padding="16,8" />
+                        </StackPanel>
+
+                        <!-- Effekt -->
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="? Effekt" FontWeight="SemiBold" FontSize="14" />
+                            <ComboBox ItemsSource="{Binding AvailableEffects}"
+                                      SelectedItem="{Binding SelectedEffect, Mode=TwoWay}"
+                                      HorizontalAlignment="Left" Width="200" />
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <StackPanel>
+                                    <TextBlock Text="Geschwindigkeit" FontSize="11" Classes="muted" />
+                                    <Slider Value="{Binding EffectSpeed, Mode=TwoWay}" Minimum="1" Maximum="100" Width="200" />
+                                </StackPanel>
+                                <StackPanel VerticalAlignment="Bottom">
+                                    <TextBlock Text="{Binding EffectSpeed}" FontSize="13" FontWeight="Bold" />
+                                </StackPanel>
+                            </StackPanel>
+                            <Button Content="Effekt anwenden" Command="{Binding ApplyEffectCommand}" Classes="accent" HorizontalAlignment="Left" Padding="16,8" />
+                        </StackPanel>
+
+                        <!-- Zonen -->
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="?? Zonen" FontWeight="SemiBold" FontSize="14" />
+                            <ItemsControl ItemsSource="{Binding SelectedDevice.Zones}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="models:RgbZone">
+                                        <Border Classes="card" Padding="10" Margin="0,4" Background="#0B0D1A">
+                                            <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
+                                                <TextBlock Grid.Column="0" Text="{Binding Name}" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,12,0" />
+                                                <TextBlock Grid.Column="1" Text="{Binding LedCount, StringFormat='{} {0} LEDs'}" Classes="muted" VerticalAlignment="Center" />
+                                                <Button Grid.Column="2" Content="Farbe setzen" Command="{Binding $parent[vm:LightingViewModel].ApplyZoneColorCommand}"
+                                                        CommandParameter="{Binding Index}" Classes="ghost" Padding="8,4" FontSize="11" />
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Profil erstellen -->
+                <Border Classes="card" Padding="12" Background="#0B0D1A">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="?? Neues Profil speichern" FontWeight="SemiBold" FontSize="14" />
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBox Text="{Binding NewProfileName, Mode=TwoWay}" PlaceholderText="Profilname" Width="200" />
+                            <Button Content="Speichern" Command="{Binding SaveProfileCommand}" Classes="accent" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

@@ -1,4 +1,6 @@
+using System;
 using System.Collections.ObjectModel;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using GamingHub.App.Services;
@@ -17,10 +19,16 @@ public partial class ProfileViewModel : ViewModelBase
 
     [ObservableProperty] private string _premiumCode = string.Empty;
     [ObservableProperty] private string _premiumStatusText = "Kein aktives Premium.";
+    [ObservableProperty] private string _premiumTimeRemaining = "–";
+    [ObservableProperty] private bool _isPremiumActive;
+    [ObservableProperty] private double _premiumProgress;
+    [ObservableProperty] private string _premiumProgressText = string.Empty;
 
     public string VersionDisplay => AppInfo.VersionDisplay;
     public bool IsConfigured => AppServices.Auth.IsConfigured;
     public bool IsLoggedIn => AppServices.Auth.IsLoggedIn;
+
+    private readonly DispatcherTimer _premiumTimer;
 
     public string DisplayName =>
         AppServices.Auth.CurrentUser?.DisplayName
@@ -33,6 +41,10 @@ public partial class ProfileViewModel : ViewModelBase
 
     public ProfileViewModel()
     {
+        _premiumTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
+        _premiumTimer.Tick += (_, _) => UpdatePremiumCountdown();
+        _premiumTimer.Start();
+
         AppServices.Auth.Changed += OnAuthChanged;
         AppServices.Premium.Changed += OnPremiumChanged;
         AppServices.Profile.Changed += OnProfileChanged;
@@ -54,6 +66,8 @@ public partial class ProfileViewModel : ViewModelBase
     public void UpdatePremiumStatus()
     {
         var until = AppServices.Premium.PremiumUntil;
+        IsPremiumActive = AppServices.Premium.IsPremium && !AppServices.Premium.IsPremiumBanned;
+
         if (AppServices.Premium.IsPremiumBanned)
             PremiumStatusText = "Premium wurde für dein Konto gesperrt.";
         else if (AppServices.Premium.IsPremium && until is { } u)
@@ -62,9 +76,42 @@ public partial class ProfileViewModel : ViewModelBase
             PremiumStatusText = $"Premium abgelaufen ({expired.ToLocalTime():d}).";
         else
             PremiumStatusText = "Kein aktives Premium.";
+
+        UpdatePremiumCountdown();
         OnPropertyChanged(nameof(IsPremium));
         OnPropertyChanged(nameof(IsPremiumBanned));
         OnPropertyChanged(nameof(PremiumUntilDisplay));
+        OnPropertyChanged(nameof(IsPremiumActive));
+    }
+
+    private void UpdatePremiumCountdown()
+    {
+        var until = AppServices.Premium.PremiumUntil;
+        if (until is { } u && u > DateTimeOffset.Now && IsPremiumActive)
+        {
+            var remaining = u - DateTimeOffset.Now;
+            PremiumTimeRemaining = remaining.Days > 0
+                ? $"{remaining.Days}d {remaining.Hours}h {remaining.Minutes}m"
+                : $"{remaining.Hours}h {remaining.Minutes}m {remaining.Seconds}s";
+
+            // Progress: assume max 365 days for progress bar
+            var totalDays = 365.0;
+            var elapsedDays = (DateTimeOffset.Now - (u - TimeSpan.FromDays(totalDays))).TotalDays;
+            PremiumProgress = Math.Clamp((totalDays - remaining.TotalDays) / totalDays * 100, 0, 100);
+            PremiumProgressText = $"{PremiumProgress:F1}% verbraucht";
+        }
+        else if (until is { } u2 && u2 == DateTimeOffset.MaxValue)
+        {
+            PremiumTimeRemaining = "Unbegrenzt";
+            PremiumProgress = 0;
+            PremiumProgressText = "Unbegrenzt";
+        }
+        else
+        {
+            PremiumTimeRemaining = IsPremiumActive ? "Unbegrenzt" : "–";
+            PremiumProgress = 0;
+            PremiumProgressText = string.Empty;
+        }
     }
 
     public bool IsPremium => AppServices.Premium.IsPremium;
