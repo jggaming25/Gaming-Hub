@@ -15,6 +15,7 @@ public static class AppServices
     public static FileDeletionService FileDeletion { get; }
     public static SystemMonitorService SystemMonitor { get; }
     public static CompatibilityService Compatibility { get; }
+    public static UpdateService Updater { get; }
     public static AuthService Auth { get; }
     public static BadgeService Badges { get; }
     public static BugService Bugs { get; }
@@ -50,6 +51,7 @@ public static class AppServices
         FileDeletion = new FileDeletionService();
         SystemMonitor = new SystemMonitorService();
         Compatibility = new CompatibilityService();
+        Updater = new UpdateService();
         Auth = new AuthService(Settings.DataDirectory);
         Badges = new BadgeService(Settings.DataDirectory);
         Badges.EvaluateAutomatic(Settings.Settings.FirstEverLaunchUtc);

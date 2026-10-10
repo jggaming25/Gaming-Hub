@@ -1,5 +1,6 @@
 ﻿using Avalonia;
 using System;
+using Velopack;
 
 namespace GamingHub.App;
 
@@ -11,6 +12,10 @@ sealed class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        // Marker for Velopack packaging (Setup-Installer). Der Auto-Update-Check
+        // über GitHub Releases ist bewusst entfernt – Updates laufen nicht mehr automatisch.
+        VelopackApp.Build().Run();
+
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }
 

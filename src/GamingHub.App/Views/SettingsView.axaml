@@ -17,10 +17,15 @@
             <Border Classes="card">
                 <StackPanel Spacing="10">
                     <TextBlock Text="Updates &amp; Extras" FontWeight="SemiBold" FontSize="16" />
-                    <TextBlock Text="Automatische Updates über GitHub Releases werden nicht mehr angeboten. Die neueste Version kannst du jederzeit direkt von der Website herunterladen – so bleibt alles an einem Ort." FontSize="12" Classes="muted" TextWrapping="Wrap" />
+                    <TextBlock Text="Beim Start wird automatisch nach neuen Versionen gesucht. Die Erstinstallation und manuelle Downloads bekommst du zusätzlich über die Website." FontSize="12" Classes="muted" TextWrapping="Wrap" />
+                    <CheckBox Content="Beim Start automatisch nach Updates suchen" IsChecked="{Binding AutoCheckUpdates, Mode=TwoWay}" />
+                    <CheckBox Content="Updates automatisch installieren und neu starten" IsChecked="{Binding AutoInstallUpdates, Mode=TwoWay}" />
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Button Content="Zur Website (Download)" Command="{Binding OpenWebsiteCommand}" Classes="accent" />
+                        <Button Content="Jetzt nach Updates suchen" Command="{Binding CheckForUpdatesCommand}" Classes="accent" />
+                        <Button Content="Update installieren" Command="{Binding InstallUpdateCommand}" IsVisible="{Binding UpdateAvailable}" />
+                        <Button Content="Zur Website (Download)" Command="{Binding OpenWebsiteCommand}" />
                     </StackPanel>
+                    <TextBlock Text="{Binding UpdateStatus}" FontSize="12" Classes="muted" TextWrapping="Wrap" />
                 </StackPanel>
             </Border>
 

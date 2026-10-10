@@ -9,6 +9,8 @@ public sealed class AppSettings
     public DateTime? FirstEverLaunchUtc { get; set; }
 
     public string ThemeVariant { get; set; } = "Dark";
+    public bool AutoCheckUpdates { get; set; } = true;
+    public bool AutoInstallUpdates { get; set; } = true;
     public bool DesktopNotificationsEnabled { get; set; } = true;
     public bool NotificationSoundEnabled { get; set; } = true;
 
