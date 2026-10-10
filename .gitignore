@@ -3,8 +3,12 @@
 [Oo]bj/
 [Oo]ut/
 publish/
+build/
 artifacts/
 releases/
+
+# Standalone build artifact (rebuilt with build-exe.cmd)
+/GamingHub.exe
 
 # Velopack
 *.nupkg
