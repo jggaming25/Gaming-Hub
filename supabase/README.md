@@ -10,7 +10,9 @@ Diese Anleitung aktiviert Login, Abzeichen, Bugtracker und (später) Chat/Voice.
 1. Im Dashboard links auf **SQL Editor** → **New query**.
 2. Inhalt von [`schema.sql`](schema.sql) einfügen und **Run**.
 
-Enthält Tabellen `profiles`, `badges`, `bugs`, `bug_comments`, Row Level Security und die Admin-Funktion.
+Enthält Tabellen `profiles`, `badges`, `bugs`, `bug_comments`, `chat_channels`, `chat_messages`, `call_signals`, Row Level Security und die Admin-Funktion.
+
+> Nach einem Update von `schema.sql` dieses einfach erneut komplett im SQL Editor ausführen – es ist idempotent (`create table if not exists` / `add column if not exists`).
 
 ## 3. Zugangsdaten eintragen
 Unter **Project Settings → API**:
@@ -53,3 +55,11 @@ Admins sehen im Website-Bugtracker alle Meldungen und können Status/Kommentare 
 | `badges` | Verdiente Abzeichen je Nutzer |
 | `bugs` | Bugreports (Status: open / in_progress / done / rejected) |
 | `bug_comments` | Kommentar-Verlauf zu Bugs, inkl. Admin-Antworten |
+| `chat_channels` | Chat-Kanäle (allgemein + Direktnachrichten) |
+| `chat_messages` | Nachrichten je Kanal |
+| `call_signals` | Signaling für Sprach-/Videoanrufe (WebRTC) |
+
+## 7. Chat & Anrufe
+- Chat/Anrufe laufen **nur in der App** (nicht auf der Website).
+- Für Sprach-/Videoanrufe muss dem Programm unter **Windows → Einstellungen → Datenschutz → Mikrofon / Kamera** Zugriff erlaubt sein.
+- Anrufe verbinden Geräte direkt (WebRTC/Peer-to-Peer); es fließen keine Medien über Supabase.

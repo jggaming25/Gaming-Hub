@@ -1,4 +1,8 @@
 using System.Collections.ObjectModel;
+using System.Runtime.InteropServices;
+using Avalonia;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -53,6 +57,20 @@ public partial class ChatViewModel : ViewModelBase
     [ObservableProperty] private bool _isLoggedIn;
     [ObservableProperty] private bool _isBusy;
 
+    // ----- Anrufe (WebRTC) -----
+    [ObservableProperty] private WriteableBitmap? _localVideo;
+    [ObservableProperty] private WriteableBitmap? _remoteVideo;
+    private bool _localFramePending;
+    private bool _remoteFramePending;
+
+    public bool CallActive => AppServices.Calls.IsBusy;
+    public bool IsIncoming => AppServices.Calls.State == CallState.RingingIn;
+    public bool IsCallConnected => AppServices.Calls.State == CallState.Active;
+    public bool IsVideoCall => AppServices.Calls.VideoCall;
+    public string CallPeerName => AppServices.Calls.PeerName ?? "…";
+    public string CallStateText => AppServices.Calls.StatusText ?? string.Empty;
+    public bool CanCallSelected => IsLoggedIn && SelectedTarget?.IsDirect == true && !AppServices.Calls.IsBusy;
+
     public bool DesktopNotificationsEnabled
     {
         get => AppServices.Settings.Settings.DesktopNotificationsEnabled;
@@ -79,7 +97,69 @@ public partial class ChatViewModel : ViewModelBase
         _timer.Tick += async (_, _) => await PollAsync();
 
         AppServices.Auth.Changed += OnAuthChanged;
+        WireCalls();
         _ = EvaluateAuthAsync();
+    }
+
+    private void WireCalls()
+    {
+        var calls = AppServices.Calls;
+        calls.Changed += () => Dispatcher.UIThread.Post(() => RaiseCallProps());
+        calls.IncomingCall += name => Dispatcher.UIThread.Post(() =>
+        {
+            AppServices.Notifications.IncomingCall(name);
+            RaiseCallProps();
+        });
+        calls.MissedCall += name => Dispatcher.UIThread.Post(() => AppServices.Notifications.MissedCall(name));
+        calls.Ended += msg => Dispatcher.UIThread.Post(() =>
+        {
+            if (!string.IsNullOrEmpty(msg)) StatusText = msg;
+            RaiseCallProps();
+        });
+        calls.LocalVideoFrame += (b, w, h) => PostFrame(true, b, w, h);
+        calls.RemoteVideoFrame += (b, w, h) => PostFrame(false, b, w, h);
+    }
+
+    private void RaiseCallProps()
+    {
+        OnPropertyChanged(nameof(CallActive));
+        OnPropertyChanged(nameof(IsIncoming));
+        OnPropertyChanged(nameof(IsCallConnected));
+        OnPropertyChanged(nameof(IsVideoCall));
+        OnPropertyChanged(nameof(CallPeerName));
+        OnPropertyChanged(nameof(CallStateText));
+        OnPropertyChanged(nameof(CanCallSelected));
+    }
+
+    private void PostFrame(bool local, byte[] bgra, int w, int h)
+    {
+        if (local) { if (_localFramePending) return; _localFramePending = true; }
+        else { if (_remoteFramePending) return; _remoteFramePending = true; }
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            try
+            {
+                if (local) { LocalVideo = RenderBitmap(LocalVideo, bgra, w, h); _localFramePending = false; }
+                else { RemoteVideo = RenderBitmap(RemoteVideo, bgra, w, h); _remoteFramePending = false; }
+            }
+            catch { if (local) _localFramePending = false; else _remoteFramePending = false; }
+        });
+    }
+
+    private static WriteableBitmap RenderBitmap(WriteableBitmap? existing, byte[] bgra, int w, int h)
+    {
+        if (w <= 0 || h <= 0) return existing!;
+        var bmp = existing;
+        if (bmp is null || bmp.PixelSize.Width != w || bmp.PixelSize.Height != h)
+            bmp = new WriteableBitmap(new PixelSize(w, h), new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Opaque);
+
+        using (var fb = bmp.Lock())
+        {
+            int bytes = Math.Min(bgra.Length, w * h * 4);
+            Marshal.Copy(bgra, 0, fb.Address, bytes);
+        }
+        return bmp;
     }
 
     private async Task EvaluateAuthAsync()
@@ -150,6 +230,7 @@ public partial class ChatViewModel : ViewModelBase
 
     partial void OnSelectedTargetChanged(ChatTargetItem? value)
     {
+        OnPropertyChanged(nameof(CanCallSelected));
         if (value is null) return;
         _ = SwitchTargetAsync(value);
     }
@@ -197,6 +278,29 @@ public partial class ChatViewModel : ViewModelBase
         StatusText = string.Empty;
         await PollAsync();
     }
+
+    [RelayCommand]
+    private async Task CallVoiceAsync()
+    {
+        if (SelectedTarget is { IsDirect: true } t)
+            await AppServices.Calls.StartCallAsync(t.ContactId, t.Name, video: false);
+    }
+
+    [RelayCommand]
+    private async Task CallVideoAsync()
+    {
+        if (SelectedTarget is { IsDirect: true } t)
+            await AppServices.Calls.StartCallAsync(t.ContactId, t.Name, video: true);
+    }
+
+    [RelayCommand]
+    private async Task AcceptCallAsync() => await AppServices.Calls.AcceptAsync();
+
+    [RelayCommand]
+    private async Task DeclineCallAsync() => await AppServices.Calls.DeclineAsync();
+
+    [RelayCommand]
+    private async Task HangupCallAsync() => await AppServices.Calls.HangupAsync();
 
     private async Task PollAsync()
     {

@@ -20,10 +20,12 @@ public static class AppServices
     public static BadgeService Badges { get; }
     public static BugService Bugs { get; }
     public static ChatService Chat { get; }
+    public static CallService Calls { get; }
     public static NotificationService Notifications { get; } = new();
 
     public static void Shutdown()
     {
+        Calls.Stop();
         Notifications.Shutdown();
     }
 
@@ -58,5 +60,7 @@ public static class AppServices
         Badges.EvaluateAutomatic(Settings.Settings.FirstEverLaunchUtc);
         Bugs = new BugService();
         Chat = new ChatService();
+        Calls = new CallService();
+        Calls.Start();
     }
 }

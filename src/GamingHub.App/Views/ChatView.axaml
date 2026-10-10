@@ -59,11 +59,18 @@
             <Grid RowDefinitions="Auto,*,Auto">
 
                 <Border Grid.Row="0" Padding="16,12" BorderBrush="#2A3350" BorderThickness="0,0,0,1">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <TextBlock Text="{Binding SelectedTarget.Name}" FontWeight="SemiBold" FontSize="15" VerticalAlignment="Center" />
-                        <TextBlock Text="(Direktnachricht)" FontSize="11" Classes="muted" VerticalAlignment="Center"
-                                   IsVisible="{Binding SelectedTarget.IsDirect}" />
-                    </StackPanel>
+                    <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="{Binding SelectedTarget.Name}" FontWeight="SemiBold" FontSize="15" VerticalAlignment="Center" />
+                            <TextBlock Text="(Direktnachricht)" FontSize="11" Classes="muted" VerticalAlignment="Center"
+                                       IsVisible="{Binding SelectedTarget.IsDirect}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
+                                    IsVisible="{Binding CanCallSelected}">
+                            <Button Content="Anruf" Command="{Binding CallVoiceCommand}" />
+                            <Button Content="Videoanruf" Command="{Binding CallVideoCommand}" Classes="accent" />
+                        </StackPanel>
+                    </Grid>
                 </Border>
 
                 <ScrollViewer Grid.Row="1" Name="MessageScroller" Padding="16,12">
@@ -104,6 +111,41 @@
                     <TextBlock Text="Melde dich im Tab „Profil“ an, um zu chatten." Classes="muted" TextWrapping="Wrap" />
                 </Border>
             </Grid>
+        </Border>
+
+        <!-- Anruf-Overlay -->
+        <Border Grid.Column="0" Grid.ColumnSpan="2" Background="#E60B0D1A" IsVisible="{Binding CallActive}">
+            <Border Classes="card" MaxWidth="720" VerticalAlignment="Center" HorizontalAlignment="Center" Padding="24">
+                <StackPanel Spacing="16" MinWidth="360">
+                    <StackPanel Spacing="4" HorizontalAlignment="Center">
+                        <TextBlock Text="{Binding CallPeerName}" FontSize="20" FontWeight="Bold" HorizontalAlignment="Center" />
+                        <TextBlock Text="{Binding CallStateText}" Classes="muted" HorizontalAlignment="Center" />
+                    </StackPanel>
+
+                    <Grid IsVisible="{Binding IsVideoCall}" ColumnDefinitions="*,180" Height="340">
+                        <Border Grid.Column="0" Background="#0F1122" CornerRadius="10" Margin="0,0,8,0">
+                            <Image Source="{Binding RemoteVideo}" Stretch="Uniform" />
+                        </Border>
+                        <Border Grid.Column="1" Background="#0F1122" CornerRadius="10">
+                            <Image Source="{Binding LocalVideo}" Stretch="Uniform" />
+                        </Border>
+                    </Grid>
+
+                    <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Center">
+                        <StackPanel Spacing="6" IsVisible="{Binding IsIncoming}">
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <Button Content="Annehmen" Command="{Binding AcceptCallCommand}" Classes="accent" />
+                                <Button Content="Ablehnen" Command="{Binding DeclineCallCommand}" />
+                            </StackPanel>
+                        </StackPanel>
+                        <Button Content="Auflegen" Command="{Binding HangupCallCommand}"
+                                IsVisible="{Binding !IsIncoming}" />
+                    </StackPanel>
+
+                    <TextBlock Text="Sprache/Video laufen direkt zwischen den Geräten (WebRTC). Eine Kamera-/Mikrofon-Freigabe von Windows muss erlaubt sein."
+                               FontSize="11" Classes="muted" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
         </Border>
     </Grid>
 </UserControl>

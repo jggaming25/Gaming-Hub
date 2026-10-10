@@ -85,4 +85,58 @@ public sealed class ChatService
         await client.PatchAsync("profiles", $"id=eq.{Uri.EscapeDataString(id)}",
             new { last_seen = DateTime.UtcNow });
     }
+
+    // ---------------- Anruf-Signaling ----------------
+
+    public async Task<bool> SendSignalAsync(string callId, string recipientId, string kind, object? payload = null)
+    {
+        return await InsertSignalAsync(callId, recipientId, kind,
+            payload is null ? null : JsonSerializer.Serialize(payload));
+    }
+
+    /// <summary>Sends a signal whose payload is already a JSON string (e.g. an ICE candidate).</summary>
+    public async Task<bool> SendRawSignalAsync(string callId, string recipientId, string kind, string rawPayload)
+    {
+        return await InsertSignalAsync(callId, recipientId, kind, rawPayload);
+    }
+
+    private async Task<bool> InsertSignalAsync(string callId, string recipientId, string kind, string? payload)
+    {
+        var client = Client;
+        if (client is null || MyId is not { Length: > 0 } me) return false;
+
+        var row = new Dictionary<string, object?>
+        {
+            ["call_id"] = callId,
+            ["sender_id"] = me,
+            ["recipient_id"] = recipientId,
+            ["kind"] = kind,
+            ["payload"] = payload
+        };
+        var result = await client.InsertAsync("call_signals", row);
+        return result.Ok;
+    }
+
+    public async Task<List<CallSignal>> LoadSignalsAsync(DateTimeOffset? sinceUtc = null)
+    {
+        var client = Client;
+        if (client is null || MyId is not { Length: > 0 } me) return new();
+
+        string query = $"select=*&recipient_id=eq.{Uri.EscapeDataString(me)}" +
+                       (sinceUtc is { } since
+                           ? $"&created_at=gt.{Uri.EscapeDataString(since.UtcDateTime.ToString("o"))}"
+                           : "") +
+                       "&order=created_at.asc&limit=100";
+
+        var result = await client.SelectAsync("call_signals", query);
+        if (!result.Ok) return new();
+        return JsonSerializer.Deserialize<List<CallSignal>>(result.Body, Json) ?? new();
+    }
+
+    public async Task DeleteSignalAsync(string signalId)
+    {
+        var client = Client;
+        if (client is null) return;
+        await client.DeleteAsync("call_signals", $"id=eq.{Uri.EscapeDataString(signalId)}");
+    }
 }

@@ -200,6 +200,18 @@ public sealed class SupabaseClient
         return new RestResult(resp.IsSuccessStatusCode, resp.IsSuccessStatusCode ? text : (ExtractError(text) ?? text));
     }
 
+    public async Task<RestResult> DeleteAsync(string table, string query)
+    {
+        if (Session is not null && !IsLoggedIn)
+            await RefreshAsync();
+
+        using var req = new HttpRequestMessage(HttpMethod.Delete, $"{Url}/rest/v1/{table}?{query}");
+        AddApiKey(req); AddBearer(req);
+        var resp = await _http.SendAsync(req);
+        string text = await resp.Content.ReadAsStringAsync();
+        return new RestResult(resp.IsSuccessStatusCode, resp.IsSuccessStatusCode ? text : (ExtractError(text) ?? text));
+    }
+
     // ---------------- Helpers ----------------
 
     private void AddApiKey(HttpRequestMessage req)
