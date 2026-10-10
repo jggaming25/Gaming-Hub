@@ -13,7 +13,6 @@ public sealed record CategoryFilterOption(string Label, GameCategory? Category);
 public partial class GamesViewModel : ViewModelBase
 {
     private readonly List<GameItemViewModel> _all = new();
-    private readonly Dictionary<string, bool> _volumeUnit = new(StringComparer.OrdinalIgnoreCase);
     private DispatcherTimer? _timer;
 
     public ObservableCollection<GameItemViewModel> Games { get; } = new();
@@ -21,6 +20,7 @@ public partial class GamesViewModel : ViewModelBase
 
     public ObservableCollection<CategoryFilterOption> CategoryOptions { get; } = new()
     {
+        new("Alle Kategorien", null),
         new("Spiele (nur Games)", GameCategory.Game),
         new("Zusätzliche Inhalte", GameCategory.GameContent),
         new("Game-Tools", GameCategory.GameTool),
@@ -29,8 +29,7 @@ public partial class GamesViewModel : ViewModelBase
         new("Antivirus", GameCategory.Antivirus),
         new("KI-Tools", GameCategory.AiTool),
         new("System & Dienstprogramme", GameCategory.SystemService),
-        new("Sonstige", GameCategory.Other),
-        new("Alle Kategorien", null)
+        new("Sonstige", GameCategory.Other)
     };
 
     public ObservableCollection<string> DriveOptions { get; } = new();
@@ -73,7 +72,7 @@ public partial class GamesViewModel : ViewModelBase
         DriveOptions.Add("Alle Laufwerke");
         foreach (var v in AppServices.DiskUsage.GetVolumes())
         {
-            Volumes.Add(new DriveItemViewModel(v, _volumeUnit.TryGetValue(v.Root, out bool mb) && mb));
+            Volumes.Add(new DriveItemViewModel(v));
             DriveOptions.Add(string.IsNullOrWhiteSpace(v.Label) ? v.Root : $"{v.Root} ({v.Label})");
         }
         if (!DriveOptions.Contains(SelectedDrive))

@@ -46,10 +46,6 @@
                             <StackPanel Orientation="Horizontal" Spacing="2">
                                 <TextBlock FontSize="12" Classes="muted" Text="Frei: " VerticalAlignment="Center" />
                                 <TextBlock FontSize="12" FontWeight="SemiBold" Text="{Binding FreeValue}" VerticalAlignment="Center" />
-                                <Button Content="{Binding UnitLabel}" Command="{Binding ToggleUnitCommand}"
-                                        Padding="6,1" FontSize="11" MinHeight="0" BorderThickness="0"
-                                        Background="Transparent" VerticalAlignment="Center"
-                                        ToolTip.Tip="Einheit umschalten (GB / MB)" />
                             </StackPanel>
                             <TextBlock FontSize="11" Classes="muted">
                                 <TextBlock.Text>

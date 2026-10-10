@@ -81,6 +81,9 @@ public partial class SettingsViewModel : ViewModelBase
     private void OpenRepository() => Open(AppInfo.RepositoryUrl);
 
     [RelayCommand]
+    private void OpenReleases() => Open(AppInfo.ReleasesUrl);
+
+    [RelayCommand]
     private void OpenDataFolder()
     {
         try { Process.Start(new ProcessStartInfo("explorer.exe", DataDirectory) { UseShellExecute = true }); }
