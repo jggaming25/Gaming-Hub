@@ -1,13 +1,57 @@
+using System.Collections.ObjectModel;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using GamingHub.App.Services;
+using GamingHub.Core.Models;
 
 namespace GamingHub.App.ViewModels;
 
+/// <summary>A selectable chat target: the "Allgemein" room or a direct conversation.</summary>
+public sealed partial class ChatTargetItem : ObservableObject
+{
+    public string ChannelId { get; init; } = ChatService.GeneralChannel;
+    public string Name { get; init; } = ChatService.GeneralChannelName;
+    public bool IsGeneral { get; init; }
+    public string ContactId { get; init; } = string.Empty;
+
+    public bool IsDirect => !IsGeneral;
+    [ObservableProperty] private bool _isOnline;
+    [ObservableProperty] private int _unread;
+
+    public bool HasUnread => Unread > 0;
+    public string Initial => string.IsNullOrEmpty(Name) ? "?" : Name[..1].ToUpperInvariant();
+
+    partial void OnUnreadChanged(int value) => OnPropertyChanged(nameof(HasUnread));
+}
+
+/// <summary>A rendered chat message.</summary>
+public sealed class ChatMessageItem
+{
+    public string AuthorName { get; init; } = string.Empty;
+    public string Body { get; init; } = string.Empty;
+    public string TimeText { get; init; } = string.Empty;
+    public bool IsOwn { get; init; }
+    public string Initial => string.IsNullOrEmpty(AuthorName) ? "?" : AuthorName[..1].ToUpperInvariant();
+}
+
 public partial class ChatViewModel : ViewModelBase
 {
-    [ObservableProperty] private string _statusText =
-        "Chat, Sprach- und Videochat folgen in Phase 6 (WebRTC + Supabase-Signaling).\nDesktop-Benachrichtigungen sind bereits aktiv.";
+    private readonly DispatcherTimer _timer;
+    private readonly Dictionary<string, DateTimeOffset> _lastTimestamps = new();
+    private bool _polling;
+    private bool _started;
+    private bool _switching;
+    private int _pollCount;
+
+    public ObservableCollection<ChatTargetItem> Targets { get; } = new();
+    public ObservableCollection<ChatMessageItem> Messages { get; } = new();
+
+    [ObservableProperty] private ChatTargetItem? _selectedTarget;
+    [ObservableProperty] private string _messageInput = string.Empty;
+    [ObservableProperty] private string _statusText = string.Empty;
+    [ObservableProperty] private bool _isLoggedIn;
+    [ObservableProperty] private bool _isBusy;
 
     public bool DesktopNotificationsEnabled
     {
@@ -15,24 +59,242 @@ public partial class ChatViewModel : ViewModelBase
         set { AppServices.Settings.Settings.DesktopNotificationsEnabled = value; AppServices.Settings.Save(); OnPropertyChanged(); }
     }
 
-    /// <summary>Called by the chat (Phase 6) whenever a message arrives.</summary>
-    public static void NotifyNewMessage(string chatName, string sender, string text)
-        => AppServices.Notifications.NewMessage(chatName, sender, text);
+    public bool ShowLoginHint => !IsLoggedIn;
 
-    /// <summary>Called by the chat (Phase 6) for a ringing incoming call.</summary>
-    public static void NotifyIncomingCall(string caller)
-        => AppServices.Notifications.IncomingCall(caller);
+    public bool HasNoMessages => Messages.Count == 0;
 
-    /// <summary>Called by the chat (Phase 6) for a missed call.</summary>
-    public static void NotifyMissedCall(string caller)
-        => AppServices.Notifications.MissedCall(caller);
+    public ChatViewModel()
+    {
+        Messages.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasNoMessages));
+
+        Targets.Add(new ChatTargetItem
+        {
+            ChannelId = ChatService.GeneralChannel,
+            Name = ChatService.GeneralChannelName,
+            IsGeneral = true,
+            IsOnline = true
+        });
+
+        _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+        _timer.Tick += async (_, _) => await PollAsync();
+
+        AppServices.Auth.Changed += OnAuthChanged;
+        _ = EvaluateAuthAsync();
+    }
+
+    private async Task EvaluateAuthAsync()
+    {
+        IsLoggedIn = AppServices.Auth.IsLoggedIn;
+        if (IsLoggedIn)
+            await StartAsync();
+        else
+            UpdateStatus();
+    }
+
+    private void OnAuthChanged() => Dispatcher.UIThread.Post(async () =>
+    {
+        bool nowLoggedIn = AppServices.Auth.IsLoggedIn;
+        if (nowLoggedIn && !_started)
+            await StartAsync();
+        else if (!nowLoggedIn && _started)
+            Stop();
+        else
+        {
+            IsLoggedIn = nowLoggedIn;
+            UpdateStatus();
+        }
+    });
+
+    private void UpdateStatus()
+    {
+        IsLoggedIn = AppServices.Auth.IsLoggedIn;
+        OnPropertyChanged(nameof(ShowLoginHint));
+        if (!AppServices.Auth.IsConfigured)
+            StatusText = "Supabase ist noch nicht konfiguriert (siehe Einstellungen).";
+        else if (!IsLoggedIn)
+            StatusText = "Melde dich im Profil an, um zu chatten.";
+        else
+            StatusText = string.Empty;
+    }
+
+    private async Task StartAsync()
+    {
+        _started = true;
+        IsLoggedIn = true;
+        OnPropertyChanged(nameof(ShowLoginHint));
+        StatusText = "Chat verbunden.";
+
+        await RefreshContactsAsync();
+        await SwitchTargetAsync(Targets.FirstOrDefault());
+        _timer.Start();
+        await PollAsync();
+    }
+
+    private void Stop()
+    {
+        _started = false;
+        _timer.Stop();
+        _lastTimestamps.Clear();
+        Messages.Clear();
+        Targets.Clear();
+        Targets.Add(new ChatTargetItem
+        {
+            ChannelId = ChatService.GeneralChannel,
+            Name = ChatService.GeneralChannelName,
+            IsGeneral = true,
+            IsOnline = true
+        });
+        SelectedTarget = null;
+        UpdateStatus();
+    }
+
+    partial void OnSelectedTargetChanged(ChatTargetItem? value)
+    {
+        if (value is null) return;
+        _ = SwitchTargetAsync(value);
+    }
+
+    private async Task SwitchTargetAsync(ChatTargetItem? target)
+    {
+        if (target is null || !IsLoggedIn) return;
+        if (_switching) return;
+        _switching = true;
+        try
+        {
+            SelectedTarget = target;
+            target.Unread = 0;
+            Messages.Clear();
+
+            var history = await AppServices.Chat.LoadAsync(target.ChannelId);
+            foreach (var m in history)
+                Messages.Add(ToItem(m));
+            if (history.Count > 0)
+                _lastTimestamps[target.ChannelId] = history[^1].CreatedAt;
+            MessageScrolled?.Invoke();
+        }
+        finally
+        {
+            _switching = false;
+        }
+    }
+
+    public event System.Action? MessageScrolled;
 
     [RelayCommand]
-    private void DemoNewMessage() => NotifyNewMessage("Allgemein", "Maxi", "Hey, kommst du gleich zum Spielen?");
+    private async Task SendAsync()
+    {
+        var text = MessageInput?.Trim();
+        if (string.IsNullOrEmpty(text) || SelectedTarget is null) return;
+        if (!IsLoggedIn) { StatusText = "Bitte zuerst anmelden."; return; }
 
-    [RelayCommand]
-    private void DemoIncomingCall() => NotifyIncomingCall("Maxi");
+        MessageInput = string.Empty;
+        bool ok = await AppServices.Chat.SendAsync(SelectedTarget.ChannelId, text);
+        if (!ok)
+        {
+            StatusText = "Nachricht konnte nicht gesendet werden.";
+            return;
+        }
+        StatusText = string.Empty;
+        await PollAsync();
+    }
 
-    [RelayCommand]
-    private void DemoMissedCall() => NotifyMissedCall("Maxi");
+    private async Task PollAsync()
+    {
+        if (_polling || !IsLoggedIn) return;
+        _polling = true;
+        try
+        {
+            await AppServices.Chat.HeartbeatAsync();
+
+            foreach (var target in Targets.ToList())
+            {
+                DateTimeOffset? since = _lastTimestamps.TryGetValue(target.ChannelId, out var t) ? t : null;
+                var incoming = await AppServices.Chat.LoadAsync(target.ChannelId, since);
+
+                if (since is null)
+                {
+                    // Baseline festlegen, ohne die Historie als "neu" zu werten.
+                    if (incoming.Count > 0)
+                        _lastTimestamps[target.ChannelId] = incoming[^1].CreatedAt;
+                    continue;
+                }
+
+                if (incoming.Count == 0) continue;
+                _lastTimestamps[target.ChannelId] = incoming[^1].CreatedAt;
+
+                foreach (var msg in incoming)
+                {
+                    if (msg.AuthorId == AppServices.Chat.MyId) continue;
+                    if (target.ChannelId == SelectedTarget?.ChannelId)
+                        AppendMessage(msg);
+                    else
+                    {
+                        target.Unread++;
+                        AppServices.Notifications.NewMessage(DisplayName(target), msg.AuthorName ?? "Jemand", msg.Body);
+                    }
+                }
+            }
+
+            if (++_pollCount % 5 == 0)
+                await RefreshContactsAsync();
+        }
+        catch
+        {
+            // Netzwerkfehler ignorieren – der nächste Tick versucht es erneut.
+        }
+        finally
+        {
+            _polling = false;
+        }
+    }
+
+    private async Task RefreshContactsAsync()
+    {
+        var contacts = await AppServices.Chat.LoadContactsAsync();
+        string me = AppServices.Chat.MyId ?? string.Empty;
+
+        // Neue Kontakte ergänzen / Status aktualisieren, bestehende Objekte behalten.
+        var byContactId = Targets.Where(t => !t.IsGeneral).ToDictionary(t => t.ContactId);
+        var seen = new HashSet<string>();
+
+        foreach (var c in contacts)
+        {
+            if (c.Id == me) continue;
+            seen.Add(c.Id);
+            if (byContactId.TryGetValue(c.Id, out var existing))
+            {
+                existing.IsOnline = c.IsOnline;
+            }
+            else
+            {
+                Targets.Add(new ChatTargetItem
+                {
+                    ChannelId = ChatService.DirectChannelId(me, c.Id),
+                    Name = c.Name,
+                    ContactId = c.Id,
+                    IsOnline = c.IsOnline
+                });
+            }
+        }
+
+        // Entfernte Kontakte ausblenden.
+        foreach (var t in Targets.Where(t => !t.IsGeneral && !seen.Contains(t.ContactId)).ToList())
+            Targets.Remove(t);
+    }
+
+    private void AppendMessage(ChatMessage msg)
+    {
+        Messages.Add(ToItem(msg));
+        MessageScrolled?.Invoke();
+    }
+
+    private static string DisplayName(ChatTargetItem target) => target.Name;
+
+    private static ChatMessageItem ToItem(ChatMessage m) => new()
+    {
+        AuthorName = string.IsNullOrWhiteSpace(m.AuthorName) ? "Unbekannt" : m.AuthorName!,
+        Body = m.Body,
+        TimeText = m.CreatedAt.ToLocalTime().ToString("HH:mm"),
+        IsOwn = m.AuthorId == AppServices.Chat.MyId
+    };
 }
