@@ -44,6 +44,7 @@ jobs:
             --packVersion ${{ steps.version.outputs.value }} `
             --packTitle "Gaming Hub" `
             --packAuthors "jggaming25" `
+            --runtime win-x64 `
             --packDir publish `
             --mainExe GamingHub.App.exe `
             --icon src/GamingHub.App/Assets/logo.ico `
