@@ -11,6 +11,8 @@ public sealed class AppSettings
     public string ThemeVariant { get; set; } = "Dark";
     public bool AutoCheckUpdates { get; set; } = true;
     public bool AutoInstallUpdates { get; set; } = true;
+    public bool DesktopNotificationsEnabled { get; set; } = true;
+    public bool NotificationSoundEnabled { get; set; } = true;
 
     public List<string> CleanupScanPaths { get; set; } = new();
     public long CleanupMinFileSizeBytes { get; set; } = 1024 * 1024; // 1 MB

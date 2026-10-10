@@ -35,6 +35,18 @@ public partial class SettingsViewModel : ViewModelBase
         set { AppServices.Settings.Settings.UseRecycleBin = value; AppServices.Settings.Save(); OnPropertyChanged(); }
     }
 
+    public bool DesktopNotificationsEnabled
+    {
+        get => AppServices.Settings.Settings.DesktopNotificationsEnabled;
+        set { AppServices.Settings.Settings.DesktopNotificationsEnabled = value; AppServices.Settings.Save(); OnPropertyChanged(); }
+    }
+
+    public bool NotificationSoundEnabled
+    {
+        get => AppServices.Settings.Settings.NotificationSoundEnabled;
+        set { AppServices.Settings.Settings.NotificationSoundEnabled = value; AppServices.Settings.Save(); OnPropertyChanged(); }
+    }
+
     public bool DarkTheme
     {
         get => AppServices.Settings.Settings.ThemeVariant != "Light";

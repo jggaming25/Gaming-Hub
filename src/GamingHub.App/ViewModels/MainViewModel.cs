@@ -41,6 +41,13 @@ public partial class MainViewModel : ViewModelBase
         NavItems.Add(new NavItem { Title = "Profil", Glyph = "\uE77B", ViewModel = profile });
         NavItems.Add(new NavItem { Title = "Einstellungen", Glyph = "\uE713", ViewModel = settings });
 
+        AppServices.Notifications.Activated += _ =>
+        {
+            var chat = NavItems.FirstOrDefault(n => n.ViewModel is ChatViewModel);
+            if (chat is not null)
+                SelectedNav = chat;
+        };
+
         SelectedNav = NavItems[0];
     }
 

@@ -7,13 +7,25 @@
              x:Class="GamingHub.App.Views.ChatView"
              x:DataType="vm:ChatViewModel">
 
-    <Grid Margin="12">
-        <Border Classes="card" MaxWidth="640" VerticalAlignment="Center" HorizontalAlignment="Center">
-            <StackPanel Spacing="10" HorizontalAlignment="Center">
-                <TextBlock Text="&#xE8BD;" FontFamily="{StaticResource IconFont}" FontSize="42" HorizontalAlignment="Center" />
-                <TextBlock Text="Chat &amp; Voice" FontSize="20" FontWeight="Bold" HorizontalAlignment="Center" />
-                <TextBlock Text="{Binding StatusText}" TextWrapping="Wrap" TextAlignment="Center" Classes="muted" MaxWidth="440" />
-            </StackPanel>
-        </Border>
-    </Grid>
+    <ScrollViewer Margin="12">
+        <StackPanel MaxWidth="640" VerticalAlignment="Top" HorizontalAlignment="Center" Spacing="10">
+            <TextBlock Text="&#xE8BD;" FontFamily="{StaticResource IconFont}" FontSize="42" HorizontalAlignment="Center" />
+            <TextBlock Text="Chat &amp; Voice" FontSize="20" FontWeight="Bold" HorizontalAlignment="Center" />
+            <TextBlock Text="{Binding StatusText}" TextWrapping="Wrap" TextAlignment="Center" Classes="muted" MaxWidth="520" />
+
+            <Border Classes="card" Margin="0,14,0,0" Padding="14">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Desktop-Benachrichtigungen (Test)" FontWeight="SemiBold" />
+                    <CheckBox Content="Desktop-Benachrichtigungen aktiv" IsChecked="{Binding DesktopNotificationsEnabled, Mode=TwoWay}" />
+                    <TextBlock Text="Damit die Phase-6-Benachrichtigungen (neue Nachricht, klingelnder Anruf mit Klingelton, verpasster Anruf) sofort funktionieren, kannst du sie hier testen:" FontSize="12" Classes="muted" TextWrapping="Wrap" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="Neue Nachricht" Command="{Binding DemoNewMessageCommand}" />
+                        <Button Content="Klingelnder Anruf (mit Ton)" Command="{Binding DemoIncomingCallCommand}" Classes="accent" />
+                        <Button Content="Verpasster Anruf" Command="{Binding DemoMissedCallCommand}" />
+                    </StackPanel>
+                    <TextBlock Text="Beim Klick auf eine Benachrichtigung wechselt der Chat-Tab in den Vordergrund. Der Glockenton wird für Anrufe automatisch synthetisiert (kein Soundfile nötig)." FontSize="11" Classes="muted" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
 </UserControl>

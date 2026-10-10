@@ -19,6 +19,12 @@ public static class AppServices
     public static AuthService Auth { get; }
     public static BadgeService Badges { get; }
     public static BugService Bugs { get; }
+    public static NotificationService Notifications { get; } = new();
+
+    public static void Shutdown()
+    {
+        Notifications.Shutdown();
+    }
 
     public static void OpenBrowser(string url)
     {

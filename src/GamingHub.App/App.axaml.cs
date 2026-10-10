@@ -85,6 +85,8 @@ public partial class App : Application
                 var main = new MainWindow { DataContext = new MainViewModel() };
                 desktop.MainWindow = main;
                 main.Show();
+                desktop.Exit += (_, _) => AppServices.Shutdown();
+
                 main.Closed += (_, _) =>
                 {
                     AppServices.Games.SavePlaytime();
