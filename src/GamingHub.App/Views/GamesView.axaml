@@ -1,7 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:GamingHub.App.ViewModels"
-             xmlns:models="using:GamingHub.Core.Models"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="940" d:DesignHeight="700"
@@ -30,7 +29,7 @@
                 </ItemsPanelTemplate>
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
-                <DataTemplate x:DataType="models:DiskVolume">
+                <DataTemplate x:DataType="vm:DriveItemViewModel">
                     <Border Classes="card" Width="240" Margin="0,0,12,12">
                         <StackPanel Spacing="6">
                             <StackPanel Orientation="Horizontal" Spacing="8">
@@ -38,13 +37,20 @@
                                 <TextBlock Text="{Binding Label}" Classes="muted" FontSize="12" />
                             </StackPanel>
                             <ProgressBar Minimum="0" Maximum="100" Value="{Binding UsedPercent}" Height="8" />
-                            <TextBlock FontSize="12" Classes="muted"
-                                       Text="{Binding FreeBytes, StringFormat='Frei: {0:N0} B'}" />
+                            <StackPanel Orientation="Horizontal" Spacing="2">
+                                <TextBlock FontSize="12" Classes="muted" Text="Frei: " VerticalAlignment="Center" />
+                                <TextBlock FontSize="12" FontWeight="SemiBold" Text="{Binding FreeValue}" VerticalAlignment="Center" />
+                                <Button Content="{Binding UnitLabel}" Command="{Binding ToggleUnitCommand}"
+                                        Padding="6,1" FontSize="11" MinHeight="0" BorderThickness="0"
+                                        Background="Transparent" VerticalAlignment="Center"
+                                        ToolTip.Tip="Einheit umschalten (GB / MB)" />
+                            </StackPanel>
                             <TextBlock FontSize="11" Classes="muted">
                                 <TextBlock.Text>
-                                    <MultiBinding StringFormat="{}{0:N0} B gesamt · {1:N0} B benutzt">
-                                        <Binding Path="TotalBytes" />
-                                        <Binding Path="UsedBytes" />
+                                    <MultiBinding StringFormat="{}{0} {2} gesamt · {1} {2} benutzt">
+                                        <Binding Path="TotalValue" />
+                                        <Binding Path="UsedValue" />
+                                        <Binding Path="UnitLabel" />
                                     </MultiBinding>
                                 </TextBlock.Text>
                             </TextBlock>

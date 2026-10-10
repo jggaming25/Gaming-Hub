@@ -10,10 +10,11 @@ namespace GamingHub.App.ViewModels;
 public partial class GamesViewModel : ViewModelBase
 {
     private readonly List<GameItemViewModel> _all = new();
+    private readonly Dictionary<string, bool> _volumeUnit = new(StringComparer.OrdinalIgnoreCase);
     private DispatcherTimer? _timer;
 
     public ObservableCollection<GameItemViewModel> Games { get; } = new();
-    public ObservableCollection<DiskVolume> Volumes { get; } = new();
+    public ObservableCollection<DriveItemViewModel> Volumes { get; } = new();
 
     [ObservableProperty] private string _searchText = string.Empty;
     [ObservableProperty] private bool _isLoading;
@@ -45,7 +46,7 @@ public partial class GamesViewModel : ViewModelBase
     {
         Volumes.Clear();
         foreach (var v in AppServices.DiskUsage.GetVolumes())
-            Volumes.Add(v);
+            Volumes.Add(new DriveItemViewModel(v, _volumeUnit.TryGetValue(v.Root, out bool mb) && mb));
     }
 
     [RelayCommand]
