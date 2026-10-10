@@ -35,6 +35,13 @@ public partial class ProfileViewModel : ViewModelBase
     {
         AppServices.Auth.Changed += OnAuthChanged;
         AppServices.Premium.Changed += OnPremiumChanged;
+        AppServices.Profile.Changed += OnProfileChanged;
+        RefreshBadges();
+        UpdatePremiumStatus();
+    }
+
+    private void OnProfileChanged()
+    {
         RefreshBadges();
         UpdatePremiumStatus();
     }
@@ -47,17 +54,22 @@ public partial class ProfileViewModel : ViewModelBase
     public void UpdatePremiumStatus()
     {
         var until = AppServices.Premium.PremiumUntil;
-        if (AppServices.Premium.IsPremium && until is { } u)
+        if (AppServices.Premium.IsPremiumBanned)
+            PremiumStatusText = "Premium wurde für dein Konto gesperrt.";
+        else if (AppServices.Premium.IsPremium && until is { } u)
             PremiumStatusText = $"Premium aktiv bis {u.ToLocalTime():d}.";
         else if (until is { } expired)
             PremiumStatusText = $"Premium abgelaufen ({expired.ToLocalTime():d}).";
         else
             PremiumStatusText = "Kein aktives Premium.";
         OnPropertyChanged(nameof(IsPremium));
+        OnPropertyChanged(nameof(IsPremiumBanned));
         OnPropertyChanged(nameof(PremiumUntilDisplay));
     }
 
     public bool IsPremium => AppServices.Premium.IsPremium;
+
+    public bool IsPremiumBanned => AppServices.Premium.IsPremiumBanned;
 
     public string PremiumUntilDisplay => AppServices.Premium.PremiumUntil is { } pu
         ? pu.ToLocalTime().ToString("d")
@@ -96,9 +108,14 @@ public partial class ProfileViewModel : ViewModelBase
 
     public void RefreshBadges()
     {
+        bool streak3 = AppServices.Profile.HasServerBadge("premium_streak3");
         Badges.Clear();
         foreach (var b in AppServices.Badges.GetStatus())
+        {
+            if (b.Id == "premium_streak3" && streak3)
+                b.Earned = true;
             Badges.Add(b);
+        }
     }
 
     [RelayCommand]

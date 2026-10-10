@@ -38,6 +38,12 @@ public sealed class SystemSnapshot
     public string OsDescription { get; set; } = string.Empty;
     public string MachineName { get; set; } = string.Empty;
 
+    /// <summary>Anmeldename des aktuell angemeldeten Windows-Benutzers.</summary>
+    public string UserName { get; set; } = string.Empty;
+
+    /// <summary>Domäne bzw. Computername des angemeldeten Benutzers.</summary>
+    public string UserDomain { get; set; } = string.Empty;
+
     public double DiskReadBytesPerSec { get; set; }
     public double DiskWriteBytesPerSec { get; set; }
 
@@ -48,6 +54,20 @@ public sealed class SystemSnapshot
     public int ProcessCount { get; set; }
 
     public DateTime TimestampUtc { get; set; } = DateTime.UtcNow;
+}
+
+public sealed class LocalUserInfo
+{
+    public string Name { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public bool Disabled { get; set; }
+    public bool LocalAccount { get; set; }
+}
+
+public sealed class LocalGroupInfo
+{
+    public string Name { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
 }
 
 public enum GraphicsPreset

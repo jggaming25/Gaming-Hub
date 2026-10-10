@@ -72,14 +72,54 @@ public partial class SettingsViewModel : ViewModelBase
         set { AppServices.Settings.Settings.AutoCheckUpdates = value; AppServices.Settings.Save(); OnPropertyChanged(); }
     }
 
-    /// <summary>
-    /// Startet Gaming Hub beim Windows-Anmelden automatisch und versteckt das
+    /// <summary>Wenn aktiv, werden gefundene Updates beim Start automatisch im
+    /// Ladebildschirm heruntergeladen und installiert (Neustart nötig).</summary>
+    public bool AutoInstallUpdates
+    {
+        get => AppServices.Settings.Settings.AutoInstallUpdates;
+        set { AppServices.Settings.Settings.AutoInstallUpdates = value; AppServices.Settings.Save(); OnPropertyChanged(); }
+    }
+
+    /// <summary>Startet Gaming Hub beim Windows-Anmelden automatisch und versteckt das
     /// Fenster im System-Tray (die App läuft dann im Hintergrund weiter).
-    /// </summary>
+    /// Deaktivieren erfordert eine Bestätigung (Hinweis).</summary>
     public bool AutostartEnabled
     {
         get => AutostartService.IsEnabled();
-        set { AutostartService.SetEnabled(value); OnPropertyChanged(); }
+        set
+        {
+            if (!value && AutostartService.IsEnabled())
+            {
+                // Erst nach Bestätigung deaktivieren – Hinweis im Programm anzeigen.
+                ShowAutostartConfirm = true;
+            }
+            else
+            {
+                AutostartService.SetEnabled(value);
+                AppServices.Settings.Settings.AutostartConfigured = true;
+                AppServices.Settings.Save();
+            }
+            OnPropertyChanged();
+        }
+    }
+
+    [ObservableProperty] private bool _showAutostartConfirm;
+
+    [RelayCommand]
+    private void ConfirmDisableAutostart()
+    {
+        AutostartService.SetEnabled(false);
+        AppServices.Settings.Settings.AutostartConfigured = true;
+        AppServices.Settings.Save();
+        ShowAutostartConfirm = false;
+        OnPropertyChanged(nameof(AutostartEnabled));
+    }
+
+    [RelayCommand]
+    private void CancelDisableAutostart()
+    {
+        ShowAutostartConfirm = false;
+        OnPropertyChanged(nameof(AutostartEnabled));
     }
 
     public bool UseRecycleBin

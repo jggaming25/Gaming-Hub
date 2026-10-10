@@ -5,6 +5,14 @@ export const DOWNLOAD_SETUP_URL =
 export const DOWNLOAD_PORTABLE_URL =
   "https://github.com/jggaming25/Gaming-Hub/releases/latest/download/GamingHub-win-Portable.zip";
 
+// Alle Releases (auch ältere Versionen) bleiben dauerhaft herunterladbar.
+export const RELEASES_PAGE_URL = "https://github.com/jggaming25/Gaming-Hub/releases";
+
+export function releaseAssetUrl(version: string, kind: "setup" | "portable"): string {
+  const file = kind === "setup" ? "GamingHub-win-Setup.exe" : "GamingHub-win-Portable.zip";
+  return `https://github.com/jggaming25/Gaming-Hub/releases/download/v${version}/${file}`;
+}
+
 // Fest hinterlegter öffentlicher Zugang (publishable/anon Key). Wird durch RLS abgesichert.
 const DEFAULT_SUPABASE_URL = "https://swrmlwmfyeyztargwsbs.supabase.co";
 const DEFAULT_SUPABASE_ANON_KEY = "sb_publishable_PRV4J2sn5FKuJHOul_XaPQ_gzqek4QF";

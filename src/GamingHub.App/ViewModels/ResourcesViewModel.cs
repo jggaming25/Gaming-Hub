@@ -43,13 +43,24 @@ public partial class ResourcesViewModel : ViewModelBase
     [ObservableProperty] private string _cpuCoresDisplay = "—";
     [ObservableProperty] private double _cpuUsage;
     [ObservableProperty] private double _ramUsage;
+    [ObservableProperty] private double _gpuUsage = -1;
     [ObservableProperty] private string _ramUsedDisplay = "—";
     [ObservableProperty] private string _ramTotalDisplay = "—";
     [ObservableProperty] private string _uptimeDisplay = "—";
     [ObservableProperty] private string _osDisplay = "—";
+    [ObservableProperty] private string _currentUserDisplay = "—";
     [ObservableProperty] private string _diskReadDisplay = "0 B/s";
     [ObservableProperty] private string _diskWriteDisplay = "0 B/s";
     [ObservableProperty] private bool _hasNetworkItems;
+
+    // Lokale Windows-Konten (nur für Premium sichtbar)
+    public ObservableCollection<LocalUserInfo> LocalUsers { get; } = new();
+    public ObservableCollection<LocalGroupInfo> LocalGroups { get; } = new();
+    [ObservableProperty] private bool _showSystemAccounts;
+    [ObservableProperty] private bool _hasLocalUsers;
+    [ObservableProperty] private bool _hasLocalGroups;
+    [ObservableProperty] private bool _isLoadingAccounts;
+    private bool _accountsLoaded;
 
     public ObservableCollection<double> CpuHistory { get; } = new();
     public ObservableCollection<double> RamHistory { get; } = new();
@@ -76,6 +87,7 @@ public partial class ResourcesViewModel : ViewModelBase
 
     public string CpuUsageDisplay => $"{CpuUsage:0} %";
     public string RamUsageDisplay => $"{RamUsage:0} %";
+    public string GpuUsageDisplay => GpuUsage < 0 ? "n. v." : $"{GpuUsage:0} %";
 
     public ObservableCollection<string> GameNames { get; } = new();
 
@@ -128,7 +140,45 @@ public partial class ResourcesViewModel : ViewModelBase
         UpdateHistoryRetention();
         ReloadHistory();
         AppServices.History.Changed += ReloadHistory;
-        AppServices.Profile.Changed += () => { UpdateHistoryRetention(); ReloadHistory(); };
+        AppServices.Profile.Changed += () => { UpdateHistoryRetention(); ReloadHistory(); UpdateAccountsVisibility(); };
+        UpdateAccountsVisibility();
+    }
+
+    /// <summary>Zeigt die lokalen Windows-Konten nur Premium-Nutzern und lädt sie
+    /// beim ersten Anzeigen (WMI-Abfrage, daher im Hintergrund).</summary>
+    private void UpdateAccountsVisibility()
+    {
+        ShowSystemAccounts = AppServices.Profile.IsPremium;
+        if (ShowSystemAccounts && !_accountsLoaded && !IsLoadingAccounts)
+            _ = LoadAccountsAsync();
+    }
+
+    private async Task LoadAccountsAsync()
+    {
+        IsLoadingAccounts = true;
+        try
+        {
+            var monitor = AppServices.SystemMonitor;
+            var users = await Task.Run(monitor.GetLocalUsers);
+            var groups = await Task.Run(monitor.GetLocalGroups);
+
+            LocalUsers.Clear();
+            foreach (var u in users) LocalUsers.Add(u);
+            LocalGroups.Clear();
+            foreach (var g in groups) LocalGroups.Add(g);
+
+            HasLocalUsers = LocalUsers.Count > 0;
+            HasLocalGroups = LocalGroups.Count > 0;
+            _accountsLoaded = true;
+        }
+        catch
+        {
+            // ignore
+        }
+        finally
+        {
+            IsLoadingAccounts = false;
+        }
     }
 
     private void UpdateHistoryRetention()
@@ -176,14 +226,19 @@ public partial class ResourcesViewModel : ViewModelBase
         var s = AppServices.SystemMonitor.Sample();
         CpuUsage = s.CpuUsagePercent;
         RamUsage = s.RamUsagePercent;
+        GpuUsage = s.GpuUsagePercent;
         RamUsedDisplay = Format.Bytes((long)s.RamUsedBytes);
         RamTotalDisplay = Format.Bytes((long)s.RamTotalBytes);
         UptimeDisplay = Format.Duration(s.Uptime);
         OsDisplay = s.MachineName + " · " + s.OsDescription;
+        CurrentUserDisplay = string.IsNullOrWhiteSpace(s.UserDomain) || string.Equals(s.UserDomain, s.MachineName, StringComparison.OrdinalIgnoreCase)
+            ? s.UserName
+            : $"{s.UserDomain}\\{s.UserName}";
         DiskReadDisplay = Format.BytesPerSec(s.DiskReadBytesPerSec);
         DiskWriteDisplay = Format.BytesPerSec(s.DiskWriteBytesPerSec);
         OnPropertyChanged(nameof(CpuUsageDisplay));
         OnPropertyChanged(nameof(RamUsageDisplay));
+        OnPropertyChanged(nameof(GpuUsageDisplay));
 
         PushHistory(CpuHistory, Math.Clamp(CpuUsage, 0, 100) * 0.55);
         PushHistory(RamHistory, Math.Clamp(RamUsage, 0, 100) * 0.55);

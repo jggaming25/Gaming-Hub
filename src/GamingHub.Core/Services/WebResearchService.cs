@@ -61,8 +61,7 @@ public sealed class WebResearchService
 
         await TryWikipediaAsync(search, game, result, ct).ConfigureAwait(false);
         if (!result.Found)
-            await TryDuckDuckGoAsync(search, result, ct).ConfigureAwait(false);
-
+            await TryDuckDuckGoAsync(search, VersionToken(result.QueryVersion, game), result, ct).ConfigureAwait(false);
         result.DetectedVersion = DetectVersion(result.Summary);
         if (!string.IsNullOrWhiteSpace(result.DetectedVersion))
         {
@@ -124,6 +123,18 @@ public sealed class WebResearchService
             var relevant = candidates
                 .Where(c => IsRelevant(c.Title, tokens, game))
                 .ToList();
+
+            // Versions-Präzisierung: enthält der Spielname (oder die gesuchte
+            // Version) eine Zahl (z. B. "OMSI 2"), dann nur Treffer zulassen,
+            // deren Titel diese Zahl als eigenständiges Wort enthält. Sonst würde
+            // OMSI 2 fälschlich OMSI 1 ("Der Omnibussimulator") liefern.
+            string? versionToken = VersionToken(result.QueryVersion, game);
+            if (versionToken is not null && relevant.Count > 0)
+            {
+                var withVersion = relevant.Where(c => TitleHasWord(c.Title, versionToken)).ToList();
+                if (withVersion.Count > 0)
+                    relevant = withVersion;
+            }
 
             if (relevant.Count == 0)
                 return;
@@ -251,6 +262,25 @@ public sealed class WebResearchService
         return hits >= 1;
     }
 
+    /// <summary>Ermittelt eine "Versionszahl" aus der gesuchten Version oder
+    /// einem abschließenden Zahlwort im Spielnamen (z. B. "OMSI 2" → "2").</summary>
+    private static string? VersionToken(string? queryVersion, string game)
+    {
+        if (!string.IsNullOrWhiteSpace(queryVersion))
+        {
+            var m = Regex.Match(queryVersion, @"\d+");
+            if (m.Success) return m.Value;
+        }
+
+        var trailing = Regex.Match(game, @"(?:^|\s)(\d{1,4})(?:\s|$)");
+        return trailing.Success ? trailing.Groups[1].Value : null;
+    }
+
+    /// <summary>True, wenn der Titel die Zahl als eigenständiges Wort enthält
+    /// (nicht als Teil einer größeren Zahl, "2" matcht nicht "2024").</summary>
+    private static bool TitleHasWord(string title, string token)
+        => Regex.IsMatch(title, $@"(?<!\d){Regex.Escape(token)}(?!\d)");
+
     private static string ExtractRequirementsSection(string extract)
     {
         string[] markers =
@@ -284,7 +314,7 @@ public sealed class WebResearchService
         return Truncate(section[..end].Trim(), 2400);
     }
 
-    private static async Task TryDuckDuckGoAsync(string search, WebResearchResult result, CancellationToken ct)
+    private static async Task TryDuckDuckGoAsync(string search, string? versionToken, WebResearchResult result, CancellationToken ct)
     {
         try
         {
@@ -310,6 +340,19 @@ public sealed class WebResearchService
 
             if (links.Count > 0)
             {
+                // Wenn eine Versionszahl gesucht ist, Treffer bevorzugen, die
+                // sie enthalten (z. B. "OMSI 2" statt "OMSI 1").
+                if (!string.IsNullOrWhiteSpace(versionToken))
+                {
+                    var withToken = links
+                        .Where(l => TitleHasWord(l.Title, versionToken)
+                                    || l.Snippet.Contains(versionToken, StringComparison.Ordinal)
+                                    || l.Url.Contains(versionToken, StringComparison.Ordinal))
+                        .ToList();
+                    if (withToken.Count > 0)
+                        links = withToken;
+                }
+
                 result.Summary = Truncate(links[0].Title + " – " + links[0].Snippet, 1400);
                 result.IsEstimate = true;
                 foreach (var l in links.Take(6))

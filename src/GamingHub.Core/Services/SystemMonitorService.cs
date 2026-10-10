@@ -21,11 +21,20 @@ public sealed class SystemMonitorService
     private Dictionary<int, (TimeSpan Cpu, DateTime At)> _prevProcessTimes = new();
     private readonly Dictionary<string, (long Received, long Sent, DateTime At)> _netPrev = new();
 
+    /// <summary>Zähler für die Drosselung der (teuren) Prozess-Abfrage.</summary>
+    private int _processTick;
+
     public string CpuName { get; private set; } = "Unbekannte CPU";
     public string GpuName { get; private set; } = "Unbekannte GPU";
     public ulong GpuVramBytes { get; private set; }
     public int CpuCores { get; private set; }
     public int CpuThreads { get; private set; }
+
+    /// <summary>Anmeldename des aktuell angemeldeten Windows-Benutzers.</summary>
+    public string CurrentUserName { get; } = Environment.UserName;
+
+    /// <summary>Domäne bzw. Computername des angemeldeten Benutzers.</summary>
+    public string CurrentUserDomain { get; } = Environment.UserDomainName;
 
     /// <summary>Anzahl der Prozesse aus der letzten Messung (falls erhebbar).</summary>
     public int LastProcessCount { get; private set; }
@@ -57,6 +66,8 @@ public sealed class SystemMonitorService
             Uptime = TimeSpan.FromMilliseconds(Environment.TickCount64),
             OsDescription = RuntimeInformation.OSDescription.Trim(),
             MachineName = Environment.MachineName,
+            UserName = CurrentUserName,
+            UserDomain = CurrentUserDomain,
             DiskReadBytesPerSec = diskRead,
             DiskWriteBytesPerSec = diskWrite,
             Adapters = SampleNetwork(),
@@ -64,6 +75,50 @@ public sealed class SystemMonitorService
             ProcessCount = LastProcessCount > 0 ? LastProcessCount : Process.GetProcesses().Length,
             TimestampUtc = DateTime.UtcNow
         };
+    }
+
+    /// <summary>Listet die lokalen Windows-Benutzerkonten (für die Premium-Ansicht).</summary>
+    public List<LocalUserInfo> GetLocalUsers()
+    {
+        var list = new List<LocalUserInfo>();
+        try
+        {
+            using var searcher = new ManagementObjectSearcher(
+                "SELECT Name, FullName, Disabled, LocalAccount FROM Win32_UserAccount");
+            foreach (var obj in searcher.Get())
+            {
+                list.Add(new LocalUserInfo
+                {
+                    Name = (obj["Name"] as string)?.Trim() ?? string.Empty,
+                    FullName = (obj["FullName"] as string)?.Trim() ?? string.Empty,
+                    Disabled = obj["Disabled"] is bool d && d,
+                    LocalAccount = obj["LocalAccount"] is bool la && la
+                });
+            }
+        }
+        catch { }
+        return list.OrderBy(u => u.Name, StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
+    /// <summary>Listet die lokalen Windows-Benutzergruppen (für die Premium-Ansicht).</summary>
+    public List<LocalGroupInfo> GetLocalGroups()
+    {
+        var list = new List<LocalGroupInfo>();
+        try
+        {
+            using var searcher = new ManagementObjectSearcher(
+                "SELECT Name, Description FROM Win32_Group");
+            foreach (var obj in searcher.Get())
+            {
+                list.Add(new LocalGroupInfo
+                {
+                    Name = (obj["Name"] as string)?.Trim() ?? string.Empty,
+                    Description = (obj["Description"] as string)?.Trim() ?? string.Empty
+                });
+            }
+        }
+        catch { }
+        return list.OrderBy(g => g.Name, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
     /// <summary>
@@ -164,8 +219,16 @@ public sealed class SystemMonitorService
         return result;
     }
 
+    private List<ProcessSample> _lastProcessSamples = new();
+
     private List<ProcessSample> SampleProcesses()
     {
+        // RAM-schonend: die (teure) Prozess-Enumeration nur bei jedem 2. Aufruf,
+        // dazwischen wird das letzte Ergebnis wiederverwendet.
+        _processTick++;
+        if (_processTick % 2 == 0 && _lastProcessSamples.Count > 0)
+            return _lastProcessSamples;
+
         var current = new Dictionary<int, (TimeSpan Cpu, DateTime At)>();
         var samples = new List<ProcessSample>();
         var now = DateTime.UtcNow;
@@ -212,11 +275,12 @@ public sealed class SystemMonitorService
 
         _prevProcessTimes = current;
         LastProcessCount = count;
-        return samples
+        _lastProcessSamples = samples
             .OrderByDescending(x => x.CpuPercent)
             .ThenByDescending(x => x.WorkingSetBytes)
             .Take(12)
             .ToList();
+        return _lastProcessSamples;
     }
 
     private void LoadStaticCpuInfo()

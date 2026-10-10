@@ -3,7 +3,13 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase, isCurrentUserAdmin } from "./supabase";
 import { BugTracker } from "./BugTracker";
 import { Admin } from "./Admin";
-import { DOWNLOAD_SETUP_URL, DOWNLOAD_PORTABLE_URL, isSupabaseConfigured } from "./config";
+import {
+  DOWNLOAD_SETUP_URL,
+  DOWNLOAD_PORTABLE_URL,
+  RELEASES_PAGE_URL,
+  releaseAssetUrl,
+  isSupabaseConfigured
+} from "./config";
 
 const FEATURES = [
   { icon: "🎮", title: "Spielbibliothek", text: "Steam, Epic und installierte Programme automatisch erkennen, starten, stoppen und Spielzeiten verfolgen." },
@@ -15,6 +21,20 @@ const FEATURES = [
 ];
 
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: "0.5.0",
+    date: "Oktober 2026",
+    items: [
+      "Update-Fortschritt beim Start sichtbar – automatische Installation in den Einstellungen wählbar.",
+      "System-Ressourcen: aktueller Windows-Benutzer sowie lokale Benutzer & Gruppen (Premium) und Live-GPU.",
+      "Alles in einem durchgehenden, scrollbaren Rahmen – übersichtlicher und sparsamer.",
+      "Web-Recherche berücksichtigt die Spielversion korrekt (z. B. OMSI 2 statt OMSI 1).",
+      "Premium-Codes sind pro Nutzer nur einmal einlösbar; Admins können Premium sperren.",
+      "Neues Abzeichen „Premium-Veteran“ nach 3 Monaten Premium.",
+      "Disk Cleanup zeigt eine Live-Restzeit auch bei sehr großen Scans.",
+      "Frühere Versionen sind auf der Website dauerhaft herunterladbar."
+    ]
+  },
   {
     version: "0.4.2",
     date: "Oktober 2026",
@@ -238,6 +258,47 @@ export function App() {
                 </div>
               ))}
             </div>
+          </section>
+
+          <section className="wide" id="versionen" style={{ margin: "0 0 40px" }}>
+            <h2 className="section-title">Frühere Versionen</h2>
+            <p className="muted small">
+              Alle früheren Versionen bleiben dauerhaft herunterladbar. Hinweis: Nur die jeweils
+              <strong> neueste Version</strong> erhält automatische Updates – ältere Versionen
+              aktualisieren sich nicht von selbst und sind nur zu Test-/Archivzwecken gedacht.
+            </p>
+            <div className="changelog">
+              {CHANGELOG.map((c, i) => (
+                <div className="card changelog-item" key={c.version}>
+                  <span className="changelog-check">⬇</span>
+                  <div style={{ flex: 1 }}>
+                    <h4>
+                      Version {c.version}{" "}
+                      {i === 0 ? (
+                        <span className="badge-you">aktuell</span>
+                      ) : (
+                        <span className="muted small">· {c.date}</span>
+                      )}
+                    </h4>
+                    <div className="row" style={{ marginTop: 8 }}>
+                      <a className="btn tiny" href={releaseAssetUrl(c.version, "setup")}>
+                        Setup (.exe)
+                      </a>
+                      <a className="btn tiny ghost" href={releaseAssetUrl(c.version, "portable")}>
+                        Portable (.zip)
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="muted small" style={{ marginTop: 12 }}>
+              Ältere Releases, Prüfsummen und alle Dateien findest du auch auf der{" "}
+              <a href={RELEASES_PAGE_URL} target="_blank" rel="noreferrer">
+                Releases-Seite
+              </a>
+              .
+            </p>
           </section>
         </>
       )}

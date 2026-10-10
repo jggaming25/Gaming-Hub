@@ -31,8 +31,8 @@ public partial class CleanupViewModel : ViewModelBase
     [ObservableProperty] private string _wastedDisplay = "0 B";
     [ObservableProperty] private string _etaDisplay = string.Empty;
 
-    private int _lastPercent = -1;
-    private DateTime _lastPercentAtUtc;
+    private double _lastFraction = -1;
+    private DateTime _lastFractionAtUtc;
 
     public bool UseRecycleBin
     {
@@ -165,8 +165,8 @@ public partial class CleanupViewModel : ViewModelBase
         _stopwatch.Restart();
         ScanPercent = 0;
         ElapsedDisplay = "0sek";
-        EtaDisplay = string.Empty;
-        _lastPercent = -1;
+        EtaDisplay = "Verbleibend: wird berechnet…";
+        _lastFraction = -1;
 
         var options = new DuplicateScanOptions
         {
@@ -176,16 +176,27 @@ public partial class CleanupViewModel : ViewModelBase
 
         var progress = new Progress<DuplicateScanProgress>(p =>
         {
+            // Gesamtfortschritt über alle Phasen (0..1), damit die Restzeit
+            // auch bei sehr großen Mengen fortlaufend geschätzt werden kann.
+            double frac = -1;
+            if (p.TotalFiles > 0 && p.FilesInspected > 0)
+            {
+                double within = Math.Clamp((double)p.FilesInspected / p.TotalFiles, 0, 1);
+                if (p.Phase.Contains("indiziert", StringComparison.OrdinalIgnoreCase))
+                    frac = 0.10 + 0.45 * within;
+                else if (p.Phase.Contains("verglichen", StringComparison.OrdinalIgnoreCase))
+                    frac = 0.55 + 0.45 * within;
+            }
+
             if (p.Percent >= 0)
-            {
                 ScanPercent = Math.Clamp(p.Percent, 0, 100);
-                UpdateEta(p.Percent);
-                ProgressPhase = $"{p.Phase} – {ScanPercent} % ({p.FilesInspected:N0} Dateien)";
-            }
+
+            if (p.TotalFiles > 0)
+                ProgressPhase = $"{p.Phase} – {p.FilesInspected:N0} / {p.TotalFiles:N0} Dateien";
             else
-            {
                 ProgressPhase = $"{p.Phase} – {p.FilesInspected:N0} Dateien geprüft…";
-            }
+
+            UpdateEta(frac);
         });
 
         try
@@ -299,34 +310,30 @@ public partial class CleanupViewModel : ViewModelBase
         WastedDisplay = Format.Bytes(wasted);
     }
 
-    /// <summary>Live-Restzeitschätzung aus dem Fortschritt in % (einfache
-    /// Extrapolation der letzten Fortschritts-Steigung).</summary>
-    private void UpdateEta(int percent)
+    /// <summary>Live-Restzeitschätzung aus dem Gesamtfortschritt (0..1).
+    /// Nutzt die Steigung zwischen zwei Messpunkten – funktioniert auch, wenn
+    /// sich der gerundete Prozentwert über lange Zeit nicht ändert.</summary>
+    private void UpdateEta(double fraction)
     {
-        if (percent <= 0)
+        if (fraction < 0)
         {
-            EtaDisplay = string.Empty;
+            if (EtaDisplay.Length == 0)
+                EtaDisplay = "Verbleibend: wird berechnet…";
             return;
         }
 
         var now = DateTime.UtcNow;
-        if (_lastPercent > 0 && percent > _lastPercent)
+        if (_lastFraction >= 0 && fraction > _lastFraction + 0.0005)
         {
-            int delta = percent - _lastPercent;
-            double seconds = (now - _lastPercentAtUtc).TotalSeconds;
-            double rate = delta / Math.Max(seconds, 0.05);
-            double remainingSec = (100 - percent) / rate;
-            if (remainingSec is > 5 and < 6 * 3600)
-            {
-                EtaDisplay = "Verbleibend: ca. " + Format.Elapsed(TimeSpan.FromSeconds(remainingSec));
-            }
-            else
-            {
-                EtaDisplay = string.Empty;
-            }
+            double seconds = (now - _lastFractionAtUtc).TotalSeconds;
+            double rate = (fraction - _lastFraction) / Math.Max(seconds, 0.2);
+            double remainingSec = rate > 0 ? (1.0 - fraction) / rate : double.PositiveInfinity;
+            EtaDisplay = remainingSec is > 1 and < 6 * 3600
+                ? "Verbleibend: ca. " + Format.Elapsed(TimeSpan.FromSeconds(remainingSec))
+                : "Verbleibend: wird berechnet…";
         }
 
-        _lastPercent = percent;
-        _lastPercentAtUtc = now;
+        _lastFraction = fraction;
+        _lastFractionAtUtc = now;
     }
 }

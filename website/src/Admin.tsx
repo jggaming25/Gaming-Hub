@@ -5,6 +5,7 @@ import {
   fetchProfiles,
   setProfileRole,
   setProfileBanned,
+  setProfilePremiumBanned,
   updateBugStatus,
   isCurrentUserAdmin,
   fetchAppSettings,
@@ -119,6 +120,13 @@ export function Admin() {
     await refresh();
   }
 
+  async function togglePremiumBan(p: Profile) {
+    const res = await setProfilePremiumBanned(p.id, !p.premium_banned);
+    if (!res.ok) setStatus(res.error ?? "Fehler");
+    else setStatus(`Premium für ${p.email ?? p.display_name ?? "Nutzer"} ${p.premium_banned ? "entsperrt" : "gesperrt"}.`);
+    await refresh();
+  }
+
   async function toggleFlag(key: string, value: boolean) {
     setFlags((f) => ({ ...f, [key]: value }));
     const res = await setAppSetting(key, value);
@@ -137,7 +145,7 @@ export function Admin() {
   }
 
   async function copyUnused() {
-    const unused = codes.filter((c) => !c.used_at).map((c) => c.code);
+    const unused = codes.filter((c) => (c.uses ?? 0) === 0).map((c) => c.code);
     try {
       await navigator.clipboard.writeText(unused.join("\n"));
       setStatus(`${unused.length} Codes kopiert.`);
@@ -213,6 +221,7 @@ export function Admin() {
           </div>
           {profiles.map((p) => {
             const isMe = p.id === me;
+            const premiumActive = p.premium_until ? new Date(p.premium_until).getTime() > Date.now() : false;
             return (
               <div className="user-row" key={p.id}>
                 <span className="user-email">
@@ -224,7 +233,15 @@ export function Admin() {
                 <span>
                   {p.is_admin && <span className="badge-admin">Admin</span>}
                   {p.is_banned && <span className="status status-rejected">Gesperrt</span>}
-                  {!p.is_admin && !p.is_banned && <span className="muted small">Aktiv</span>}
+                  {premiumActive && (
+                    <span className="badge-you">
+                      Premium bis {new Date(p.premium_until as string).toLocaleDateString("de-DE")}
+                    </span>
+                  )}
+                  {p.premium_banned && <span className="status status-rejected">Premium gesperrt</span>}
+                  {!p.is_admin && !p.is_banned && !premiumActive && !p.premium_banned && (
+                    <span className="muted small">Aktiv</span>
+                  )}
                 </span>
                 <span className="row">
                   <button className="btn tiny" disabled={isMe} onClick={() => toggleAdmin(p)}>
@@ -232,6 +249,9 @@ export function Admin() {
                   </button>
                   <button className="btn tiny danger" disabled={isMe} onClick={() => toggleBan(p)}>
                     {p.is_banned ? "Entsperren" : "Sperren"}
+                  </button>
+                  <button className="btn tiny" disabled={isMe} onClick={() => togglePremiumBan(p)}>
+                    {p.premium_banned ? "Premium frei" : "Premium sperren"}
                   </button>
                 </span>
               </div>
@@ -286,9 +306,10 @@ export function Admin() {
                 <span>{c.bonus_days} Tage</span>
                 <span className="muted small">{new Date(c.created_at).toLocaleDateString("de-DE")}</span>
                 <span>
-                  {c.used_at ? (
+                  {(c.uses ?? 0) > 0 ? (
                     <span className="status status-done">
-                      Verwendet · {new Date(c.used_at).toLocaleDateString("de-DE")}
+                      {c.uses}× verwendet
+                      {c.last_used_at ? ` · ${new Date(c.last_used_at).toLocaleDateString("de-DE")}` : ""}
                     </span>
                   ) : (
                     <span className="badge-you">Frei</span>

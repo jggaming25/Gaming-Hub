@@ -422,22 +422,33 @@ create policy "chat_attachments_insert" on storage.objects
     for insert with check (bucket_id = 'chat-attachments' and auth.role() = 'authenticated');
 
 -- ============================================================
--- Premium: Codes, Aktivitäts-Freischaltung und Admin-Schalter
+-- Premium: Codes, Aktivität, Sperre und 3-Monats-Abzeichen
 -- Nicht-monetär: Codes (aus der Admin-UI) oder über das Erreichen
 -- von Abzeichen (Aktivität). Beides schaltbar per Feature-Flag.
 -- Premium gewährt u.a. 4 Wochen statt 1 Woche Ressourcen-Verlauf.
+-- Nach Ablauf (premium_until in der Vergangenheit) behandelt die
+-- App den Nutzer automatisch wieder wie ein Nicht-Premium-Konto.
 -- ============================================================
 
-alter table public.profiles add column if not exists premium_until timestamptz;
+alter table public.profiles add column if not exists premium_until  timestamptz;
+alter table public.profiles add column if not exists premium_since  timestamptz;
+alter table public.profiles add column if not exists premium_banned boolean not null default false;
 
 create table if not exists public.premium_codes (
     id         uuid primary key default gen_random_uuid(),
     code       text unique not null,
     bonus_days int not null default 30,
     created_by uuid references auth.users(id) on delete set null,
-    created_at timestamptz not null default now(),
-    used_by    uuid references auth.users(id) on delete set null,
-    used_at    timestamptz
+    created_at timestamptz not null default now()
+);
+
+-- Einlösungen: jeder Nutzer kann JEDEN Code höchstens einmal einlösen.
+-- Ein Code ist damit nicht global "verbraucht", sondern pro Nutzer nutzbar.
+create table if not exists public.premium_code_uses (
+    code_id  uuid not null references public.premium_codes(id) on delete cascade,
+    user_id  uuid not null references auth.users(id) on delete cascade,
+    used_at  timestamptz not null default now(),
+    primary key (code_id, user_id)
 );
 
 create table if not exists public.premium_claims (
@@ -454,8 +465,9 @@ insert into public.app_settings (key, value) values
     ('premium_activity_enabled', true)
 on conflict (key) do nothing;
 
-alter table public.premium_codes  enable row level security;
-alter table public.premium_claims enable row level security;
+alter table public.premium_codes     enable row level security;
+alter table public.premium_code_uses enable row level security;
+alter table public.premium_claims    enable row level security;
 
 -- Codes / Claims sind nur für Admins einsehbar. Nutzer verwenden die
 -- RPC-Funktionen (security definer) zum Einlösen – niemals direkt.
@@ -463,12 +475,49 @@ drop policy if exists "premium_codes_admin" on public.premium_codes;
 create policy "premium_codes_admin" on public.premium_codes
     for all using (public.is_admin()) with check (public.is_admin());
 
+drop policy if exists "premium_code_uses_admin" on public.premium_code_uses;
+create policy "premium_code_uses_admin" on public.premium_code_uses
+    for all using (public.is_admin()) with check (public.is_admin());
+
 drop policy if exists "premium_claims_select_own" on public.premium_claims;
 create policy "premium_claims_select_own" on public.premium_claims
     for select using (auth.uid() = user_id);
 
--- Code einlösen: verlängert premium_until ab jetzt (bzw. ab aktuellem
--- Ablauf, falls schon aktiv). Nur eine Einlösung pro Code.
+-- Hilfsfunktion: setzt premium_since beim ersten Premium und vergibt das
+-- "3 Monate in Folge Premium"-Abzeichen, sobald die Bedingung erfüllt ist.
+create or replace function public.ensure_premium_and_badge(v_uid uuid)
+returns void
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+    update public.profiles
+       set premium_since = coalesce(premium_since, now())
+     where id = v_uid;
+
+    if exists (select 1 from public.profiles
+                where id = v_uid
+                  and premium_since <= now() - interval '90 days'
+                  and premium_until > now()) then
+        insert into public.badges (user_id, badge_id)
+        values (v_uid, 'premium_streak3')
+        on conflict (user_id, badge_id) do nothing;
+    end if;
+end;
+$$;
+
+-- Gesperrte Nutzer (global oder Premium-Sperre) dürfen kein Premium erhalten.
+create or replace function public.premium_allowed(v_uid uuid)
+returns boolean
+language sql stable security definer set search_path = public
+as $$
+    select v_uid is not null
+       and coalesce((select not coalesce(is_banned, false) and not coalesce(premium_banned, false)
+                     from public.profiles where id = v_uid), false);
+$$;
+
+-- Code einlösen: pro Nutzer und Code nur einmal. Verlängert premium_until
+-- ab jetzt (bzw. ab aktuellem Ablauf, falls schon aktiv).
 create or replace function public.redeem_premium_code(p_code text)
 returns jsonb
 language plpgsql
@@ -477,10 +526,14 @@ as $$
 declare
     v_uid uuid := auth.uid();
     v_enabled boolean;
+    v_code_id uuid;
     v_bonus int;
 begin
     if v_uid is null then
         return jsonb_build_object('ok', false, 'error', 'login_required');
+    end if;
+    if not public.premium_allowed(v_uid) then
+        return jsonb_build_object('ok', false, 'error', 'premium_banned');
     end if;
 
     select coalesce((select value from public.app_settings where key = 'premium_codes_enabled'), true)
@@ -489,20 +542,28 @@ begin
         return jsonb_build_object('ok', false, 'error', 'codes_disabled');
     end if;
 
-    update public.premium_codes
-       set used_by = v_uid, used_at = now()
+    select id, bonus_days into v_code_id, v_bonus
+      from public.premium_codes
      where code = upper(trim(p_code))
-       and used_by is null
-     returning bonus_days into v_bonus;
+     limit 1;
 
-    if v_bonus is null then
-        return jsonb_build_object('ok', false, 'error', 'invalid_or_used');
+    if v_code_id is null then
+        return jsonb_build_object('ok', false, 'error', 'invalid_code');
     end if;
+
+    begin
+        insert into public.premium_code_uses (code_id, user_id)
+        values (v_code_id, v_uid);
+    exception when unique_violation then
+        return jsonb_build_object('ok', false, 'error', 'already_used');
+    end;
 
     update public.profiles
        set premium_until = greatest(coalesce(premium_until, now()),
                                     now() + make_interval(days => v_bonus))
      where id = v_uid;
+
+    perform public.ensure_premium_and_badge(v_uid);
 
     return jsonb_build_object('ok', true, 'bonus_days', v_bonus);
 end;
@@ -521,6 +582,9 @@ declare
 begin
     if v_uid is null then
         return jsonb_build_object('ok', false, 'error', 'login_required');
+    end if;
+    if not public.premium_allowed(v_uid) then
+        return jsonb_build_object('ok', false, 'error', 'premium_banned');
     end if;
 
     select coalesce((select value from public.app_settings where key = 'premium_activity_enabled'), false)
@@ -551,10 +615,40 @@ begin
                                     now() + make_interval(days => v_days))
      where id = v_uid;
 
+    perform public.ensure_premium_and_badge(v_uid);
+
     return jsonb_build_object('ok', true, 'bonus_days', v_days);
 end;
 $$;
 
 grant execute on function public.redeem_premium_code(text)       to authenticated;
 grant execute on function public.claim_activity_premium(text)    to authenticated;
+
+-- Admin-Ansicht: Codes inkl. Einlösungs-Zähler (für Admin-UI im Web).
+create or replace function public.fetch_premium_codes()
+returns jsonb
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+    v_uid uuid := auth.uid();
+    v_result jsonb;
+begin
+    if v_uid is null or not public.is_admin() then
+        return jsonb_build_array();
+    end if;
+    select coalesce(jsonb_agg(jsonb_build_object(
+        'id', c.id,
+        'code', c.code,
+        'bonus_days', c.bonus_days,
+        'created_at', c.created_at,
+        'uses', (select count(*) from public.premium_code_uses u where u.code_id = c.id),
+        'last_used_at', (select max(u.used_at) from public.premium_code_uses u where u.code_id = c.id)
+    ) order by c.created_at desc), jsonb_build_array())
+      into v_result from public.premium_codes c;
+    return v_result;
+end;
+$$;
+
+grant execute on function public.fetch_premium_codes() to authenticated;
 

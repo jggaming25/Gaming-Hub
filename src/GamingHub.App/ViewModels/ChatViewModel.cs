@@ -666,6 +666,16 @@ public partial class ChatViewModel : ViewModelBase
                 {
                     if (incoming.Count > 0)
                         _lastTimestamps[target.ChannelId] = incoming[^1].CreatedAt;
+
+                    // Erste Ladung für einen Kanal ohne Verlauf (z. B. neu
+                    // geöffneter DM): beim aktiven Kanal trotzdem anzeigen,
+                    // damit gesendete Nachrichten nicht unsichtbar bleiben.
+                    if (target.ChannelId == SelectedTarget?.ChannelId)
+                    {
+                        foreach (var msg in incoming)
+                            if (!_blocked.Contains(msg.AuthorId ?? string.Empty) && Messages.All(m => m.Id != msg.Id))
+                                AppendMessage(msg);
+                    }
                     continue;
                 }
 

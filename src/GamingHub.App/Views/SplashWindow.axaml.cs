@@ -33,6 +33,12 @@ public partial class SplashWindow : Window
         var result = new UpdateCheckResult(false, null, null, null);
 
         void SetStatus(string text) => Dispatcher.UIThread.Post(() => StatusText.Text = text);
+        void SetProgress(int percent) => Dispatcher.UIThread.Post(() =>
+        {
+            StartupBar.IsIndeterminate = false;
+            StartupBar.Value = Math.Clamp(percent, 0, 100);
+        });
+        void ResetProgress() => Dispatcher.UIThread.Post(() => StartupBar.IsIndeterminate = true);
 
         if (settings.AutoCheckUpdates)
         {
@@ -42,19 +48,39 @@ public partial class SplashWindow : Window
                 result = await AppServices.Updater.CheckForUpdatesAsync();
                 if (result.HasUpdate)
                 {
-                    SetStatus($"Update {result.Version} wird heruntergeladen und installiert…");
-                    bool prepared = await AppServices.Updater.PrepareUpdateAsync(p =>
-                        SetStatus($"Update {result.Version} wird heruntergeladen… {p} %"));
-
-                    if (prepared)
-                        SetStatus($"Update {result.Version} installiert – Neustart wird vorbereitet.");
+                    if (settings.AutoInstallUpdates)
+                    {
+                        SetStatus($"Update {result.Version} wird heruntergeladen…");
+                        bool prepared = await AppServices.Updater.PrepareUpdateAsync(p =>
+                        {
+                            SetProgress(p);
+                            SetStatus($"Update {result.Version} wird heruntergeladen… {p} %");
+                        });
+                        if (prepared)
+                        {
+                            SetProgress(100);
+                            SetStatus($"Update {result.Version} installiert – Neustart wird vorbereitet.");
+                        }
+                        else
+                        {
+                            SetStatus($"Update {result.Version} konnte nicht geladen werden.");
+                        }
+                    }
                     else
-                        SetStatus($"Update {result.Version} konnte nicht geladen werden.");
+                    {
+                        // Automatische Installation deaktiviert – nur Hinweis,
+                        // Installation erfolgt manuell in den Einstellungen.
+                        SetStatus($"Update {result.Version} verfügbar – Installation in den Einstellungen.");
+                    }
                 }
             }
             catch
             {
                 // ignore update failures during startup
+            }
+            finally
+            {
+                ResetProgress();
             }
         }
 

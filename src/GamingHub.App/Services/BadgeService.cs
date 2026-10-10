@@ -25,7 +25,8 @@ public sealed class BadgeService
         new() { Id = "bibliothekar", Name = "Bibliothekar", Description = "Deine Spielebibliothek gescannt.", Glyph = "\uE8F1" },
         new() { Id = "aufraeumer", Name = "Aufräumer", Description = "Einen Disk-Cleanup durchgeführt.", Glyph = "\uE74D" },
         new() { Id = "systemprofi", Name = "Systemprofi", Description = "Deine System-Ressourcen geprüft.", Glyph = "\uE9D9" },
-        new() { Id = "bugreporter", Name = "Bugreporter", Description = "Einen Bug gemeldet.", Glyph = "\uE7BA" }
+        new() { Id = "bugreporter", Name = "Bugreporter", Description = "Einen Bug gemeldet.", Glyph = "\uE7BA" },
+        new() { Id = "premium_streak3", Name = "Premium-Veteran", Description = "3 Monate in Folge Premium – treue Unterstützung.", Glyph = "\uE735", EarnedUtc = null }
     };
 
     public bool Has(string id) => _earned.Contains(id);

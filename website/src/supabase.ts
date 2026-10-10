@@ -86,6 +86,9 @@ export interface Profile {
   avatar_url: string | null;
   is_admin: boolean;
   is_banned: boolean;
+  premium_until: string | null;
+  premium_since: string | null;
+  premium_banned: boolean;
   created_at: string;
 }
 
@@ -124,6 +127,12 @@ export async function setProfileBanned(id: string, banned: boolean) {
   return error ? { ok: false, error: error.message } : { ok: true };
 }
 
+export async function setProfilePremiumBanned(id: string, banned: boolean) {
+  if (!supabase) return { ok: false, error: "Supabase ist nicht konfiguriert." };
+  const { error } = await supabase.from("profiles").update({ premium_banned: banned }).eq("id", id);
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+
 // ---------------------------------------------------------------
 // Admin: Premium (Feature-Flags + Freischalt-Codes)
 // ---------------------------------------------------------------
@@ -137,10 +146,10 @@ export interface PremiumCode {
   id: string;
   code: string;
   bonus_days: number;
-  created_by: string | null;
   created_at: string;
-  used_by: string | null;
-  used_at: string | null;
+  // Ein Code ist pro Nutzer einmal einlösbar – "uses" zählt die Einlösungen.
+  uses: number;
+  last_used_at: string | null;
 }
 
 export async function fetchAppSettings(): Promise<{ settings: AppSetting[]; error?: string }> {
@@ -158,10 +167,8 @@ export async function setAppSetting(key: string, value: boolean) {
 
 export async function fetchPremiumCodes(): Promise<{ codes: PremiumCode[]; error?: string }> {
   if (!supabase) return { codes: [], error: "Supabase ist nicht konfiguriert." };
-  const { data, error } = await supabase
-    .from("premium_codes")
-    .select("*")
-    .order("created_at", { ascending: false });
+  // Über eine Serverfunktion, da Codes inkl. Einlösungs-Zähler nur Admin-Only sind.
+  const { data, error } = await supabase.rpc("fetch_premium_codes");
   if (error) return { codes: [], error: error.message };
   return { codes: (data as PremiumCode[]) ?? [] };
 }

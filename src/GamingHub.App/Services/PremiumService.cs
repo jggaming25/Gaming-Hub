@@ -17,6 +17,9 @@ public sealed class PremiumService
     public bool IsPremium => AppServices.Profile.IsPremium;
     public DateTimeOffset? PremiumUntil => AppServices.Profile.PremiumUntil;
 
+    /// <summary>True, wenn ein Admin Premium für dieses Konto gesperrt hat.</summary>
+    public bool IsPremiumBanned => AppServices.Profile.PremiumBanned;
+
     public event Action? Changed;
 
     public PremiumService()
@@ -125,7 +128,10 @@ public sealed class PremiumService
         "codes_disabled" => "Codes sind zurzeit deaktiviert.",
         "activity_disabled" => "Aktivitäts-Premium ist zurzeit deaktiviert.",
         "already_claimed" => "Für dieses Abzeichen hast du bereits Premium erhalten.",
+        "invalid_code" => "Diesen Code gibt es nicht.",
         "invalid_or_used" => "Code ungültig oder bereits verwendet.",
+        "already_used" => "Diesen Code hast du bereits eingelöst.",
+        "premium_banned" => "Premium wurde für dein Konto gesperrt.",
         _ => key
     };
 }

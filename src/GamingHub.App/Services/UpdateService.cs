@@ -127,6 +127,20 @@ public sealed class UpdateService
     }
 
     /// <summary>
+    /// Startargumente für den Neustart nach einem Update. Die Autostart-Flags
+    /// (--hidden / --tray) werden bewusst entfernt, damit die neue Version
+    /// sichtbar startet und nicht im Tray "verschwindet".
+    /// </summary>
+    private static string[] BuildRestartArgs()
+    {
+        return Environment.GetCommandLineArgs()
+            .Skip(1)
+            .Where(a => !a.Equals("--hidden", StringComparison.OrdinalIgnoreCase)
+                        && !a.Equals("--tray", StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+    }
+
+    /// <summary>
     /// Installs the prepared update and restarts the application into the new version.
     /// This method normally does not return, because the process is restarted.
     /// Throws when no prepared update exists or the build is not installed.
@@ -135,8 +149,8 @@ public sealed class UpdateService
     {
         var mgr = Manager ?? throw new InvalidOperationException("Kein Velopack-Build verfügbar.");
         var update = _pendingUpdate ?? throw new InvalidOperationException("Kein vorbereitetes Update vorhanden.");
-        LogService.Info($"Neustart zum Aktivieren von Updates…");
-        mgr.ApplyUpdatesAndRestart(update);
+        LogService.Info("Neustart zum Aktivieren von Updates…");
+        mgr.ApplyUpdatesAndRestart(update.TargetFullRelease, BuildRestartArgs());
     }
 
     /// <summary>
@@ -165,7 +179,7 @@ public sealed class UpdateService
             LogService.Info($"Update wird heruntergeladen (Version {update.TargetFullRelease.Version}).");
             await mgr.DownloadUpdatesAsync(update, p => { progress?.Invoke(p); });
             LogService.Info("Download abgeschlossen – Starte Neustart zum Installieren.");
-            mgr.ApplyUpdatesAndRestart(update);
+            mgr.ApplyUpdatesAndRestart(update.TargetFullRelease, BuildRestartArgs());
             return true;
         }
         catch (Exception ex)

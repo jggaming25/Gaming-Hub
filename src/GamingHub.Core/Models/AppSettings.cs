@@ -17,6 +17,11 @@ public sealed class AppSettings
     public string ThemeVariant { get; set; } = "Dark";
     public bool AutoCheckUpdates { get; set; } = true;
     public bool AutoInstallUpdates { get; set; } = true;
+
+    /// <summary>Ob der Autostart (Standard: aktiv) bereits einmal eingerichtet
+    /// wurde. null = noch nie gesetzt (Erststart → automatisch aktivieren).</summary>
+    public bool? AutostartConfigured { get; set; }
+
     public bool DesktopNotificationsEnabled { get; set; } = true;
     public bool NotificationSoundEnabled { get; set; } = true;
 

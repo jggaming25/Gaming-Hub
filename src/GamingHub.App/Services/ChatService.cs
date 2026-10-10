@@ -94,10 +94,11 @@ public sealed class ChatService
 
         // return=representation: die Antwort enthält die eingefügte Zeile – so können
         // wir die eigene Nachricht sofort lokal anzeigen (sonst würde sie der Poll-Schutz
-        // überspringen und nie im Chat auftauchen).
+        // überspringen und nie im Chat auftauchen). PostgREST liefert dabei ein Array.
         try
         {
-            var msg = JsonSerializer.Deserialize<ChatMessage>(result.Body, Json);
+            var rows = JsonSerializer.Deserialize<List<ChatMessage>>(result.Body, Json);
+            var msg = rows is { Count: > 0 } ? rows[0] : null;
             return msg is null ? new SendOutcome(true, null) : new SendOutcome(true, null, msg);
         }
         catch

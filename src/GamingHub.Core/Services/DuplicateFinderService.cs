@@ -15,6 +15,11 @@ public sealed class DuplicateScanProgress
 {
     public string Phase { get; set; } = string.Empty;
     public long FilesInspected { get; set; }
+
+    /// <summary>Gesamtzahl der Dateien in der aktuellen Phase (0 = unbekannt).
+    /// Ermöglicht eine präzise Fortschritts-/Restzeitschätzung.</summary>
+    public long TotalFiles { get; set; }
+
     public string? CurrentPath { get; set; }
     public int GroupsFound { get; set; }
 
@@ -104,10 +109,10 @@ public sealed class DuplicateFinderService
 
             inspected++;
             if (inspected % 500 == 0)
-                progress?.Report(new DuplicateScanProgress { Phase = "Dateien werden indiziert", FilesInspected = inspected, CurrentPath = file, Percent = (int)Math.Min(50, inspected * 50 / total) });
+                progress?.Report(new DuplicateScanProgress { Phase = "Dateien werden indiziert", FilesInspected = inspected, TotalFiles = total, CurrentPath = file, Percent = (int)Math.Min(50, inspected * 50 / total) });
         }
 
-        progress?.Report(new DuplicateScanProgress { Phase = "Dateien werden indiziert", FilesInspected = inspected, Percent = 50 });
+        progress?.Report(new DuplicateScanProgress { Phase = "Dateien werden indiziert", FilesInspected = inspected, TotalFiles = total, Percent = 50 });
 
         var candidates = bySize.Where(kv => kv.Value.Count > 1).ToList();
         long candidateFiles = candidates.Sum(c => (long)c.Value.Count);
@@ -127,7 +132,7 @@ public sealed class DuplicateFinderService
                 if (done % 100 == 0)
                 {
                     int pct = (int)Math.Min(95, 50 + done * 45 / Math.Max(1, candidateFiles));
-                    progress?.Report(new DuplicateScanProgress { Phase = "Dateien werden verglichen", FilesInspected = done, Percent = pct });
+                    progress?.Report(new DuplicateScanProgress { Phase = "Dateien werden verglichen", FilesInspected = done, TotalFiles = candidateFiles, Percent = pct });
                 }
             });
 

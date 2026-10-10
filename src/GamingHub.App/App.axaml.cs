@@ -24,6 +24,9 @@ public partial class App : Application
 
         InstallCrashHandlers();
 
+        // Autostart ist standardmäßig aktiv (einmalig beim ersten Start einrichten).
+        EnsureAutostartDefault();
+
         // Hintergrund-Erfassung der System-Ressourcen (alle 5 Min, lokal,
         // mit Retry bei nicht erhebbaren Werten). Läuft auch im Tray weiter.
         AppServices.History.Start();
@@ -56,7 +59,9 @@ public partial class App : Application
                                 AppServices.Settings.Settings.HasAcceptedDisclaimer = true;
                                 AppServices.Settings.Settings.ConsentVersion = AppInfo.Version;
                                 AppServices.Settings.Save();
-                                ShowSplashThenMain(desktop, startHidden);
+                                // Nach dem Akzeptieren der Bedingungen sichtbar starten –
+                                // auch wenn die App per Autostart (versteckt) gestartet wurde.
+                                ShowSplashThenMain(desktop, startHidden: false);
                             }
                             else
                             {
@@ -83,6 +88,27 @@ public partial class App : Application
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    /// <summary>Richtet den Autostart beim allerersten Start standardmäßig ein
+    /// (aktiv). Wurde er bereits bewusst gesetzt, wird nichts geändert.</summary>
+    private static void EnsureAutostartDefault()
+    {
+        try
+        {
+            var settings = AppServices.Settings.Settings;
+            if (settings.AutostartConfigured is null)
+            {
+                AutostartService.SetEnabled(true);
+                settings.AutostartConfigured = true;
+                AppServices.Settings.Save();
+                LogService.Info("Autostart standardmäßig aktiviert (Erststart).");
+            }
+        }
+        catch (Exception ex)
+        {
+            CrashLog.Write("autostart-default", ex);
+        }
     }
 
     private static void ShowSplashThenMain(IClassicDesktopStyleApplicationLifetime desktop, bool startHidden = false)
