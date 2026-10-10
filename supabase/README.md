@@ -30,12 +30,12 @@ Alternativ als Datei `supabase.config.json` neben `GamingHub.App.exe`:
 ## 4. E-Mail-Login aktivieren
 **Authentication → Providers → Email** ist standardmäßig aktiv. Optional „Confirm email" abschalten, um sofort loszulegen.
 
-## 5. Google / Discord Login (OAuth)
+## 5. Discord Login (OAuth)
 1. **Authentication → URL Configuration → Redirect URLs** hinzufügen:
    `http://localhost:51555/callback`
-2. Bei Google Cloud bzw. Discord Developer Portal eine OAuth-App anlegen und als Redirect-URL
+2. Im Discord Developer Portal eine OAuth-App anlegen und als Redirect-URL
    `https://DEINPROJEKT.supabase.co/auth/v1/callback` eintragen.
-3. Client-ID/Secret in **Authentication → Providers → Google/Discord** einfügen und aktivieren.
+3. Client-ID/Secret in **Authentication → Providers → Discord** einfügen und aktivieren.
 
 ## 6. Admin für Bugtracker
 Nachdem du dich einmal in der App registriert hast:

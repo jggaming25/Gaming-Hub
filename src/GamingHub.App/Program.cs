@@ -1,6 +1,5 @@
 ﻿using Avalonia;
 using System;
-using Velopack;
 
 namespace GamingHub.App;
 
@@ -12,9 +11,6 @@ sealed class Program
     [STAThread]
     public static void Main(string[] args)
     {
-        // Handles install / update / uninstall hooks when running as a packaged app.
-        VelopackApp.Build().Run();
-
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }
 

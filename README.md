@@ -54,7 +54,7 @@ dein PC ein Spiel schafft.
 | 2 | Spiele (Erkennung, Steuerung, Spielzeit, Speicher) | ✅ |
 | 3 | Disk Cleanup (Duplikate, Auto-/Manuell-Löschen) | ✅ |
 | 4 | System-Ressourcen & Kompatibilitäts-Check | ✅ |
-| 5 | Login (E-Mail/Google/Discord), Profile, Badges/Achievements | 🗓️ geplant |
+| 5 | Login (E-Mail/Discord), Profile, Badges/Achievements | 🗓️ geplant |
 | 6 | Chat, Sprach- & Videochat (WebRTC + Supabase) | 🗓️ geplant |
 | 7 | Website mit Download & Bugtracker (Admin-Moderation) | 🗓️ geplant |
 

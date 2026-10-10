@@ -9,7 +9,7 @@ using GamingHub.Core.Services;
 namespace GamingHub.App.Services;
 
 /// <summary>
-/// Handles Supabase authentication (e-mail/password and Google/Discord OAuth via
+/// Handles Supabase authentication (e-mail/password and Discord OAuth via
 /// a loopback listener) and keeps the session persisted between starts.
 /// </summary>
 public sealed class AuthService

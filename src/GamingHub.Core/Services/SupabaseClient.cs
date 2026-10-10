@@ -118,7 +118,7 @@ public sealed class SupabaseClient
         catch { return null; }
     }
 
-    // ---------------- PKCE OAuth ----------------
+    // ---------------- PKCE OAuth (genutzt z. B. für Discord) ----------------
 
     public static (string verifier, string challenge) CreatePkce()
     {

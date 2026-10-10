@@ -30,7 +30,6 @@
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <Button Content="Anmelden" Command="{Binding SignInCommand}" Classes="accent" />
                             <Button Content="Registrieren" Command="{Binding SignUpCommand}" />
-                            <Button Content="Mit Google" Command="{Binding OAuthCommand}" CommandParameter="google" />
                             <Button Content="Mit Discord" Command="{Binding OAuthCommand}" CommandParameter="discord" />
                         </StackPanel>
                     </StackPanel>
