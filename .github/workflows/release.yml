@@ -58,6 +58,14 @@ jobs:
             --icon src/GamingHub.App/Assets/logo.ico `
             --outputDir Releases
 
+      - name: Remove Velopack Portable ZIP
+        shell: pwsh
+        run: |
+          # vpk erzeugt zusätzlich ein SELBST-ENTPACKENDES Portable-ZIP – genau die Art,
+          # die Antiviren-Programme gerne löschen. Entfernen, damit ausschließlich unser
+          # AV-freundliches Ordner-ZIP (portable/GamingHub-win-Portable.zip) ausgeliefert wird.
+          Get-ChildItem Releases -Filter *Portable*.zip -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+
       - name: Generate SHA-256 checksums
         shell: pwsh
         run: |
