@@ -75,3 +75,51 @@ export async function updateBugStatus(id: string, status: BugStatus, adminReply?
   const { error } = await supabase.from("bugs").update(patch).eq("id", id);
   return error ? { ok: false, error: error.message } : { ok: true };
 }
+
+// ---------------------------------------------------------------
+// Admin: Nutzerverwaltung
+// ---------------------------------------------------------------
+export interface Profile {
+  id: string;
+  email: string | null;
+  display_name: string | null;
+  avatar_url: string | null;
+  is_admin: boolean;
+  is_banned: boolean;
+  created_at: string;
+}
+
+export async function isCurrentUserAdmin(): Promise<boolean> {
+  if (!supabase) return false;
+  const { data: userData } = await supabase.auth.getUser();
+  const uid = userData.user?.id;
+  if (!uid) return false;
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("is_admin")
+    .eq("id", uid)
+    .maybeSingle();
+  return Boolean(profile?.is_admin);
+}
+
+export async function fetchProfiles(): Promise<{ profiles: Profile[]; error?: string }> {
+  if (!supabase) return { profiles: [], error: "Supabase ist nicht konfiguriert." };
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .order("created_at", { ascending: true });
+  if (error) return { profiles: [], error: error.message };
+  return { profiles: (data as Profile[]) ?? [] };
+}
+
+export async function setProfileRole(id: string, isAdmin: boolean) {
+  if (!supabase) return { ok: false, error: "Supabase ist nicht konfiguriert." };
+  const { error } = await supabase.from("profiles").update({ is_admin: isAdmin }).eq("id", id);
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+
+export async function setProfileBanned(id: string, banned: boolean) {
+  if (!supabase) return { ok: false, error: "Supabase ist nicht konfiguriert." };
+  const { error } = await supabase.from("profiles").update({ is_banned: banned }).eq("id", id);
+  return error ? { ok: false, error: error.message } : { ok: true };
+}

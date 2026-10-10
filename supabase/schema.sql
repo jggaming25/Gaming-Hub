@@ -15,6 +15,7 @@ create table if not exists public.profiles (
     display_name text,
     avatar_url   text,
     is_admin     boolean not null default false,
+    is_banned    boolean not null default false,
     created_at   timestamptz not null default now()
 );
 
@@ -119,6 +120,21 @@ drop policy if exists "profiles_update_own" on public.profiles;
 create policy "profiles_update_own" on public.profiles
     for update using (auth.uid() = id) with check (auth.uid() = id);
 
+-- Admin: darf jedes Profil ändern (Admin-Status, Sperrung) -> Nutzerverwaltung
+drop policy if exists "profiles_update_admin" on public.profiles;
+create policy "profiles_update_admin" on public.profiles
+    for update using (public.is_admin()) with check (public.is_admin());
+
+-- Gesperrte Nutzer dürfen keine neuen Bugs melden
+drop policy if exists "bugs_insert" on public.bugs;
+create policy "bugs_insert" on public.bugs
+    for insert with check (
+        case
+            when auth.uid() is null then true
+            else coalesce((select not coalesce(is_banned, false) from public.profiles where id = auth.uid()), true)
+        end
+    );
+
 -- badges: für alle lesbar, eigene Abzeichen eintragen
 drop policy if exists "badges_select" on public.badges;
 create policy "badges_select" on public.badges
@@ -128,11 +144,7 @@ drop policy if exists "badges_insert_own" on public.badges;
 create policy "badges_insert_own" on public.badges
     for insert with check (auth.uid() = user_id);
 
--- bugs: jeder (auch anonym) darf melden; eigene + (Admin: alle) lesen
-drop policy if exists "bugs_insert" on public.bugs;
-create policy "bugs_insert" on public.bugs
-    for insert with check (true);
-
+-- bugs: eigene + (Admin: alle) lesen; Insert-Regel siehe oben (Gesperrte dürfen nicht melden)
 drop policy if exists "bugs_select" on public.bugs;
 create policy "bugs_select" on public.bugs
     for select using (public.is_admin() or auth.uid() = reporter_id);

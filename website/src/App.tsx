@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { supabase } from "./supabase";
+import { supabase, isCurrentUserAdmin } from "./supabase";
 import { BugTracker } from "./BugTracker";
+import { Admin } from "./Admin";
 import { DOWNLOAD_SETUP_URL, DOWNLOAD_PORTABLE_URL, isSupabaseConfigured } from "./config";
 
 const FEATURES = [
@@ -15,13 +16,22 @@ const FEATURES = [
 
 export function App() {
   const [session, setSession] = useState<Session | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     if (!supabase) return;
-    supabase.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+    const apply = (s: Session | null) => {
+      setSession(s);
+    };
+    supabase.auth.getSession().then(({ data }) => apply(data.session));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => apply(s));
     return () => sub.subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (session) void isCurrentUserAdmin().then(setIsAdmin);
+    else setIsAdmin(false);
+  }, [session]);
 
   const userEmail = session?.user?.email;
 
@@ -34,6 +44,7 @@ export function App() {
         <nav>
           <a href="#features">Features</a>
           <a href="#neu">Neu</a>
+          {isAdmin && <a href="#admin">Admin</a>}
           <a href="#bugs">Bugtracker</a>
         </nav>
         <div className="nav-actions">
@@ -64,6 +75,37 @@ export function App() {
         <p className="muted small">
           Hinweis: Gaming Hub wird ohne Gewähr bereitgestellt. Nutzung auf eigene Gefahr.
         </p>
+        <div className="download-help">
+          <h4>Brauchst du Hilfe beim Download?</h4>
+          <p>
+            Die Installer sind aktuell noch nicht mit einem kostenpflichtigen Zertifikat signiert.
+            Browser und Windows zeigen deshalb bewusst eine Warnung. So kommst du sicher trotzdem ran:
+          </p>
+          <ol>
+            <li>
+              <strong>Browser (z.&nbsp;B. Edge/Chrome):</strong> Bei „<em>Datei nicht sicher</em>“ auf
+              „Alternative herunterladen“ bzw. „Trotzdem behalten“ klicken.
+            </li>
+            <li>
+              <strong>Windows SmartScreen:</strong> „Weitere Informationen“ → „Trotzdem ausführen“.
+              Beim Portable-Ordner zusätzlich im Defender unter „Bedrohungsschutz“ erlauben.
+            </li>
+            <li>
+              <strong>Empfehlung:</strong> Nutze den <strong>Setup-Installer</strong> statt der
+              Portable-ZIP – die einzelne EXE (selbst-entpackend) wird von Antiviren öfter fälschlich
+              gelöscht. Die Portable-Version gibt es als normalen Ordner, und zwar ohne
+              Selbst-Extrakt. Für mehr Vertrauen: Überprüfe die SHA-256-Checksummen im jeweils
+              verlinkten Release.
+            </li>
+          </ol>
+          <p>
+            Meldest du die Datei zusätzlich bei Microsoft, verbessert das mit der Zeit das
+            SmartScreen-Reputations-Verfahren:{" "}
+            <a href="https://www.microsoft.com/wdsi/filesubmission" target="_blank" rel="noreferrer">
+              https://www.microsoft.com/wdsi/filesubmission
+            </a>
+          </p>
+        </div>
       </section>
 
       <section className="features" id="features">
@@ -99,6 +141,12 @@ export function App() {
       <section id="bugs">
         <BugTracker configured={isSupabaseConfigured} onChanged={() => undefined} />
       </section>
+
+      {isAdmin && (
+        <section id="admin">
+          <Admin />
+        </section>
+      )}
 
       <footer>
         <span>© {new Date().getFullYear()} Jann Genzmann – Gaming Hub · Alle Rechte vorbehalten</span>

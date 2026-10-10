@@ -36,6 +36,14 @@ jobs:
       - name: Publish
         run: dotnet publish src/GamingHub.App/GamingHub.App.csproj -c Release -r win-x64 --self-contained true -o publish
 
+      - name: Build Portable ZIP (Ordner, ohne Single-File-Selbst-Extraktion)
+        shell: pwsh
+        run: |
+          # Bewusst KEIN PublishSingleFile: die selbst-entpackende EXE
+          # wird von Antiviren-Programmen öfter fälschlich gelöscht.
+          dotnet publish src/GamingHub.App/GamingHub.App.csproj -c Release -r win-x64 --self-contained true -o portable/publish
+          Compress-Archive -Path portable/publish/* -DestinationPath portable/GamingHub-win-Portable.zip -Force
+
       - name: Pack with Velopack
         shell: pwsh
         run: |
@@ -50,6 +58,16 @@ jobs:
             --icon src/GamingHub.App/Assets/logo.ico `
             --outputDir Releases
 
+      - name: Generate SHA-256 checksums
+        shell: pwsh
+        run: |
+          $files = Get-ChildItem Releases, portable -File | Sort-Object Name
+          $files | ForEach-Object {
+            $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash
+            "$($hash.ToLower())  $($_.Name)"
+          } | Out-File checksums.txt
+          Get-Content checksums.txt
+
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -58,4 +76,7 @@ jobs:
           draft: false
           prerelease: false
           generate_release_notes: true
-          files: Releases/*
+          files: |
+            Releases/*
+            portable/GamingHub-win-Portable.zip
+            checksums.txt

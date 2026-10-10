@@ -104,6 +104,34 @@ code { background: var(--panel2); padding: 1px 6px; border-radius: 6px; }
 
 .bugmeta-loggedin { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
 
+.download-help {
+  max-width: 660px; margin: 26px auto 0; text-align: left;
+  background: var(--panel); border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 14px; padding: 18px 22px;
+}
+.download-help h4 { margin: 0 0 8px; }
+.download-help p { color: var(--muted); font-size: 13.5px; margin: 0 0 10px; }
+.download-help ol { color: var(--muted); font-size: 13.5px; margin: 0; padding-left: 20px; line-height: 1.6; }
+.download-help a { color: var(--accent); }
+
+.tabs { display: flex; gap: 8px; margin: 18px 0 16px; flex-wrap: wrap; }
+.tab-btn {
+  padding: 8px 16px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.12);
+  background: var(--panel2); color: var(--muted); cursor: pointer; font-size: 14px;
+}
+.tab-btn.active { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #08101f; font-weight: 700; border: none; }
+
+.userlist { display: flex; flex-direction: column; gap: 6px; }
+.user-row {
+  display: grid; grid-template-columns: 1.6fr 1fr 0.8fr 0.8fr 1.4fr;
+  gap: 10px; align-items: center; padding: 10px 14px;
+  background: var(--panel2); border-radius: 10px; font-size: 13.5px;
+}
+.user-head { background: transparent; color: var(--muted); font-weight: 600; font-size: 12px; }
+.user-email { display: flex; align-items: center; gap: 8px; word-break: break-all; }
+.badge-you { font-size: 11px; color: var(--accent); border: 1px solid var(--accent); padding: 1px 8px; border-radius: 999px; }
+.btn.danger { border-color: rgba(248,113,113,0.5); color: var(--bad); }
+
 .auth, .bugform { display: flex; flex-direction: column; gap: 10px; margin: 14px 0 22px; }
 input, select, textarea {
   background: var(--panel2); border: 1px solid rgba(255,255,255,0.1);
