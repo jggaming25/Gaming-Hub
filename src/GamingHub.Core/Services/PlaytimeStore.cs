@@ -4,8 +4,15 @@ namespace GamingHub.Core.Services;
 
 public sealed class PlaytimeRecord
 {
-    public double TotalSeconds { get; set; }
+    /// <summary>Playtime tracked by Gaming Hub itself.</summary>
+    public double TrackedSeconds { get; set; }
+
+    /// <summary>Already-existing playtime (e.g. imported from Steam), not re-counted.</summary>
+    public double BaselineSeconds { get; set; }
+
     public DateTime? LastPlayedUtc { get; set; }
+
+    public double TotalSeconds => BaselineSeconds + TrackedSeconds;
 }
 
 /// <summary>Persists cumulative playtime per game/app identifier.</summary>
@@ -35,8 +42,28 @@ public sealed class PlaytimeStore
         if (seconds <= 0)
             return;
         var rec = Get(id);
-        rec.TotalSeconds += seconds;
+        rec.TrackedSeconds += seconds;
         rec.LastPlayedUtc = playedUtc;
+    }
+
+    /// <summary>Seeds already-existing playtime (e.g. Steam) so it counts, never decreases.</summary>
+    public void SeedBaseline(string id, double baselineSeconds, DateTime? lastPlayedUtc)
+    {
+        if (baselineSeconds <= 0 && lastPlayedUtc is null)
+            return;
+        var rec = Get(id);
+        if (baselineSeconds > rec.BaselineSeconds)
+            rec.BaselineSeconds = baselineSeconds;
+        if (lastPlayedUtc is { } lp && (rec.LastPlayedUtc is null || lp > rec.LastPlayedUtc))
+            rec.LastPlayedUtc = lp;
+    }
+
+    private sealed class FileEntry
+    {
+        public double TrackedSeconds { get; set; }
+        public double BaselineSeconds { get; set; }
+        public double TotalSeconds { get; set; } // legacy field, migrated once
+        public DateTime? LastPlayedUtc { get; set; }
     }
 
     public void Load()
@@ -45,12 +72,21 @@ public sealed class PlaytimeStore
         {
             if (!File.Exists(_path))
                 return;
-            var dict = JsonSerializer.Deserialize<Dictionary<string, PlaytimeRecord>>(File.ReadAllText(_path));
+            var dict = JsonSerializer.Deserialize<Dictionary<string, FileEntry>>(File.ReadAllText(_path));
             if (dict is null)
                 return;
             _records.Clear();
             foreach (var kv in dict)
-                _records[kv.Key] = kv.Value;
+            {
+                _records[kv.Key] = new PlaytimeRecord
+                {
+                    TrackedSeconds = (kv.Value.TrackedSeconds > 0 || kv.Value.BaselineSeconds > 0)
+                        ? kv.Value.TrackedSeconds
+                        : kv.Value.TotalSeconds, // migrate legacy data
+                    BaselineSeconds = kv.Value.BaselineSeconds,
+                    LastPlayedUtc = kv.Value.LastPlayedUtc
+                };
+            }
         }
         catch
         {
@@ -62,8 +98,17 @@ public sealed class PlaytimeStore
     {
         try
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
-            File.WriteAllText(_path, JsonSerializer.Serialize(_records, new JsonSerializerOptions { WriteIndented = true }));
+            Directory.CreateDirectory(System.IO.Path.GetDirectoryName(_path)!);
+            var dict = _records.ToDictionary(
+                kv => kv.Key,
+                kv => new FileEntry
+                {
+                    TrackedSeconds = kv.Value.TrackedSeconds,
+                    BaselineSeconds = kv.Value.BaselineSeconds,
+                    LastPlayedUtc = kv.Value.LastPlayedUtc
+                },
+                StringComparer.OrdinalIgnoreCase);
+            File.WriteAllText(_path, JsonSerializer.Serialize(dict, new JsonSerializerOptions { WriteIndented = true }));
         }
         catch
         {

@@ -4,8 +4,11 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using GamingHub.App.Services;
 using GamingHub.Core.Models;
+using GamingHub.Core.Services;
 
 namespace GamingHub.App.ViewModels;
+
+public sealed record CategoryFilterOption(string Label, GameCategory? Category);
 
 public partial class GamesViewModel : ViewModelBase
 {
@@ -16,14 +19,35 @@ public partial class GamesViewModel : ViewModelBase
     public ObservableCollection<GameItemViewModel> Games { get; } = new();
     public ObservableCollection<DriveItemViewModel> Volumes { get; } = new();
 
+    public ObservableCollection<CategoryFilterOption> CategoryOptions { get; } = new()
+    {
+        new("Spiele (nur Games)", GameCategory.Game),
+        new("Zusätzliche Inhalte", GameCategory.GameContent),
+        new("Game-Tools", GameCategory.GameTool),
+        new("Office-Programme", GameCategory.Office),
+        new("Kreativ & Streaming", GameCategory.Creator),
+        new("Antivirus", GameCategory.Antivirus),
+        new("KI-Tools", GameCategory.AiTool),
+        new("System & Dienstprogramme", GameCategory.SystemService),
+        new("Sonstige", GameCategory.Other),
+        new("Alle Kategorien", null)
+    };
+
+    public ObservableCollection<string> DriveOptions { get; } = new();
+
     [ObservableProperty] private string _searchText = string.Empty;
+    [ObservableProperty] private CategoryFilterOption _selectedCategory = null!;
+    [ObservableProperty] private string _selectedDrive = "Alle Laufwerke";
     [ObservableProperty] private bool _isLoading;
     [ObservableProperty] private string _statusText = "Klicke auf „Bibliothek scannen“, um deine Spiele zu finden.";
 
     partial void OnSearchTextChanged(string value) => ApplyFilter();
+    partial void OnSelectedCategoryChanged(CategoryFilterOption value) => ApplyFilter();
+    partial void OnSelectedDriveChanged(string value) => ApplyFilter();
 
     public GamesViewModel()
     {
+        SelectedCategory = CategoryOptions[0];
         LoadVolumes();
         StartTimer();
     }
@@ -45,8 +69,15 @@ public partial class GamesViewModel : ViewModelBase
     public void LoadVolumes()
     {
         Volumes.Clear();
+        DriveOptions.Clear();
+        DriveOptions.Add("Alle Laufwerke");
         foreach (var v in AppServices.DiskUsage.GetVolumes())
+        {
             Volumes.Add(new DriveItemViewModel(v, _volumeUnit.TryGetValue(v.Root, out bool mb) && mb));
+            DriveOptions.Add(string.IsNullOrWhiteSpace(v.Label) ? v.Root : $"{v.Root} ({v.Label})");
+        }
+        if (!DriveOptions.Contains(SelectedDrive))
+            SelectedDrive = "Alle Laufwerke";
     }
 
     [RelayCommand]
@@ -62,8 +93,9 @@ public partial class GamesViewModel : ViewModelBase
             foreach (var g in games)
                 _all.Add(new GameItemViewModel(g, AppServices.Games));
             ApplyFilter();
-            StatusText = $"{games.Count} Spiele & Apps gefunden.";
-            if (games.Count > 0) AppServices.Badges.Grant("bibliothekar");
+            StatusText = $"{games.Count} Einträge gefunden.";
+            if (games.Any(g => g.Category == GameCategory.Game))
+                AppServices.Badges.Grant("bibliothekar");
         }
         catch (Exception ex)
         {
@@ -73,6 +105,14 @@ public partial class GamesViewModel : ViewModelBase
         {
             IsLoading = false;
         }
+    }
+
+    [RelayCommand]
+    private void ClearScan()
+    {
+        _all.Clear();
+        Games.Clear();
+        StatusText = "Scan gelöscht – klicke auf „Bibliothek scannen“, um erneut zu prüfen.";
     }
 
     [RelayCommand]
@@ -103,10 +143,19 @@ public partial class GamesViewModel : ViewModelBase
     {
         Games.Clear();
         string q = SearchText?.Trim() ?? string.Empty;
+        GameCategory? category = SelectedCategory?.Category;
+        string? drive = SelectedDrive;
+
         foreach (var g in _all)
         {
-            if (q.Length == 0 || g.Name.Contains(q, StringComparison.OrdinalIgnoreCase))
-                Games.Add(g);
+            if (q.Length > 0 && !g.Name.Contains(q, StringComparison.OrdinalIgnoreCase))
+                continue;
+            if (category is { } cat && g.Model.Category != cat)
+                continue;
+            if (drive != "Alle Laufwerke" && drive is not null &&
+                !(g.Model.InstallPath?.StartsWith(drive, StringComparison.OrdinalIgnoreCase) ?? false))
+                continue;
+            Games.Add(g);
         }
     }
 }

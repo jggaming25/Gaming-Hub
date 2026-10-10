@@ -44,6 +44,12 @@ public sealed class GameLibraryService
 
             foreach (var game in merged)
             {
+                game.Category = GameClassifier.Classify(game.Name, game.Source);
+
+                // Import already-existing playtime (e.g. Steam) as baseline so it counts.
+                if (game.TotalPlaytime.TotalSeconds > 0)
+                    _playtime.SeedBaseline(game.Id, game.TotalPlaytime.TotalSeconds, game.LastPlayedUtc);
+
                 var rec = _playtime.Get(game.Id);
                 game.TotalPlaytime = TimeSpan.FromSeconds(rec.TotalSeconds);
                 game.LastPlayedUtc = rec.LastPlayedUtc;

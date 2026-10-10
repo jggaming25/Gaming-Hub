@@ -12,6 +12,7 @@ public partial class CleanupViewModel : ViewModelBase
 
     public ObservableCollection<string> ScanPaths { get; } = new();
     public ObservableCollection<DuplicateGroupViewModel> Groups { get; } = new();
+    public ObservableCollection<DriveScanOption> Drives { get; } = new();
 
     public long[] MinSizeChoices { get; } = { 1, 10, 100, 1024 };
 
@@ -35,6 +36,8 @@ public partial class CleanupViewModel : ViewModelBase
 
     public CleanupViewModel()
     {
+        LoadDrives();
+
         var settings = AppServices.Settings.Settings;
         if (settings.CleanupScanPaths.Count > 0)
         {
@@ -57,6 +60,40 @@ public partial class CleanupViewModel : ViewModelBase
                 if (!string.IsNullOrWhiteSpace(p) && Directory.Exists(p) && !ScanPaths.Contains(p))
                     ScanPaths.Add(p);
         }
+    }
+
+    private void LoadDrives()
+    {
+        Drives.Clear();
+        foreach (var v in AppServices.DiskUsage.GetVolumes())
+            Drives.Add(new DriveScanOption(v.Root, v.Label));
+    }
+
+    [RelayCommand]
+    private void AddSelectedDrives()
+    {
+        int added = 0;
+        foreach (var d in Drives)
+        {
+            if (d.IsSelected && !ScanPaths.Contains(d.Root))
+            {
+                ScanPaths.Add(d.Root);
+                added++;
+            }
+        }
+        if (added > 0)
+        {
+            PersistPaths();
+            StatusText = $"{added} Laufwerk(e) zur Prüfung hinzugefügt.";
+        }
+    }
+
+    [RelayCommand]
+    private void ClearScan()
+    {
+        Groups.Clear();
+        UpdateStats();
+        StatusText = "Scan gelöscht. Wähle Ordner oder Laufwerke und starte erneut.";
     }
 
     private long MinSizeBytes => MinSizeChoices[Math.Clamp(MinSizeIndex, 0, MinSizeChoices.Length - 1)] * 1024L * 1024L;

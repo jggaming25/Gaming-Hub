@@ -8,6 +8,21 @@ public enum GameSource
     Manual
 }
 
+/// <summary>Category a detected program is sorted into by the classifier.</summary>
+public enum GameCategory
+{
+    Game,
+    GameTool,
+    GameContent,
+    Office,
+    Utility,
+    Creator,
+    Antivirus,
+    AiTool,
+    SystemService,
+    Other
+}
+
 /// <summary>
 /// Represents a detected game or application that Gaming Hub can manage.
 /// </summary>
@@ -29,6 +44,8 @@ public sealed class GameInfo
     public string? ProcessName { get; set; }
 
     public long SizeOnDisk { get; set; }
+
+    public GameCategory Category { get; set; } = GameCategory.Other;
 
     public TimeSpan TotalPlaytime { get; set; }
     public DateTime? LastPlayedUtc { get; set; }

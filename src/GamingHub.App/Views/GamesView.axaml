@@ -14,11 +14,17 @@
                 <TextBlock Text="Spielebibliothek" Classes="h1" />
                 <TextBlock Text="{Binding StatusText}" Classes="muted" FontSize="12" />
             </StackPanel>
-            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                <TextBox Width="200" PlaceholderText="Suchen…" Text="{Binding SearchText, Mode=TwoWay}" />
-                <Button Content="Bibliothek scannen" Command="{Binding ScanCommand}" Classes="accent" />
-                <Button Content="Speichergrößen" Command="{Binding LoadSizesCommand}" />
-            </StackPanel>
+            <WrapPanel Grid.Column="1" VerticalAlignment="Center" MaxWidth="680">
+                <TextBox Width="130" Margin="0,0,8,0" PlaceholderText="Suchen…" Text="{Binding SearchText, Mode=TwoWay}" />
+                <ComboBox Width="165" Margin="0,0,8,0" ItemsSource="{Binding CategoryOptions}"
+                          SelectedItem="{Binding SelectedCategory, Mode=TwoWay}"
+                          DisplayMemberBinding="{Binding Label}" />
+                <ComboBox Width="150" Margin="0,0,8,0" ItemsSource="{Binding DriveOptions}"
+                          SelectedItem="{Binding SelectedDrive, Mode=TwoWay}" />
+                <Button Margin="0,0,8,0" Content="Scannen" Command="{Binding ScanCommand}" Classes="accent" />
+                <Button Margin="0,0,8,0" Content="Größen" Command="{Binding LoadSizesCommand}" />
+                <Button Content="Löschen" Command="{Binding ClearScanCommand}" />
+            </WrapPanel>
         </Grid>
 
         <!-- Drives -->
@@ -76,6 +82,9 @@
                                         <TextBlock Text="{Binding Name}" FontSize="16" FontWeight="SemiBold" />
                                         <Border Background="{StaticResource PanelBrush2}" CornerRadius="6" Padding="7,2">
                                             <TextBlock Text="{Binding SourceName}" FontSize="10" Classes="muted" />
+                                        </Border>
+                                        <Border Background="#2A3550" CornerRadius="6" Padding="7,2">
+                                            <TextBlock Text="{Binding CategoryDisplay}" FontSize="10" Classes="muted" />
                                         </Border>
                                         <Border Background="#2A3550" CornerRadius="6" Padding="7,2"
                                                 IsVisible="{Binding IsRunning}">

@@ -33,6 +33,8 @@ public partial class GameItemViewModel : ViewModelBase
     public string LastPlayedDisplay => Format.Date(Model.LastPlayedUtc);
     public bool CanLaunch => Model.CanLaunch;
     public bool SizeKnown => SizeBytes > 0;
+    public string CategoryDisplay => GameClassifier.CategoryDisplayName(Model.Category);
+    public bool IsGameCategory => Model.Category == GameCategory.Game;
 
     public string RunStateText => IsRunning ? "Läuft" : "Gestoppt";
 
