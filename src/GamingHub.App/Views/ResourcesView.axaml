@@ -1,0 +1,104 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:GamingHub.App.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="940" d:DesignHeight="700"
+             x:Class="GamingHub.App.Views.ResourcesView"
+             x:DataType="vm:ResourcesViewModel">
+
+    <Grid RowDefinitions="Auto,*" Margin="12">
+        <StackPanel Grid.Row="0" Spacing="2" Margin="0,0,0,12">
+            <TextBlock Text="System-Ressourcen" Classes="h1" />
+            <TextBlock Text="Live-Auslastung und Einschätzung, ob dein PC ein Spiel schafft." Classes="muted" FontSize="12" />
+        </StackPanel>
+
+        <Grid Grid.Row="1" ColumnDefinitions="*,*">
+            <!-- Live info -->
+            <ScrollViewer Grid.Column="0" Margin="0,0,10,0">
+                <StackPanel Spacing="12">
+                    <Border Classes="card">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="CPU" FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding CpuName}" FontSize="13" TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding CpuCoresDisplay}" FontSize="11" Classes="muted" />
+                            <ProgressBar Minimum="0" Maximum="100" Value="{Binding CpuUsage}" Height="10" />
+                            <TextBlock Text="{Binding CpuUsageDisplay}" FontSize="12" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Classes="card">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="RAM" FontWeight="SemiBold" />
+                            <ProgressBar Minimum="0" Maximum="100" Value="{Binding RamUsage}" Height="10" />
+                            <StackPanel Orientation="Horizontal" Spacing="14">
+                                <TextBlock Text="{Binding RamUsageDisplay}" FontSize="12" />
+                                <TextBlock FontSize="12" Classes="muted">
+                                    <TextBlock.Text>
+                                        <MultiBinding StringFormat="{}{0} / {1}">
+                                            <Binding Path="RamUsedDisplay" />
+                                            <Binding Path="RamTotalDisplay" />
+                                        </MultiBinding>
+                                    </TextBlock.Text>
+                                </TextBlock>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Classes="card">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="GPU" FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding GpuName}" FontSize="13" TextWrapping="Wrap" />
+                            <TextBlock FontSize="11" Classes="muted">
+                                <Run Text="VRAM: " /><Run Text="{Binding GpuVramDisplay}" />
+                            </TextBlock>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- Compatibility checker -->
+            <ScrollViewer Grid.Column="1">
+                <Border Classes="card">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="Kann ich das spielen?" FontWeight="SemiBold" FontSize="16" />
+                        <TextBlock Text="Spiel auswählen (oder Name eintippen) und prüfen lassen. Die Empfehlung ist eine Schätzung." Classes="muted" FontSize="11" TextWrapping="Wrap" />
+                        <ComboBox HorizontalAlignment="Stretch" IsEditable="True"
+                                  ItemsSource="{Binding GameNames}"
+                                  Text="{Binding SelectedGame, Mode=TwoWay}"
+                                  PlaceholderText="Spiel wählen oder eingeben…" />
+                        <Button Content="Einschätzung berechnen" Command="{Binding EvaluateCommand}" Classes="accent" HorizontalAlignment="Stretch" />
+
+                        <Border IsVisible="{Binding HasResult}" Background="{StaticResource PanelBrush2}" CornerRadius="10" Padding="14">
+                            <StackPanel Spacing="8">
+                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                    <TextBlock Text="Empfehlung:" FontSize="14" VerticalAlignment="Center" />
+                                    <Border Background="{Binding ResultAccent}" CornerRadius="8" Padding="12,4">
+                                        <TextBlock Text="{Binding ResultPreset}" FontWeight="Bold" Foreground="#08101F" />
+                                    </Border>
+                                    <TextBlock VerticalAlignment="Center" FontSize="12" Classes="muted">
+                                        <Run Text="Score " /><Run Text="{Binding ResultScore}" /><Run Text="/100" />
+                                    </TextBlock>
+                                </StackPanel>
+                                <TextBlock Text="{Binding ResultSummary}" TextWrapping="Wrap" FontSize="13" />
+
+                                <TextBlock Text="Details" FontWeight="SemiBold" FontSize="12" Margin="0,6,0,0" />
+                                <ItemsControl ItemsSource="{Binding ResultNotes}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate><TextBlock Text="{Binding}" FontSize="12" Classes="muted" /></DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <ItemsControl ItemsSource="{Binding ResultBottlenecks}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate><TextBlock Text="{Binding}" FontSize="12" Foreground="#FACC15" TextWrapping="Wrap" /></DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Border>
+            </ScrollViewer>
+        </Grid>
+    </Grid>
+</UserControl>

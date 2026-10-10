@@ -1,0 +1,65 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:GamingHub.App.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="940" d:DesignHeight="700"
+             x:Class="GamingHub.App.Views.SettingsView"
+             x:DataType="vm:SettingsViewModel">
+
+    <ScrollViewer Margin="12">
+        <StackPanel Spacing="14" MaxWidth="760" HorizontalAlignment="Left">
+            <StackPanel Spacing="2">
+                <TextBlock Text="Einstellungen" Classes="h1" />
+                <TextBlock Text="{Binding VersionDisplay}" Classes="muted" FontSize="12" />
+            </StackPanel>
+
+            <Border Classes="card">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Updates" FontWeight="SemiBold" FontSize="16" />
+                    <CheckBox Content="Beim Start automatisch nach Updates suchen" IsChecked="{Binding AutoCheckUpdates, Mode=TwoWay}" />
+                    <CheckBox Content="Updates automatisch installieren und neu starten" IsChecked="{Binding AutoInstallUpdates, Mode=TwoWay}" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="Jetzt nach Updates suchen" Command="{Binding CheckForUpdatesCommand}" Classes="accent" />
+                        <Button Content="Update installieren" Command="{Binding InstallUpdateCommand}" IsVisible="{Binding UpdateAvailable}" />
+                    </StackPanel>
+                    <TextBlock Text="{Binding UpdateStatus}" FontSize="12" Classes="muted" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+
+            <Border Classes="card">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Darstellung" FontWeight="SemiBold" FontSize="16" />
+                    <CheckBox Content="Dunkles Design" IsChecked="{Binding DarkTheme, Mode=TwoWay}" />
+                </StackPanel>
+            </Border>
+
+            <Border Classes="card">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Cleanup" FontWeight="SemiBold" FontSize="16" />
+                    <CheckBox Content="Gelöschte Dateien in den Papierkorb verschieben (sicher)" IsChecked="{Binding UseRecycleBin, Mode=TwoWay}" />
+                </StackPanel>
+            </Border>
+
+            <Border Classes="card">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Über" FontWeight="SemiBold" FontSize="16" />
+                    <TextBlock Text="{Binding DataDirectory}" FontSize="11" Classes="muted" TextWrapping="Wrap" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="Datenordner öffnen" Command="{Binding OpenDataFolderCommand}" />
+                        <Button Content="GitHub-Repository" Command="{Binding OpenRepositoryCommand}" />
+                        <Button Content="Releases" Command="{Binding OpenReleasesCommand}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Classes="card">
+                <StackPanel Spacing="6">
+                    <TextBlock Text="Haftungsausschluss" FontWeight="SemiBold" FontSize="16" />
+                    <TextBlock TextWrapping="Wrap" Classes="muted" FontSize="12"
+                               Text="Gaming Hub wird ohne Gewähr bereitgestellt. Die Nutzung erfolgt auf eigene Gefahr. Wir haften nicht für Schäden an Hard- oder Software oder für Datenverlust, die durch die Nutzung dieses Programms entstehen. Für das Löschen von Dateien bist du selbst verantwortlich." />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

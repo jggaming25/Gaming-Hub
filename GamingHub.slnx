@@ -1,0 +1,6 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/GamingHub.App/GamingHub.App.csproj" />
+    <Project Path="src/GamingHub.Core/GamingHub.Core.csproj" />
+  </Folder>
+</Solution>

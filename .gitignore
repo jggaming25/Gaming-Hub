@@ -1,0 +1,35 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+publish/
+artifacts/
+releases/
+
+# Velopack
+*.nupkg
+*.RELEASES
+Releases/
+
+# IDE
+.vs/
+.idea/
+.vscode/
+*.user
+*.suo
+
+# OS
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# Node / website
+node_modules/
+website/dist/
+website/.next/
+website/.env
+website/.env.local
+
+# Secrets
+*.env
+appsettings.*.local.json

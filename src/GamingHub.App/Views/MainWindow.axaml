@@ -1,0 +1,69 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:GamingHub.App.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="760"
+        x:Class="GamingHub.App.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Icon="/Assets/logo.ico"
+        Title="Gaming Hub"
+        Width="1220" Height="780" MinWidth="980" MinHeight="640"
+        Background="{StaticResource AppBgGradient}">
+
+    <Design.DataContext>
+        <vm:MainViewModel />
+    </Design.DataContext>
+
+    <Grid ColumnDefinitions="252,*">
+        <!-- Sidebar -->
+        <Border Grid.Column="0" Background="{StaticResource SidebarBrush}">
+            <Grid RowDefinitions="Auto,*,Auto">
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="18,22,18,18" Spacing="12">
+                    <Image Source="/Assets/logo.png" Width="38" Height="38" />
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="{Binding AppName}" FontSize="18" FontWeight="Bold" />
+                        <TextBlock Text="{Binding Tagline}" FontSize="11" Classes="muted" />
+                    </StackPanel>
+                </StackPanel>
+
+                <ListBox Grid.Row="1"
+                         ItemsSource="{Binding NavItems}"
+                         SelectedItem="{Binding SelectedNav, Mode=TwoWay}"
+                         Background="Transparent"
+                         BorderThickness="0"
+                         Margin="10,4">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:NavItem">
+                            <StackPanel Orientation="Horizontal" Spacing="14">
+                                <TextBlock Text="{Binding Glyph}" FontFamily="{StaticResource IconFont}"
+                                           FontSize="17" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding Title}" FontSize="14" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <Border Grid.Row="2" Padding="18,12" Margin="10">
+                    <StackPanel Spacing="2">
+                        <TextBlock Text="Gaming Hub" FontSize="12" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding VersionDisplay}" FontSize="11" Classes="muted" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- Content -->
+        <Grid Grid.Column="1" RowDefinitions="*,Auto">
+            <ContentControl Grid.Row="0" Content="{Binding SelectedView}" Margin="8" />
+
+            <Border Grid.Row="1" Background="#0F1122" Padding="16,7">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Grid.Column="0" Text="Haftungsausschluss: Nutzung auf eigene Gefahr – keine Haftung für Schäden an Hard- oder Software."
+                               FontSize="11" Classes="muted" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1" Text="{Binding VersionDisplay}" FontSize="11" Classes="muted" VerticalAlignment="Center" />
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>

@@ -1,0 +1,60 @@
+name: Release
+
+# Erstellt ein Velopack-Paket und veröffentlicht es als GitHub-Release.
+# Die App zieht sich Updates automatisch aus den Releases dieses Repositories.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Read version
+        id: version
+        shell: pwsh
+        run: |
+          $content = Get-Content Directory.Build.props -Raw
+          if ($content -match '<Version>([^<]+)</Version>') { $v = $Matches[1] } else { $v = '0.0.0' }
+          "value=$v" >> $env:GITHUB_OUTPUT
+
+      - name: Install vpk (Velopack CLI)
+        run: dotnet tool install --global vpk
+
+      - name: Publish
+        run: dotnet publish src/GamingHub.App/GamingHub.App.csproj -c Release -r win-x64 --self-contained true -o publish
+
+      - name: Pack with Velopack
+        shell: pwsh
+        run: |
+          vpk pack `
+            --packId GamingHub `
+            --packVersion ${{ steps.version.outputs.value }} `
+            --packTitle "Gaming Hub" `
+            --packAuthors "jggaming25" `
+            --packDir publish `
+            --mainExe GamingHub.App.exe `
+            --icon src/GamingHub.App/Assets/logo.ico `
+            --outputDir Releases
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Gaming Hub v${{ steps.version.outputs.value }}"
+          tag_name: v${{ steps.version.outputs.value }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: Releases/*

@@ -1,0 +1,54 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="680" d:DesignHeight="560"
+        x:Class="GamingHub.App.Views.DisclaimerWindow"
+        Icon="/Assets/logo.ico"
+        Title="Gaming Hub – Haftungsausschluss"
+        Width="680" Height="560" CanResize="False"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource AppBgGradient}">
+
+    <Grid RowDefinitions="Auto,*,Auto" Margin="24">
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="14" Margin="0,0,0,16">
+            <Image Source="/Assets/logo.png" Width="52" Height="52" />
+            <StackPanel VerticalAlignment="Center">
+                <TextBlock Text="Willkommen bei Gaming Hub" FontSize="22" FontWeight="Bold" />
+                <TextBlock Text="Bitte lies und akzeptiere den Haftungsausschluss." Classes="muted" FontSize="12" />
+            </StackPanel>
+        </StackPanel>
+
+        <Border Grid.Row="1" Classes="card" Padding="18">
+            <ScrollViewer>
+                <StackPanel Spacing="12">
+                    <TextBlock Text="Haftungsausschluss / Nutzungsbedingungen" FontWeight="Bold" FontSize="16" />
+                    <TextBlock TextWrapping="Wrap" LineHeight="20">
+                        <Run Text="Gaming Hub ist eine kostenlose Software „wie besehen“ (as-is), bereitgestellt von Gamern für Gamer." TextDecorations=""/>
+                    </TextBlock>
+                    <TextBlock TextWrapping="Wrap" LineHeight="20"
+                               Text="1. Nutzung auf eigene Gefahr: Die Nutzung dieses Programms erfolgt vollständig auf eigenes Risiko." />
+                    <TextBlock TextWrapping="Wrap" LineHeight="20"
+                               Text="2. Keine Haftung: Wir haften nicht für Schäden an Hard- oder Software, für Datenverlust, Leistungsverlust, Systeminstabilität oder sonstige direkte oder indirekte Schäden, die durch die Installation, Nutzung, Start/Stopp-Steuerung von Spielen, das Bereinigen von Dateien oder andere Funktionen entstehen." />
+                    <TextBlock TextWrapping="Wrap" LineHeight="20"
+                               Text="3. Datenlöschung: Das Cleanup-Modul kann Dateien dauerhaft oder in den Papierkorb löschen. Du bist allein dafür verantwortlich, welche Dateien entfernt werden, und solltest vorher Backups anlegen. Prüfe jede Auswahl sorgfältig." />
+                    <TextBlock TextWrapping="Wrap" LineHeight="20"
+                               Text="4. Systeminformationen und Empfehlungen: Die Kompatibilitäts-Einschätzungen (Low/Medium/High) sind unverbindliche Schätzungen und können von der realen Leistung abweichen." />
+                    <TextBlock TextWrapping="Wrap" LineHeight="20"
+                               Text="5. Kein Support-Anspruch: Es besteht kein Anspruch auf Support, Fehlerbehebung oder Updates." />
+                    <TextBlock TextWrapping="Wrap" LineHeight="20"
+                               Text="Mit dem Klick auf „Akzeptieren“ bestätigst du, diesen Ausschluss gelesen und verstanden zu haben und dass du die App auf eigene Gefahr nutzt." />
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+
+        <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="0,16,0,0">
+            <CheckBox Grid.Column="0" x:Name="AcceptCheck" Content="Ich habe den Haftungsausschluss gelesen und akzeptiere ihn."
+                      VerticalAlignment="Center" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10">
+                <Button Content="Ablehnen &amp; Beenden" Click="OnDeclineClick" />
+                <Button Content="Akzeptieren" Click="OnAcceptClick" IsEnabled="{Binding #AcceptCheck.IsChecked}" x:Name="AcceptButton" Classes="accent" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>

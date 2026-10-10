@@ -1,0 +1,39 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:GamingHub.App.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="940" d:DesignHeight="700"
+             x:Class="GamingHub.App.Views.ProfileView"
+             x:DataType="vm:ProfileViewModel">
+
+    <ScrollViewer Margin="12">
+        <StackPanel Spacing="14" MaxWidth="720" HorizontalAlignment="Left">
+            <StackPanel Spacing="2">
+                <TextBlock Text="Profil &amp; Erfolge" Classes="h1" />
+                <TextBlock Text="{Binding StatusText}" Classes="muted" FontSize="12" />
+            </StackPanel>
+
+            <Border Classes="card">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="Anmelden (optional)" FontWeight="SemiBold" FontSize="16" />
+                    <TextBlock Text="{Binding DisplayName}" Classes="muted" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="Mit E-Mail" Command="{Binding NotAvailableYetCommand}" />
+                        <Button Content="Mit Google" Command="{Binding NotAvailableYetCommand}" />
+                        <Button Content="Mit Discord" Command="{Binding NotAvailableYetCommand}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Classes="card">
+                <StackPanel Spacing="6">
+                    <TextBlock Text="Abzeichen" FontWeight="SemiBold" FontSize="16" />
+                    <TextBlock Text="Früher-Adopter: Wer Gaming Hub 2026 oder früher zum ersten Mal nutzt, erhält ein exklusives Abzeichen."
+                               TextWrapping="Wrap" Classes="muted" FontSize="12" />
+                    <TextBlock Text="{Binding VersionDisplay}" Classes="muted" FontSize="11" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

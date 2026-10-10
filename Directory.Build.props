@@ -1,0 +1,12 @@
+<Project>
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <NoWarn>$(NoWarn);CA1416;CS0618</NoWarn>
+    <Version>0.1.0</Version>
+    <Company>Gaming Hub</Company>
+    <Product>Gaming Hub</Product>
+    <Authors>jggaming25</Authors>
+  </PropertyGroup>
+</Project>
