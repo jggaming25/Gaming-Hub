@@ -29,6 +29,10 @@ public partial class CleanupViewModel : ViewModelBase
     [ObservableProperty] private string _elapsedDisplay = string.Empty;
     [ObservableProperty] private int _groupsCount;
     [ObservableProperty] private string _wastedDisplay = "0 B";
+    [ObservableProperty] private string _etaDisplay = string.Empty;
+
+    private int _lastPercent = -1;
+    private DateTime _lastPercentAtUtc;
 
     public bool UseRecycleBin
     {
@@ -161,6 +165,8 @@ public partial class CleanupViewModel : ViewModelBase
         _stopwatch.Restart();
         ScanPercent = 0;
         ElapsedDisplay = "0sek";
+        EtaDisplay = string.Empty;
+        _lastPercent = -1;
 
         var options = new DuplicateScanOptions
         {
@@ -173,6 +179,7 @@ public partial class CleanupViewModel : ViewModelBase
             if (p.Percent >= 0)
             {
                 ScanPercent = Math.Clamp(p.Percent, 0, 100);
+                UpdateEta(p.Percent);
                 ProgressPhase = $"{p.Phase} – {ScanPercent} % ({p.FilesInspected:N0} Dateien)";
             }
             else
@@ -190,6 +197,7 @@ public partial class CleanupViewModel : ViewModelBase
             AppServices.Badges.Grant("aufraeumer");
             _stopwatch.Stop();
             ElapsedDisplay = Format.Elapsed(_stopwatch.Elapsed);
+            EtaDisplay = string.Empty;
             StatusText = groups.Count == 0
                 ? $"Keine doppelten Dateien gefunden (Dauer: {ElapsedDisplay})."
                 : $"{groups.Count} Gruppen doppelter Dateien gefunden (Dauer: {ElapsedDisplay}).";
@@ -197,11 +205,13 @@ public partial class CleanupViewModel : ViewModelBase
         catch (OperationCanceledException)
         {
             _stopwatch.Stop();
+            EtaDisplay = string.Empty;
             StatusText = "Prüfung abgebrochen.";
         }
         catch (Exception ex)
         {
             _stopwatch.Stop();
+            EtaDisplay = string.Empty;
             StatusText = "Fehler: " + ex.Message;
         }
         finally
@@ -287,5 +297,36 @@ public partial class CleanupViewModel : ViewModelBase
         GroupsCount = Groups.Count;
         long wasted = Groups.Sum(g => g.Files.Count > 1 ? g.FileSize * (g.Files.Count - 1) : 0);
         WastedDisplay = Format.Bytes(wasted);
+    }
+
+    /// <summary>Live-Restzeitschätzung aus dem Fortschritt in % (einfache
+    /// Extrapolation der letzten Fortschritts-Steigung).</summary>
+    private void UpdateEta(int percent)
+    {
+        if (percent <= 0)
+        {
+            EtaDisplay = string.Empty;
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        if (_lastPercent > 0 && percent > _lastPercent)
+        {
+            int delta = percent - _lastPercent;
+            double seconds = (now - _lastPercentAtUtc).TotalSeconds;
+            double rate = delta / Math.Max(seconds, 0.05);
+            double remainingSec = (100 - percent) / rate;
+            if (remainingSec is > 5 and < 6 * 3600)
+            {
+                EtaDisplay = "Verbleibend: ca. " + Format.Elapsed(TimeSpan.FromSeconds(remainingSec));
+            }
+            else
+            {
+                EtaDisplay = string.Empty;
+            }
+        }
+
+        _lastPercent = percent;
+        _lastPercentAtUtc = now;
     }
 }

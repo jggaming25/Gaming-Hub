@@ -88,5 +88,43 @@
                 </Transitions>
             </Setter>
         </Style>
+
+        <!-- Moderne Navigationsleiste -->
+        <Style Selector="TextBlock.navglyph">
+            <Setter Property="Opacity" Value="0.8" />
+        </Style>
+        <Style Selector="TextBlock.navlabel">
+            <Setter Property="FontWeight" Value="Normal" />
+            <Setter Property="Opacity" Value="0.85" />
+        </Style>
+        <Style Selector="ListBox.nav ListBoxItem">
+            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="Margin" Value="0,3" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.15" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="ListBox.nav ListBoxItem:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#14FFFFFF" />
+        </Style>
+        <Style Selector="ListBox.nav ListBoxItem:selected /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource AccentGradient}" />
+            <Setter Property="CornerRadius" Value="10" />
+        </Style>
+        <Style Selector="ListBox.nav ListBoxItem:selected TextBlock.navglyph">
+            <Setter Property="Opacity" Value="1" />
+        </Style>
+        <Style Selector="ListBox.nav ListBoxItem:selected TextBlock.navlabel">
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Opacity" Value="1" />
+        </Style>
+        <Style Selector="ListBox.nav ListBoxItem:selected TextBlock">
+            <Setter Property="Foreground" Value="#FFFFFF" />
+        </Style>
     </Application.Styles>
 </Application>

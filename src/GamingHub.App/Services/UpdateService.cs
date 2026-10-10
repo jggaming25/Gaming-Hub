@@ -15,6 +15,18 @@ public sealed class UpdateService
     private UpdateManager? _manager;
     private UpdateInfo? _pendingUpdate;
 
+    /// <summary>Ergebnis des letzten Update-Checks (wird z. B. für die
+    /// Update-Anzeige in der Navigation verwendet).</summary>
+    public UpdateCheckResult? LastCheck { get; private set; }
+
+    /// <summary>Version eines bereits heruntergeladenen Updates, das nur noch
+    /// durch einen Neustart aktiviert werden muss (oder null).</summary>
+    public string? PendingVersion { get; private set; }
+
+    /// <summary>True, wenn ein Update vorbereitet wurde und ein Neustart zum
+    /// Aktivieren notwendig ist.</summary>
+    public bool RestartRequired => PendingVersion is not null;
+
     private UpdateManager? Manager
     {
         get
@@ -43,7 +55,7 @@ public sealed class UpdateService
         if (mgr is null || !mgr.IsInstalled)
         {
             LogService.Info("Update-Check übersprungen (kein installierter Velopack-Build).");
-            return new UpdateCheckResult(false, null, null, null);
+            return LastCheck = new UpdateCheckResult(false, null, null, null);
         }
 
         try
@@ -53,20 +65,78 @@ public sealed class UpdateService
             {
                 _pendingUpdate = null;
                 LogService.Info("Update-Check: keine neue Version verfügbar.");
-                return new UpdateCheckResult(false, null, null, null);
+                return LastCheck = new UpdateCheckResult(false, null, null, null);
             }
 
             _pendingUpdate = update;
             var version = update.TargetFullRelease.Version.ToString();
             LogService.Info($"Update-Check: Version {version} gefunden.");
 
-            return new UpdateCheckResult(true, version, update.TargetFullRelease.NotesMarkdown, null);
+            return LastCheck = new UpdateCheckResult(true, version, update.TargetFullRelease.NotesMarkdown, null);
         }
         catch (Exception ex)
         {
             LogService.Error("update-check", ex);
-            return new UpdateCheckResult(false, null, null, ex);
+            return LastCheck = new UpdateCheckResult(false, null, null, ex);
         }
+    }
+
+    /// <summary>
+    /// Downloads the update found by the last <see cref="CheckForUpdatesAsync"/> and
+    /// prepares it for installation (staging). The running app is NOT restarted here –
+    /// a restart (see <see cref="RestartToApply"/>) completes the installation.
+    /// Returns false when no update is available (or the build is not installed).
+    /// </summary>
+    public async Task<bool> PrepareUpdateAsync(Action<int>? progress = null)
+    {
+        var mgr = Manager;
+        if (mgr is null || !mgr.IsInstalled)
+        {
+            LogService.Warn("Update-Vorbereitung abgebrochen: kein installierter Velopack-Build.");
+            return false;
+        }
+
+        try
+        {
+            // Idempotent: wenn dieselbe Version schon vorbereitet ist, nichts erneut laden.
+            if (PendingVersion is not null && LastCheck?.Version == PendingVersion)
+            {
+                LogService.Info($"Update {PendingVersion} ist bereits vorbereitet.");
+                return true;
+            }
+
+            var update = _pendingUpdate ?? await mgr.CheckForUpdatesAsync();
+            if (update is null)
+            {
+                LogService.Info("Update-Vorbereitung übersprungen: kein Update vorhanden.");
+                return false;
+            }
+
+            LogService.Info($"Update wird heruntergeladen und vorbereitet (Version {update.TargetFullRelease.Version}).");
+            await mgr.DownloadUpdatesAsync(update, p => progress?.Invoke(p));
+
+            PendingVersion = update.TargetFullRelease.Version.ToString();
+            LogService.Info($"Update {PendingVersion} wurde installiert – Neustart zum Aktivieren erforderlich.");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            LogService.Error("update-prepare", ex);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Installs the prepared update and restarts the application into the new version.
+    /// This method normally does not return, because the process is restarted.
+    /// Throws when no prepared update exists or the build is not installed.
+    /// </summary>
+    public void RestartToApply()
+    {
+        var mgr = Manager ?? throw new InvalidOperationException("Kein Velopack-Build verfügbar.");
+        var update = _pendingUpdate ?? throw new InvalidOperationException("Kein vorbereitetes Update vorhanden.");
+        LogService.Info($"Neustart zum Aktivieren von Updates…");
+        mgr.ApplyUpdatesAndRestart(update);
     }
 
     /// <summary>

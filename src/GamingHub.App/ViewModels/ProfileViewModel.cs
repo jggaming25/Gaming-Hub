@@ -15,6 +15,9 @@ public partial class ProfileViewModel : ViewModelBase
     [ObservableProperty] private string _statusText = string.Empty;
     [ObservableProperty] private bool _isBusy;
 
+    [ObservableProperty] private string _premiumCode = string.Empty;
+    [ObservableProperty] private string _premiumStatusText = "Kein aktives Premium.";
+
     public string VersionDisplay => AppInfo.VersionDisplay;
     public bool IsConfigured => AppServices.Auth.IsConfigured;
     public bool IsLoggedIn => AppServices.Auth.IsLoggedIn;
@@ -31,8 +34,34 @@ public partial class ProfileViewModel : ViewModelBase
     public ProfileViewModel()
     {
         AppServices.Auth.Changed += OnAuthChanged;
+        AppServices.Premium.Changed += OnPremiumChanged;
         RefreshBadges();
+        UpdatePremiumStatus();
     }
+
+    private void OnPremiumChanged()
+    {
+        UpdatePremiumStatus();
+    }
+
+    public void UpdatePremiumStatus()
+    {
+        var until = AppServices.Premium.PremiumUntil;
+        if (AppServices.Premium.IsPremium && until is { } u)
+            PremiumStatusText = $"Premium aktiv bis {u.ToLocalTime():d}.";
+        else if (until is { } expired)
+            PremiumStatusText = $"Premium abgelaufen ({expired.ToLocalTime():d}).";
+        else
+            PremiumStatusText = "Kein aktives Premium.";
+        OnPropertyChanged(nameof(IsPremium));
+        OnPropertyChanged(nameof(PremiumUntilDisplay));
+    }
+
+    public bool IsPremium => AppServices.Premium.IsPremium;
+
+    public string PremiumUntilDisplay => AppServices.Premium.PremiumUntil is { } pu
+        ? pu.ToLocalTime().ToString("d")
+        : "–";
 
     private void OnAuthChanged()
     {
@@ -43,6 +72,25 @@ public partial class ProfileViewModel : ViewModelBase
         {
             Email = string.Empty;
             Password = string.Empty;
+        }
+        UpdatePremiumStatus();
+    }
+
+    [RelayCommand]
+    private async Task RedeemPremiumAsync()
+    {
+        if (IsBusy) return;
+        IsBusy = true;
+        PremiumStatusText = "Code wird eingelöst…";
+        try
+        {
+            var (ok, message, _) = await AppServices.Premium.RedeemAsync(PremiumCode);
+            if (ok) PremiumCode = string.Empty;
+            PremiumStatusText = message;
+        }
+        finally
+        {
+            IsBusy = false;
         }
     }
 

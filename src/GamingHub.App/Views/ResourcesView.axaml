@@ -14,7 +14,7 @@
             <TextBlock Text="Live-Auslastung (Task-Manager-artig) und Einschätzung, ob dein PC ein Spiel schafft." Classes="muted" FontSize="12" />
         </StackPanel>
 
-        <ScrollViewer Grid.Row="1" MaxHeight="360" Margin="0,0,0,12">
+        <ScrollViewer Grid.Row="1" MaxHeight="470" Margin="0,0,0,12">
             <StackPanel Spacing="10">
                 <!-- Top cards -->
                 <Grid ColumnDefinitions="*,*,*,*" >
@@ -127,6 +127,67 @@
                     </Border>
                 </Grid>
 
+                <!-- Verlauf (Hintergrund-Aufzeichnung) -->
+                <Border Classes="card" Padding="14">
+                    <StackPanel Spacing="8">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="Verlauf – RAM, CPU, GPU &amp; Prozesse" FontWeight="SemiBold" FontSize="14" VerticalAlignment="Center" />
+                            <Border Background="#22D3EE22" CornerRadius="8" Padding="8,3" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding HistoryRetentionText}" FontSize="10" Classes="muted" />
+                            </Border>
+                        </StackPanel>
+                        <TextBlock Text="{Binding HistoryStatusText}" FontSize="11" Classes="muted" TextWrapping="Wrap" />
+
+                        <Grid Height="150" ColumnDefinitions="30,*">
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="100" FontSize="9" Classes="muted" />
+                                <TextBlock Text="50" FontSize="9" Classes="muted" Margin="0,52,0,0" />
+                                <TextBlock Text="0" FontSize="9" Classes="muted" Margin="0,52,0,0" />
+                            </StackPanel>
+                            <Grid Grid.Column="1" ClipToBounds="True">
+                                <Border VerticalAlignment="Top" Height="1" Background="#18FFFFFF" />
+                                <Border VerticalAlignment="Center" Height="1" Background="#18FFFFFF" />
+                                <Border VerticalAlignment="Bottom" Height="1" Background="#18FFFFFF" />
+
+                                <Polyline Stretch="Fill"
+                                          Points="{Binding RamSeries, Converter={x:Static vm:CommonConverters.SeriesToPoints}}"
+                                          Stroke="#4ADE80" StrokeThickness="2" IsVisible="{Binding HasHistory}" />
+                                <Polyline Stretch="Fill"
+                                          Points="{Binding CpuSeries, Converter={x:Static vm:CommonConverters.SeriesToPoints}}"
+                                          Stroke="#22D3EE" StrokeThickness="2" IsVisible="{Binding HasHistory}" />
+                                <Polyline Stretch="Fill"
+                                          Points="{Binding ProcSeries, Converter={x:Static vm:CommonConverters.SeriesToPoints}}"
+                                          Stroke="#FACC15" StrokeThickness="1.5" IsVisible="{Binding HasHistory}" />
+                                <Polyline Stretch="Fill"
+                                          Points="{Binding GpuSeries, Converter={x:Static vm:CommonConverters.SeriesToPoints}}"
+                                          Stroke="#A855F7" StrokeThickness="2" IsVisible="{Binding HasHistory}" />
+                                <TextBlock Text="Noch keine Daten aufgezeichnet (alle 5 Minuten)" FontSize="12"
+                                           Classes="muted" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           IsVisible="{Binding !HasHistory}" />
+                            </Grid>
+                        </Grid>
+
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                <Border Width="10" Height="10" CornerRadius="2" Background="#22D3EE" VerticalAlignment="Center" />
+                                <TextBlock Text="CPU (%)" FontSize="10" Classes="muted" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                <Border Width="10" Height="10" CornerRadius="2" Background="#4ADE80" VerticalAlignment="Center" />
+                                <TextBlock Text="RAM (%)" FontSize="10" Classes="muted" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                <Border Width="10" Height="10" CornerRadius="2" Background="#A855F7" VerticalAlignment="Center" />
+                                <TextBlock Text="GPU (%) – falls verfügbar" FontSize="10" Classes="muted" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                <Border Width="10" Height="10" CornerRadius="2" Background="#FACC15" VerticalAlignment="Center" />
+                                <TextBlock Text="Prozesse (skaliert auf Höchstwert)" FontSize="10" Classes="muted" />
+                            </StackPanel>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
                 <!-- Processes + adapters -->
                 <Grid ColumnDefinitions="*,*">
                     <Border Classes="card" Grid.Column="0" Margin="0,0,10,0" Padding="12">
@@ -142,21 +203,32 @@
                             <ItemsControl ItemsSource="{Binding ProcessItems}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="vm:ProcessRow">
-                                        <Grid ColumnDefinitions="*,68,78,86" Margin="0,3">
-                                            <StackPanel Orientation="Horizontal" Spacing="8" Grid.Column="0">
-                                                <TextBlock Text="{Binding Name}" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                                                <Border IsVisible="{Binding IsOurs}" Background="#22D3EE33" CornerRadius="4" Padding="5,1" VerticalAlignment="Center">
-                                                    <TextBlock Text="Gaming Hub" FontSize="9" Foreground="#22D3EE" />
+                                        <Button Command="{Binding $parent[UserControl].((vm:ResourcesViewModel)DataContext).StopProcessCommand}"
+                                                CommandParameter="{Binding}"
+                                                Background="#22D3EE10"
+                                                BorderThickness="0"
+                                                CornerRadius="6"
+                                                Padding="6,3"
+                                                Margin="0,2"
+                                                HorizontalContentAlignment="Stretch"
+                                                HorizontalAlignment="Stretch"
+                                                ToolTip.Tip="Klicken, um den Prozess zu beenden">
+                                            <Grid ColumnDefinitions="*,68,78,92">
+                                                <StackPanel Orientation="Horizontal" Spacing="8" Grid.Column="0">
+                                                    <TextBlock Text="{Binding Name}" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                                    <Border IsVisible="{Binding IsOurs}" Background="#22D3EE33" CornerRadius="4" Padding="5,1" VerticalAlignment="Center">
+                                                        <TextBlock Text="Gaming Hub" FontSize="9" Foreground="#22D3EE" />
+                                                    </Border>
+                                                </StackPanel>
+                                                <TextBlock Grid.Column="1" Text="{Binding CpuText}" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="2" Text="{Binding MemText}" FontSize="12" Classes="muted" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                                <Border Grid.Column="3" IsVisible="{Binding ShowConfirmButton}" CornerRadius="4" Padding="6,2"
+                                                        Background="#22D3EE22" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding ConfirmText}" FontSize="10" FontWeight="SemiBold"
+                                                               Foreground="{Binding ConfirmTextColor}" TextAlignment="Center" TextWrapping="Wrap" />
                                                 </Border>
-                                            </StackPanel>
-                                            <TextBlock Grid.Column="1" Text="{Binding CpuText}" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Right" VerticalAlignment="Center" />
-                                            <TextBlock Grid.Column="2" Text="{Binding MemText}" FontSize="12" Classes="muted" HorizontalAlignment="Right" VerticalAlignment="Center" />
-                                            <Button Grid.Column="3" Content="{Binding CanStopDisplay}" FontSize="10" Padding="6,2"
-                                                    HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                    IsVisible="{Binding !IsOurs}"
-                                                    Command="{Binding $parent[UserControl].((vm:ResourcesViewModel)DataContext).StopProcessCommand}"
-                                                    CommandParameter="{Binding}" />
-                                        </Grid>
+                                            </Grid>
+                                        </Button>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
@@ -202,6 +274,8 @@
                                   ItemsSource="{Binding GameNames}"
                                   Text="{Binding SelectedGame, Mode=TwoWay}"
                                   PlaceholderText="Spiel wählen oder eingeben…" />
+                        <TextBox Text="{Binding SelectedGameVersion, Mode=TwoWay}"
+                                 PlaceholderText="Optionale Version, z. B. 2.1 (für präzisere Web-Recherche)" />
                         <Button Content="Einschätzung berechnen" Command="{Binding EvaluateCommand}" Classes="accent" HorizontalAlignment="Stretch" />
                     </StackPanel>
                 </Border>
@@ -242,6 +316,7 @@
                             <TextBlock Text="Web-Recherche" FontWeight="SemiBold" FontSize="12" />
                             <TextBlock Text="{Binding WebStatus}" FontSize="11" Classes="muted" TextWrapping="Wrap" />
                             <TextBlock Text="{Binding WebSummary}" FontSize="12" TextWrapping="Wrap" IsVisible="{Binding HasWebResult}" />
+                            <TextBlock Text="{Binding WebVersionNote}" FontSize="11" Foreground="#22D3EE" TextWrapping="Wrap" IsVisible="{Binding HasWebResult}" />
                             <ItemsControl ItemsSource="{Binding WebSources}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="svc:WebResearchSource">

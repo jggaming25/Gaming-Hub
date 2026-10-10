@@ -38,7 +38,7 @@ public partial class GamesViewModel : ViewModelBase
     [ObservableProperty] private CategoryFilterOption _selectedCategory = null!;
     [ObservableProperty] private string _selectedDrive = "Alle Laufwerke";
     [ObservableProperty] private bool _isLoading;
-    [ObservableProperty] private string _statusText = "Klicke auf „Bibliothek scannen“, um deine Spiele zu finden.";
+    [ObservableProperty] private string _statusText = "Bibliothek wird geladen…";
 
     partial void OnSearchTextChanged(string value) => ApplyFilter();
     partial void OnSelectedCategoryChanged(CategoryFilterOption value) => ApplyFilter();
@@ -49,6 +49,10 @@ public partial class GamesViewModel : ViewModelBase
         SelectedCategory = CategoryOptions[0];
         LoadVolumes();
         StartTimer();
+
+        // Bibliothek beim Start automatisch laden – Dank Cache ohne Voll-Rescan:
+        // nur wenn sich echt etwas geändert hat, wird neu gescannt.
+        _ = ScanAsync();
     }
 
     private void StartTimer()
@@ -84,7 +88,8 @@ public partial class GamesViewModel : ViewModelBase
     {
         if (IsLoading) return;
         IsLoading = true;
-        StatusText = "Scanne Spielbibliotheken (Steam, Epic, Registry)…";
+        bool usedCache = AppServices.Games.HasCache;
+        StatusText = usedCache ? "Prüfe, ob sich deine Bibliothek geändert hat…" : "Scanne Spielbibliotheken (Steam, Epic, Registry)…";
         try
         {
             var games = await AppServices.Games.RefreshAsync();
@@ -92,13 +97,42 @@ public partial class GamesViewModel : ViewModelBase
             foreach (var g in games)
                 _all.Add(new GameItemViewModel(g, AppServices.Games));
             ApplyFilter();
-            StatusText = $"{games.Count} Einträge gefunden.";
+            StatusText = usedCache
+                ? $"Bibliothek aus dem Cache geladen: {games.Count} Einträge (nur Änderungen werden angewendet)."
+                : $"{games.Count} Einträge gefunden.";
             if (games.Any(g => g.Category == GameCategory.Game))
                 AppServices.Badges.Grant("bibliothekar");
         }
         catch (Exception ex)
         {
             StatusText = "Fehler beim Scannen: " + ex.Message;
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task FullRescanAsync()
+    {
+        if (IsLoading) return;
+        IsLoading = true;
+        StatusText = "Scanne komplett neu (ignoriert Cache)…";
+        try
+        {
+            var games = await AppServices.Games.RefreshAsync(forceRescan: true);
+            _all.Clear();
+            foreach (var g in games)
+                _all.Add(new GameItemViewModel(g, AppServices.Games));
+            ApplyFilter();
+            StatusText = $"{games.Count} Einträge gefunden (vollständiger Scan).";
+            if (games.Any(g => g.Category == GameCategory.Game))
+                AppServices.Badges.Grant("bibliothekar");
+        }
+        catch (Exception ex)
+        {
+            StatusText = "Fehler beim vollständigen Scannen: " + ex.Message;
         }
         finally
         {

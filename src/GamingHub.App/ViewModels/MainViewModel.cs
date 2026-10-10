@@ -27,6 +27,103 @@ public partial class MainViewModel : ViewModelBase
     public string Tagline => AppInfo.Tagline;
     public string VersionDisplay => AppInfo.VersionDisplay;
 
+    public bool HasUpdate => AppServices.Updater.LastCheck?.HasUpdate == true;
+    public string? UpdateVersion => AppServices.Updater.LastCheck?.Version;
+
+    [ObservableProperty] private string _updateStatusText = string.Empty;
+    public bool IsInstallingUpdate { get; private set; }
+
+    public string UpdateBannerText => HasUpdate && !RestartPending
+        ? $"Update {UpdateVersion} verfügbar – klicken zum Installieren"
+        : string.Empty;
+
+    public bool ShowUpdateBanner => HasUpdate && !RestartPending && !IsInstallingUpdate;
+    public bool ShowUpdateInstalling => IsInstallingUpdate;
+
+    /// <summary>Ein Update wurde bereits installiert und wartet auf den Neustart.</summary>
+    [ObservableProperty] private bool _restartPending;
+
+    /// <summary>Popup „Update installiert – Neustart erforderlich“ im Hauptfenster.</summary>
+    [ObservableProperty] private bool _showRestartPopup;
+
+    public string RestartBannerText => RestartPending
+        ? $"Neu starten, um Version {AppServices.Updater.PendingVersion ?? UpdateVersion} zu aktivieren"
+        : string.Empty;
+
+    public bool ShowRestartBanner => RestartPending && !ShowRestartPopup && !IsInstallingUpdate;
+
+    public string RestartPopupText => $"Das Update {AppServices.Updater.PendingVersion ?? UpdateVersion} wurde bereits installiert.\n\n" +
+                                      "Für die neue Version ist ein Neustart von Gaming Hub erforderlich.\n\n" +
+                                      "Möchtest du jetzt neu starten?";
+
+    public string RestartPopupTitle => $"Update {AppServices.Updater.PendingVersion ?? UpdateVersion} installiert";
+
+    partial void OnRestartPendingChanged(bool value)
+    {
+        OnPropertyChanged(nameof(UpdateBannerText));
+        OnPropertyChanged(nameof(ShowUpdateBanner));
+        OnPropertyChanged(nameof(RestartBannerText));
+        OnPropertyChanged(nameof(ShowRestartBanner));
+    }
+
+    partial void OnShowRestartPopupChanged(bool value) => OnPropertyChanged(nameof(ShowRestartBanner));
+
+    partial void OnUpdateStatusTextChanged(string value) => OnPropertyChanged(nameof(UpdateBannerText));
+
+    [RelayCommand]
+    private void RestartNow()
+    {
+        if (IsInstallingUpdate) return;
+        try
+        {
+            AppServices.Updater.RestartToApply();
+        }
+        catch (Exception ex)
+        {
+            LogService.Error("restart-to-update", ex);
+            AppServices.Notifications.Show("Neustart fehlgeschlagen",
+                "Der automatische Neustart ist fehlgeschlagen. Bitte starte Gaming Hub manuell neu.");
+            ShowRestartPopup = false;
+        }
+    }
+
+    [RelayCommand]
+    private void RestartLater() => ShowRestartPopup = false;
+
+    [RelayCommand]
+    private async Task InstallUpdateAsync()
+    {
+        if (IsInstallingUpdate || !HasUpdate) return;
+        IsInstallingUpdate = true;
+        UpdateStatusText = $"Update {UpdateVersion} wird heruntergeladen…";
+        OnPropertyChanged(nameof(ShowUpdateBanner));
+        OnPropertyChanged(nameof(ShowUpdateInstalling));
+        try
+        {
+            bool ok = await AppServices.Updater.DownloadAndRestartAsync(
+                p => UpdateStatusText = $"Update wird heruntergeladen… {p}%");
+            if (!ok)
+            {
+                UpdateStatusText = "Das Update konnte nicht installiert werden (Portable-Build?).";
+                AppServices.Notifications.Show("Update fehlgeschlagen",
+                    "Das Update konnte nicht automatisch installiert werden. Bitte nutze den Download auf der Website.");
+                IsInstallingUpdate = false;
+                OnPropertyChanged(nameof(ShowUpdateBanner));
+                OnPropertyChanged(nameof(ShowUpdateInstalling));
+            }
+        }
+        catch (Exception ex)
+        {
+            LogService.Error("nav-update", ex);
+            UpdateStatusText = "Beim Update ist ein Fehler aufgetreten. Details: " + LogService.LogFile;
+            AppServices.Notifications.Show("Update fehlgeschlagen",
+                "Der Download war nicht erfolgreich. Details stehen im Log unter Einstellungen.");
+            IsInstallingUpdate = false;
+            OnPropertyChanged(nameof(ShowUpdateBanner));
+            OnPropertyChanged(nameof(ShowUpdateInstalling));
+        }
+    }
+
     public MainViewModel()
     {
         var games = new GamesViewModel();

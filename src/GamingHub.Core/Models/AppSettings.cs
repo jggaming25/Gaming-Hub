@@ -2,7 +2,13 @@ namespace GamingHub.Core.Models;
 
 public sealed class AppSettings
 {
+    /// <summary>Ob der Haftungsausschluss bereits akzeptiert wurde.</summary>
     public bool HasAcceptedDisclaimer { get; set; }
+
+    /// <summary>App-Version, in der der Haftungsausschluss zuletzt akzeptiert
+    /// wurde. Nach einem Update muss neu eingewilligt werden (Lesezeit-Gate).</summary>
+    public string? ConsentVersion { get; set; }
+
     public DateTime FirstRunUtc { get; set; } = DateTime.UtcNow;
 
     /// <summary>ISO date of the very first program start. Used for early-bird badges.</summary>

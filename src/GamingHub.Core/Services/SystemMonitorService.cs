@@ -27,6 +27,9 @@ public sealed class SystemMonitorService
     public int CpuCores { get; private set; }
     public int CpuThreads { get; private set; }
 
+    /// <summary>Anzahl der Prozesse aus der letzten Messung (falls erhebbar).</summary>
+    public int LastProcessCount { get; private set; }
+
     public SystemMonitorService()
     {
         LoadStaticCpuInfo();
@@ -38,6 +41,7 @@ public sealed class SystemMonitorService
         double cpu = GetCpuUsage();
         GetMemory(out ulong total, out ulong used);
         GetDiskThroughput(out double diskRead, out double diskWrite);
+        double gpu = GetGpuUsage();
 
         return new SystemSnapshot
         {
@@ -49,7 +53,7 @@ public sealed class SystemMonitorService
             RamUsedBytes = used,
             GpuName = GpuName,
             GpuVramBytes = GpuVramBytes,
-            GpuUsagePercent = -1,
+            GpuUsagePercent = gpu,
             Uptime = TimeSpan.FromMilliseconds(Environment.TickCount64),
             OsDescription = RuntimeInformation.OSDescription.Trim(),
             MachineName = Environment.MachineName,
@@ -57,8 +61,45 @@ public sealed class SystemMonitorService
             DiskWriteBytesPerSec = diskWrite,
             Adapters = SampleNetwork(),
             Processes = SampleProcesses(),
+            ProcessCount = LastProcessCount > 0 ? LastProcessCount : Process.GetProcesses().Length,
             TimestampUtc = DateTime.UtcNow
         };
+    }
+
+    /// <summary>
+    /// Liest die GPU-Auslastung über den WMI-Leistungsindikator „GPU Engine“
+    /// (verfügbar ab Windows 10). Liefert -1, wenn kein Wert erhebbar ist.
+    /// </summary>
+    private static double GetGpuUsage()
+    {
+        try
+        {
+            using var searcher = new ManagementObjectSearcher(
+                "SELECT UtilizationPercentage FROM Win32_PerfFormattedData_GPUEngine " +
+                "WHERE InstanceName LIKE '%engtype_3D%'");
+            double max = -1;
+            foreach (var obj in searcher.Get())
+            {
+                double v = Math.Max(0, Convert.ToDouble(obj["UtilizationPercentage"] ?? 0.0));
+                if (v > max) max = v;
+            }
+            if (max < 0)
+            {
+                // Fallback: ohne engtype-Filter (alle Engines) den Max-Wert nehmen.
+                using var any = new ManagementObjectSearcher(
+                    "SELECT UtilizationPercentage FROM Win32_PerfFormattedData_GPUEngine");
+                foreach (var obj in any.Get())
+                {
+                    double v = Math.Max(0, Convert.ToDouble(obj["UtilizationPercentage"] ?? 0.0));
+                    if (v > max) max = v;
+                }
+            }
+            return max < 0 ? -1 : Math.Clamp(max, 0, 100);
+        }
+        catch
+        {
+            return -1;
+        }
     }
 
     private static void GetDiskThroughput(out double read, out double write)
@@ -128,11 +169,13 @@ public sealed class SystemMonitorService
         var current = new Dictionary<int, (TimeSpan Cpu, DateTime At)>();
         var samples = new List<ProcessSample>();
         var now = DateTime.UtcNow;
+        int count = 0;
 
         try
         {
             foreach (var p in Process.GetProcesses())
             {
+                count++;
                 try
                 {
                     var cpu = p.TotalProcessorTime;
@@ -168,6 +211,7 @@ public sealed class SystemMonitorService
         }
 
         _prevProcessTimes = current;
+        LastProcessCount = count;
         return samples
             .OrderByDescending(x => x.CpuPercent)
             .ThenByDescending(x => x.WorkingSetBytes)

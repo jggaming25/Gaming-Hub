@@ -162,6 +162,14 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 .status-rejected { background: rgba(248,113,113,0.15); color: var(--bad); }
 .badge-admin { font-size: 12px; color: #08101f; background: var(--accent); padding: 2px 10px; border-radius: 999px; font-weight: 700; }
 
+.check-inline { gap: 6px; color: var(--text); font-size: 13.5px; cursor: pointer; }
+input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; padding: 0; }
+.row.wrap { flex-wrap: wrap; }
+.num { width: 72px; padding: 8px 10px; }
+.code-monospace { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: 0.5px; }
+.codelist { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.codelist .user-row { grid-template-columns: 1.4fr 0.6fr 0.8fr 1.2fr; }
+
 footer {
   display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap;
   margin-top: 60px; padding-top: 22px; border-top: 1px solid rgba(255,255,255,0.08);

@@ -123,3 +123,66 @@ export async function setProfileBanned(id: string, banned: boolean) {
   const { error } = await supabase.from("profiles").update({ is_banned: banned }).eq("id", id);
   return error ? { ok: false, error: error.message } : { ok: true };
 }
+
+// ---------------------------------------------------------------
+// Admin: Premium (Feature-Flags + Freischalt-Codes)
+// ---------------------------------------------------------------
+export interface AppSetting {
+  key: string;
+  value: boolean;
+  updated_at?: string;
+}
+
+export interface PremiumCode {
+  id: string;
+  code: string;
+  bonus_days: number;
+  created_by: string | null;
+  created_at: string;
+  used_by: string | null;
+  used_at: string | null;
+}
+
+export async function fetchAppSettings(): Promise<{ settings: AppSetting[]; error?: string }> {
+  if (!supabase) return { settings: [], error: "Supabase ist nicht konfiguriert." };
+  const { data, error } = await supabase.from("app_settings").select("*").order("key");
+  if (error) return { settings: [], error: error.message };
+  return { settings: (data as AppSetting[]) ?? [] };
+}
+
+export async function setAppSetting(key: string, value: boolean) {
+  if (!supabase) return { ok: false, error: "Supabase ist nicht konfiguriert." };
+  const { error } = await supabase.from("app_settings").update({ value }).eq("key", key);
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+
+export async function fetchPremiumCodes(): Promise<{ codes: PremiumCode[]; error?: string }> {
+  if (!supabase) return { codes: [], error: "Supabase ist nicht konfiguriert." };
+  const { data, error } = await supabase
+    .from("premium_codes")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) return { codes: [], error: error.message };
+  return { codes: (data as PremiumCode[]) ?? [] };
+}
+
+function makePremiumCode(): string {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const rand = () => alphabet[Math.floor(Math.random() * alphabet.length)];
+  const part = () => Array.from({ length: 4 }, rand).join("");
+  return `GH-${part()}-${part()}`;
+}
+
+export async function createPremiumCodes(count: number, bonusDays: number) {
+  if (!supabase) return { ok: false, error: "Supabase ist nicht konfiguriert." };
+  const { data: userData } = await supabase.auth.getUser();
+  const creatorId = userData.user?.id ?? null;
+  const rows = Array.from({ length: Math.max(1, Math.min(count, 50)) }, () => ({
+    code: makePremiumCode(),
+    bonus_days: Math.max(1, bonusDays),
+    created_by: creatorId
+  }));
+  const { data, error } = await supabase.from("premium_codes").insert(rows).select("code");
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, codes: ((data ?? []) as { code: string }[]).map((r) => r.code) };
+}

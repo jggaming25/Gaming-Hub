@@ -24,15 +24,26 @@ public partial class App : Application
 
         InstallCrashHandlers();
 
+        // Hintergrund-Erfassung der System-Ressourcen (alle 5 Min, lokal,
+        // mit Retry bei nicht erhebbaren Werten). Läuft auch im Tray weiter.
+        AppServices.History.Start();
+
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+
+            var startHidden = Environment.GetCommandLineArgs().Contains("--hidden", StringComparer.OrdinalIgnoreCase)
+                              || Environment.GetCommandLineArgs().Contains("--tray", StringComparer.OrdinalIgnoreCase);
 
             ApplyTheme();
 
             try
             {
-                if (!AppServices.Settings.Settings.HasAcceptedDisclaimer)
+                // Haftungsausschluss beim ersten Start UND nach jedem Update erneut
+                // einholen (Lesezeit-Gate im Fenster). Erst danach geht es weiter.
+                var needsConsent = !AppServices.Settings.Settings.HasAcceptedDisclaimer
+                                   || AppServices.Settings.Settings.ConsentVersion != AppInfo.Version;
+                if (needsConsent)
                 {
                     var disclaimer = new DisclaimerWindow();
                     desktop.MainWindow = disclaimer;
@@ -43,8 +54,9 @@ public partial class App : Application
                             if (disclaimer.Accepted)
                             {
                                 AppServices.Settings.Settings.HasAcceptedDisclaimer = true;
+                                AppServices.Settings.Settings.ConsentVersion = AppInfo.Version;
                                 AppServices.Settings.Save();
-                                ShowSplashThenMain(desktop);
+                                ShowSplashThenMain(desktop, startHidden);
                             }
                             else
                             {
@@ -60,7 +72,7 @@ public partial class App : Application
                 }
                 else
                 {
-                    ShowSplashThenMain(desktop);
+                    ShowSplashThenMain(desktop, startHidden);
                 }
             }
             catch (Exception ex)
@@ -73,7 +85,7 @@ public partial class App : Application
         base.OnFrameworkInitializationCompleted();
     }
 
-    private static void ShowSplashThenMain(IClassicDesktopStyleApplicationLifetime desktop)
+    private static void ShowSplashThenMain(IClassicDesktopStyleApplicationLifetime desktop, bool startHidden = false)
     {
         var splash = new SplashWindow();
         desktop.MainWindow = splash;
@@ -87,45 +99,40 @@ public partial class App : Application
                 var main = new MainWindow { DataContext = new MainViewModel() };
                 desktop.MainWindow = main;
                 main.Show();
-                desktop.Exit += (_, _) => AppServices.Shutdown();
-
-                main.Closed += (_, _) =>
+                desktop.Exit += (_, _) =>
                 {
                     AppServices.Games.SavePlaytime();
-                    desktop.Shutdown();
+                    AppServices.Shutdown();
                 };
+
+                main.Closing += (_, e) =>
+                {
+                    // Fenster schließen beendet die App nicht – sie läuft im Hintergrund
+                    // (Tray) weiter, damit z. B. die System-Ressourcen-Erfassung aktiv bleibt.
+                    if (MainWindow.AllowClose)
+                    {
+                        e.Cancel = false;
+                    }
+                    else
+                    {
+                        e.Cancel = true;
+                        main.HideToTray();
+                    }
+                };
+
                 splash.Close();
 
-                // Install a found update only now that the main window is fully up –
-                // same path as the manual "Update installieren" button.
-                if (update.HasUpdate && AppServices.Settings.Settings.AutoInstallUpdates)
+                // Ein im Splash vorbereitetes Update ist bereits installiert – jetzt nur
+                // noch den Neustart erforderlichen aktivieren: Popup im Fenster anzeigen.
+                if (update.HasUpdate && AppServices.Updater.RestartRequired && main.DataContext is MainViewModel mainVm)
                 {
-                    LogService.Info($"Startup: Update {update.Version} gefunden, automatische Installation startet.");
-                    _ = Dispatcher.UIThread.InvokeAsync(async () =>
-                    {
-                        try
-                        {
-                            await Task.Delay(800);
-                            bool ok = await AppServices.Updater.DownloadAndRestartAsync(
-                                p => LogService.Info($"Startup: Update-Download {p} %"));
-                            if (!ok)
-                            {
-                                LogService.Warn("Startup: Update-Installation konnte nicht gestartet werden (Portable-Build?).");
-                                AppServices.Notifications.Show("Update fehlgeschlagen",
-                                    "Das Update konnte nicht automatisch installiert werden. Bitte nutze den Download auf der Website.");
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            LogService.Error("startup-update", ex);
-                            try
-                            {
-                                AppServices.Notifications.Show("Update fehlgeschlagen",
-                                    "Der Download war nicht erfolgreich. Details stehen im Log unter Einstellungen.");
-                            }
-                            catch { /* ignore */ }
-                        }
-                    });
+                    mainVm.RestartPending = true;
+                    Dispatcher.UIThread.Post(() => mainVm.ShowRestartPopup = true);
+                }
+
+                if (startHidden)
+                {
+                    main.HideToTray();
                 }
             }
             catch (Exception ex)

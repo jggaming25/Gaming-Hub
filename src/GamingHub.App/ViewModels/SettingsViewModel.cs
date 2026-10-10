@@ -72,10 +72,14 @@ public partial class SettingsViewModel : ViewModelBase
         set { AppServices.Settings.Settings.AutoCheckUpdates = value; AppServices.Settings.Save(); OnPropertyChanged(); }
     }
 
-    public bool AutoInstallUpdates
+    /// <summary>
+    /// Startet Gaming Hub beim Windows-Anmelden automatisch und versteckt das
+    /// Fenster im System-Tray (die App läuft dann im Hintergrund weiter).
+    /// </summary>
+    public bool AutostartEnabled
     {
-        get => AppServices.Settings.Settings.AutoInstallUpdates;
-        set { AppServices.Settings.Settings.AutoInstallUpdates = value; AppServices.Settings.Save(); OnPropertyChanged(); }
+        get => AutostartService.IsEnabled();
+        set { AutostartService.SetEnabled(value); OnPropertyChanged(); }
     }
 
     public bool UseRecycleBin

@@ -12,6 +12,13 @@ public sealed class ProfileService
     public bool IsAdmin { get; private set; }
     public bool IsBanned { get; private set; }
 
+    /// <summary>True, wenn eine aktive Premium-Freischaltung vorliegt (längere
+    /// Historie, mehr Diagramm-Verlauf).</summary>
+    public bool IsPremium { get; private set; }
+
+    /// <summary>Ablaufdatum der Premium-Freischaltung (null = kein/abgelaufenes Premium).</summary>
+    public DateTimeOffset? PremiumUntil { get; private set; }
+
     public event Action? Changed;
 
     public ProfileService()
@@ -29,6 +36,8 @@ public sealed class ProfileService
         {
             IsAdmin = false;
             IsBanned = false;
+            IsPremium = false;
+            PremiumUntil = null;
             Changed?.Invoke();
             return;
         }
@@ -36,7 +45,7 @@ public sealed class ProfileService
         try
         {
             var res = await client.SelectAsync("profiles",
-                $"select=is_admin,is_banned&id=eq.{Uri.EscapeDataString(id)}");
+                $"select=is_admin,is_banned,premium_until&id=eq.{Uri.EscapeDataString(id)}");
             if (res.Ok)
             {
                 var list = JsonSerializer.Deserialize<List<Dictionary<string, JsonElement>>>(res.Body);
@@ -44,6 +53,15 @@ public sealed class ProfileService
                 {
                     IsAdmin = list[0].TryGetValue("is_admin", out var a) && a.ValueKind == JsonValueKind.True;
                     IsBanned = list[0].TryGetValue("is_banned", out var b) && b.ValueKind == JsonValueKind.True;
+
+                    IsPremium = false;
+                    PremiumUntil = null;
+                    if (list[0].TryGetValue("premium_until", out var pu) && pu.ValueKind == JsonValueKind.String &&
+                        DateTimeOffset.TryParse(pu.GetString(), out var until))
+                    {
+                        PremiumUntil = until;
+                        IsPremium = until > DateTimeOffset.UtcNow;
+                    }
                 }
             }
         }

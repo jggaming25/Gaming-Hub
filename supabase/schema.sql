@@ -421,3 +421,140 @@ drop policy if exists "chat_attachments_insert" on storage.objects;
 create policy "chat_attachments_insert" on storage.objects
     for insert with check (bucket_id = 'chat-attachments' and auth.role() = 'authenticated');
 
+-- ============================================================
+-- Premium: Codes, Aktivitäts-Freischaltung und Admin-Schalter
+-- Nicht-monetär: Codes (aus der Admin-UI) oder über das Erreichen
+-- von Abzeichen (Aktivität). Beides schaltbar per Feature-Flag.
+-- Premium gewährt u.a. 4 Wochen statt 1 Woche Ressourcen-Verlauf.
+-- ============================================================
+
+alter table public.profiles add column if not exists premium_until timestamptz;
+
+create table if not exists public.premium_codes (
+    id         uuid primary key default gen_random_uuid(),
+    code       text unique not null,
+    bonus_days int not null default 30,
+    created_by uuid references auth.users(id) on delete set null,
+    created_at timestamptz not null default now(),
+    used_by    uuid references auth.users(id) on delete set null,
+    used_at    timestamptz
+);
+
+create table if not exists public.premium_claims (
+    user_id    uuid not null references auth.users(id) on delete cascade,
+    milestone  text not null,
+    days_added int not null default 7,
+    claimed_at timestamptz not null default now(),
+    primary key (user_id, milestone)
+);
+
+-- Feature-Flags: Premium-Quellen an/aus
+insert into public.app_settings (key, value) values
+    ('premium_codes_enabled', true),
+    ('premium_activity_enabled', true)
+on conflict (key) do nothing;
+
+alter table public.premium_codes  enable row level security;
+alter table public.premium_claims enable row level security;
+
+-- Codes / Claims sind nur für Admins einsehbar. Nutzer verwenden die
+-- RPC-Funktionen (security definer) zum Einlösen – niemals direkt.
+drop policy if exists "premium_codes_admin" on public.premium_codes;
+create policy "premium_codes_admin" on public.premium_codes
+    for all using (public.is_admin()) with check (public.is_admin());
+
+drop policy if exists "premium_claims_select_own" on public.premium_claims;
+create policy "premium_claims_select_own" on public.premium_claims
+    for select using (auth.uid() = user_id);
+
+-- Code einlösen: verlängert premium_until ab jetzt (bzw. ab aktuellem
+-- Ablauf, falls schon aktiv). Nur eine Einlösung pro Code.
+create or replace function public.redeem_premium_code(p_code text)
+returns jsonb
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+    v_uid uuid := auth.uid();
+    v_enabled boolean;
+    v_bonus int;
+begin
+    if v_uid is null then
+        return jsonb_build_object('ok', false, 'error', 'login_required');
+    end if;
+
+    select coalesce((select value from public.app_settings where key = 'premium_codes_enabled'), true)
+      into v_enabled;
+    if not v_enabled then
+        return jsonb_build_object('ok', false, 'error', 'codes_disabled');
+    end if;
+
+    update public.premium_codes
+       set used_by = v_uid, used_at = now()
+     where code = upper(trim(p_code))
+       and used_by is null
+     returning bonus_days into v_bonus;
+
+    if v_bonus is null then
+        return jsonb_build_object('ok', false, 'error', 'invalid_or_used');
+    end if;
+
+    update public.profiles
+       set premium_until = greatest(coalesce(premium_until, now()),
+                                    now() + make_interval(days => v_bonus))
+     where id = v_uid;
+
+    return jsonb_build_object('ok', true, 'bonus_days', v_bonus);
+end;
+$$;
+
+-- Aktivitäts-Premium: einmal pro Abzeichen-Meilenstein verlängern.
+create or replace function public.claim_activity_premium(p_milestone text)
+returns jsonb
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+    v_uid uuid := auth.uid();
+    v_enabled boolean;
+    v_days int := 3;
+begin
+    if v_uid is null then
+        return jsonb_build_object('ok', false, 'error', 'login_required');
+    end if;
+
+    select coalesce((select value from public.app_settings where key = 'premium_activity_enabled'), false)
+      into v_enabled;
+    if not v_enabled then
+        return jsonb_build_object('ok', false, 'error', 'activity_disabled');
+    end if;
+
+    case p_milestone
+        when 'bibliothekar' then v_days := 7;
+        when 'systemprofi'  then v_days := 7;
+        when 'aufraeumer'   then v_days := 7;
+        when 'bugreporter'  then v_days := 7;
+        else v_days := 3;
+    end case;
+
+    insert into public.premium_claims (user_id, milestone, days_added)
+    values (v_uid, p_milestone, v_days)
+    on conflict (user_id, milestone) do nothing
+    returning days_added into v_days;
+
+    if v_days is null then
+        return jsonb_build_object('ok', false, 'error', 'already_claimed');
+    end if;
+
+    update public.profiles
+       set premium_until = greatest(coalesce(premium_until, now()),
+                                    now() + make_interval(days => v_days))
+     where id = v_uid;
+
+    return jsonb_build_object('ok', true, 'bonus_days', v_days);
+end;
+$$;
+
+grant execute on function public.redeem_premium_code(text)       to authenticated;
+grant execute on function public.claim_activity_premium(text)    to authenticated;
+

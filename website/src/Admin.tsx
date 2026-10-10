@@ -7,9 +7,14 @@ import {
   setProfileBanned,
   updateBugStatus,
   isCurrentUserAdmin,
+  fetchAppSettings,
+  setAppSetting,
+  fetchPremiumCodes,
+  createPremiumCodes,
   type Bug,
   type BugStatus,
-  type Profile
+  type Profile,
+  type PremiumCode
 } from "./supabase";
 
 const STATUS_LABEL: Record<BugStatus, string> = {
@@ -19,7 +24,12 @@ const STATUS_LABEL: Record<BugStatus, string> = {
   rejected: "Abgelehnt"
 };
 
-type Tab = "bugs" | "users";
+type Tab = "bugs" | "users" | "premium";
+
+const FLAG_LABEL: Record<string, string> = {
+  premium_codes_enabled: "Freischalt-Codes",
+  premium_activity_enabled: "Aktivitäts-Premium (Abzeichen)"
+};
 
 export function Admin() {
   const [tab, setTab] = useState<Tab>("bugs");
@@ -30,6 +40,11 @@ export function Admin() {
   const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
   const [status, setStatus] = useState("");
 
+  const [flags, setFlags] = useState<Record<string, boolean>>({});
+  const [codes, setCodes] = useState<PremiumCode[]>([]);
+  const [codeCount, setCodeCount] = useState(5);
+  const [bonusDays, setBonusDays] = useState(30);
+
   const refresh = async () => {
     const admin = await isCurrentUserAdmin();
     setAllowed(admin);
@@ -37,11 +52,20 @@ export function Admin() {
     const { data: userData } = (await supabase?.auth.getUser()) ?? { data: { user: null } };
     setMe(userData.user?.id ?? null);
 
-    const [b, p] = await Promise.all([fetchBugs(), fetchProfiles()]);
+    const [b, p, s, c] = await Promise.all([
+      fetchBugs(),
+      fetchProfiles(),
+      fetchAppSettings(),
+      fetchPremiumCodes()
+    ]);
     if (b.error) setStatus(b.error);
     if (p.error) setStatus(p.error);
+    if (s.error) setStatus(s.error);
+    if (c.error) setStatus(c.error);
     setBugs(b.bugs);
     setProfiles(p.profiles);
+    setFlags(Object.fromEntries(s.settings.map((x) => [x.key, x.value])));
+    setCodes(c.codes);
   };
 
   useEffect(() => {
@@ -95,6 +119,33 @@ export function Admin() {
     await refresh();
   }
 
+  async function toggleFlag(key: string, value: boolean) {
+    setFlags((f) => ({ ...f, [key]: value }));
+    const res = await setAppSetting(key, value);
+    if (!res.ok) setStatus(res.error ?? "Fehler");
+    else setStatus(`${FLAG_LABEL[key] ?? key} gespeichert.`);
+  }
+
+  async function generateCodes() {
+    setStatus("Erstelle Codes…");
+    const res = await createPremiumCodes(codeCount, bonusDays);
+    if (!res.ok || !res.codes) setStatus(res.error ?? "Fehler");
+    else {
+      setStatus(`${res.codes.length} Codes erstellt.`);
+      await refresh();
+    }
+  }
+
+  async function copyUnused() {
+    const unused = codes.filter((c) => !c.used_at).map((c) => c.code);
+    try {
+      await navigator.clipboard.writeText(unused.join("\n"));
+      setStatus(`${unused.length} Codes kopiert.`);
+    } catch {
+      setStatus("Zwischenablage nicht verfügbar – bitte manuell kopieren.");
+    }
+  }
+
   return (
     <div className="card wide">
       <h2>Admin-Bereich</h2>
@@ -106,6 +157,9 @@ export function Admin() {
         </button>
         <button className={"tab-btn" + (tab === "users" ? " active" : "")} onClick={() => setTab("users")}>
           Nutzerverwaltung ({profiles.length})
+        </button>
+        <button className={"tab-btn" + (tab === "premium" ? " active" : "")} onClick={() => setTab("premium")}>
+          Premium ({codes.length})
         </button>
       </div>
 
@@ -184,6 +238,65 @@ export function Admin() {
             );
           })}
           {profiles.length === 0 && <p className="muted">Keine Nutzer gefunden.</p>}
+        </div>
+      )}
+
+      {tab === "premium" && (
+        <div>
+          <h3>Premium-Quellen</h3>
+          <p className="muted small">
+            Premium ist nicht käuflich – es wird über Codes oder über das Erreichen von
+            Abzeichen (Aktivität) vergeben. Nutzer erhalten damit u. a. einen
+            4-Wochen-Ressourcen-Verlauf statt 1 Woche.
+          </p>
+          <div className="row wrap">
+            {(["premium_codes_enabled", "premium_activity_enabled"] as const).map((key) => (
+              <label className="row check-inline" key={key}>
+                <input
+                  type="checkbox"
+                  checked={flags[key] ?? false}
+                  onChange={(e) => toggleFlag(key, e.target.checked)}
+                />
+                {FLAG_LABEL[key]}
+              </label>
+            ))}
+          </div>
+
+          <h3>Freischalt-Codes</h3>
+          <div className="row">
+            <label className="row check-inline">
+              Anzahl
+              <input className="num tiny" type="number" min={1} max={50}
+                value={codeCount} onChange={(e) => setCodeCount(Number(e.target.value))} />
+            </label>
+            <label className="row check-inline">
+              Tage pro Code
+              <input className="num tiny" type="number" min={1} max={365}
+                value={bonusDays} onChange={(e) => setBonusDays(Number(e.target.value))} />
+            </label>
+            <button className="btn primary" onClick={generateCodes}>Codes erstellen</button>
+            <button className="btn" onClick={copyUnused}>Unbenutzte kopieren</button>
+          </div>
+
+          <div className="codelist">
+            {codes.length === 0 && <p className="muted small">Noch keine Codes erstellt.</p>}
+            {codes.map((c) => (
+              <div className="user-row" key={c.id}>
+                <span className="code-monospace">{c.code}</span>
+                <span>{c.bonus_days} Tage</span>
+                <span className="muted small">{new Date(c.created_at).toLocaleDateString("de-DE")}</span>
+                <span>
+                  {c.used_at ? (
+                    <span className="status status-done">
+                      Verwendet · {new Date(c.used_at).toLocaleDateString("de-DE")}
+                    </span>
+                  ) : (
+                    <span className="badge-you">Frei</span>
+                  )}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

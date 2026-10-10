@@ -30,12 +30,17 @@ public sealed class BadgeService
 
     public bool Has(string id) => _earned.Contains(id);
 
+    /// <summary>Wird ausgelöst, sobald ein neues Abzeichen erstmals vergeben wird
+    /// (für Aktivitäts-Premium, z. B. Bibliothekar → +7 Tage).</summary>
+    public event Action<string>? BadgeGranted;
+
     public void Grant(string id)
     {
         if (_earned.Add(id))
         {
             _earnedDates[id] = DateTime.UtcNow;
             Save();
+            BadgeGranted?.Invoke(id);
         }
     }
 

@@ -674,15 +674,17 @@ public partial class ChatViewModel : ViewModelBase
 
                 foreach (var msg in incoming)
                 {
-                    if (msg.AuthorId == AppServices.Chat.MyId) continue;
                     if (_blocked.Contains(msg.AuthorId ?? string.Empty)) continue;
+                    bool isMine = msg.AuthorId == AppServices.Chat.MyId;
 
                     if (target.ChannelId == SelectedTarget?.ChannelId)
                     {
+                        // Auch eigene Nachrichten übernehmen (falls das lokale
+                        // Echo fehlschlug) – Duplikate werden per Id unterdrückt.
                         if (Messages.All(m => m.Id != msg.Id))
                             AppendMessage(msg);
                     }
-                    else
+                    else if (!isMine)
                     {
                         target.Unread++;
                         AppServices.Notifications.NewMessage(DisplayName(target), msg.AuthorName ?? "Jemand", msg.Body);

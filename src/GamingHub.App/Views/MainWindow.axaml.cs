@@ -1,5 +1,8 @@
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
+using Avalonia.Platform;
 using Avalonia.Threading;
 using System.ComponentModel;
 using GamingHub.App.Services;
@@ -9,11 +12,18 @@ namespace GamingHub.App.Views;
 
 public partial class MainWindow : Window
 {
+    /// <summary>Set to true by the tray „Beenden“ item, so the window may actually close.</summary>
+    public static bool AllowClose { get; set; }
+
+    private TrayIcon? _tray;
+
     public MainWindow()
     {
         InitializeComponent();
         KeyDown += OnKeyDown;
         DataContextChanged += OnDataContextChanged;
+        CreateTray();
+        Opened += (_, _) => { if (_tray is not null) _tray.IsVisible = true; };
     }
 
     private void OnDataContextChanged(object? sender, System.EventArgs e)
@@ -60,6 +70,75 @@ public partial class MainWindow : Window
             }
             catch { /* ignore */ }
             e.Handled = true;
+        }
+    }
+
+    /// <summary>Versteckt das Fenster im System-Tray, damit die App im Hintergrund weiterläuft.</summary>
+    public void HideToTray()
+    {
+        ShowInTaskbar = false;
+        WindowState = WindowState.Minimized;
+        Hide();
+        if (_tray is not null) _tray.IsVisible = true;
+    }
+
+    /// <summary>Bringt das Fenster aus dem Tray zurück.</summary>
+    public void ShowFromTray()
+    {
+        Show();
+        ShowInTaskbar = true;
+        WindowState = WindowState.Normal;
+        Activate();
+        if (_tray is not null) _tray.IsVisible = true;
+    }
+
+    private void CreateTray()
+    {
+        try
+        {
+            var menu = new NativeMenu();
+
+            var open = new NativeMenuItem("Gaming Hub öffnen");
+            open.Click += (_, _) => ShowFromTray();
+            menu.Items.Add(open);
+
+            var quit = new NativeMenuItem("Beenden");
+            quit.Click += (_, _) =>
+            {
+                AllowClose = true;
+                if (_tray is not null) _tray.IsVisible = false;
+                if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+                {
+                    desktop.Shutdown();
+                }
+            };
+            menu.Items.Add(quit);
+
+            var icon = LoadAppIcon();
+            _tray = new TrayIcon
+            {
+                ToolTipText = "Gaming Hub – läuft im Hintergrund",
+                Icon = icon,
+                Menu = menu
+            };
+        }
+        catch (Exception ex)
+        {
+            LogService.Warn("Tray-Icon konnte nicht erstellt werden.", ex);
+        }
+    }
+
+    private static WindowIcon? LoadAppIcon()
+    {
+        try
+        {
+            var uri = new Uri("avares://GamingHub.App/Assets/logo.ico");
+            using var stream = AssetLoader.Open(uri);
+            return new WindowIcon(stream);
+        }
+        catch
+        {
+            return null;
         }
     }
 }

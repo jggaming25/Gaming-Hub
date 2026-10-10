@@ -9,6 +9,17 @@ public sealed record WebResearchSource(string Title, string Url, string Snippet)
 public sealed class WebResearchResult
 {
     public string Query { get; set; } = string.Empty;
+
+    /// <summary>Vom Aufrufer mitgelieferte Versions-Präzisierung (z. B. „2.1“).</summary>
+    public string? QueryVersion { get; set; }
+
+    /// <summary>In den Ergebnissen erkannte Version, auf die sich die Angaben
+    /// beziehen (falls erkennbar) – für die Anzeige „bezieht sich auf Version X“.</summary>
+    public string? DetectedVersion { get; set; }
+
+    /// <summary>Fertiger Hinweistext zur Versions-Einordnung, null wenn unbekannt.</summary>
+    public string? VersionNote { get; set; }
+
     public string Summary { get; set; } = string.Empty;
     public List<WebResearchSource> Sources { get; } = new();
     public string? Error { get; set; }
@@ -34,19 +45,61 @@ public sealed class WebResearchService
         return client;
     }
 
-    public async Task<WebResearchResult> ResearchAsync(string query, CancellationToken ct = default)
+    public async Task<WebResearchResult> ResearchAsync(string query, string? versionHint = null, CancellationToken ct = default)
     {
-        var result = new WebResearchResult { Query = query };
+        var result = new WebResearchResult { Query = query, QueryVersion = NormalizeVersion(versionHint) };
         if (string.IsNullOrWhiteSpace(query))
             return result;
 
         string game = ExtractGameName(query);
 
-        await TryWikipediaAsync(game, result, ct).ConfigureAwait(false);
+        // Versions-Präzisierung: Spielname und Version werden in die Suche
+        // mitgegeben, damit die Ergebnisse zur installierten Version passen.
+        string search = string.IsNullOrWhiteSpace(result.QueryVersion)
+            ? game
+            : $"{game} {result.QueryVersion}";
+
+        await TryWikipediaAsync(search, game, result, ct).ConfigureAwait(false);
         if (!result.Found)
-            await TryDuckDuckGoAsync(game, result, ct).ConfigureAwait(false);
+            await TryDuckDuckGoAsync(search, result, ct).ConfigureAwait(false);
+
+        result.DetectedVersion = DetectVersion(result.Summary);
+        if (!string.IsNullOrWhiteSpace(result.DetectedVersion))
+        {
+            result.VersionNote = string.IsNullOrWhiteSpace(result.QueryVersion)
+                ? $"Hinweis: Die Angaben beziehen sich auf Version {result.DetectedVersion}."
+                : $"Hinweis: Die Angaben beziehen sich auf Version {result.DetectedVersion} (gesucht: {result.QueryVersion}).";
+        }
 
         return result;
+    }
+
+    private static string NormalizeVersion(string? hint)
+    {
+        if (string.IsNullOrWhiteSpace(hint)) return string.Empty;
+        string t = hint.Trim();
+        t = Regex.Replace(t, @"^(version|v|v\.|ver\.)\s*", "", RegexOptions.IgnoreCase);
+        return t;
+    }
+
+    /// <summary>Erkennt eine Versionsangabe im Ergebnistext ("Version 2.1",
+    /// "Patch 1.05", "v2024.1" o. ä.) für die Versions-Einordnung.</summary>
+    private static string? DetectVersion(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return null;
+        string[] patterns =
+        {
+            @"(?i)version\s+(\d+(?:\.\d+){1,4})",
+            @"(?i)(?:patch|update)\s+(\d+(?:\.\d+){1,4})",
+            @"(?i)\bv(\d+(?:\.\d+){1,4})\b"
+        };
+        foreach (string pattern in patterns)
+        {
+            var m = Regex.Match(text, pattern);
+            if (m.Success && m.Groups.Count > 1)
+                return m.Groups[1].Value;
+        }
+        return null;
     }
 
     /// <summary>Strips suffixes such as "Systemanforderungen"/"system requirements".</summary>
@@ -57,13 +110,13 @@ public sealed class WebResearchService
         return q.Trim();
     }
 
-    private static async Task TryWikipediaAsync(string game, WebResearchResult result, CancellationToken ct)
+    private static async Task TryWikipediaAsync(string search, string game, WebResearchResult result, CancellationToken ct)
     {
         try
         {
-            var candidates = await SearchWikiAsync("de", game, 6, ct).ConfigureAwait(false);
+            var candidates = await SearchWikiAsync("de", search, 6, ct).ConfigureAwait(false);
             if (candidates.Count == 0)
-                candidates = await SearchWikiAsync("en", game, 6, ct).ConfigureAwait(false);
+                candidates = await SearchWikiAsync("en", search, 6, ct).ConfigureAwait(false);
 
             // Relevance: require at least one significant token of the game name
             // to appear in the candidate title; single-token names must be contained.
@@ -231,12 +284,12 @@ public sealed class WebResearchService
         return Truncate(section[..end].Trim(), 2400);
     }
 
-    private static async Task TryDuckDuckGoAsync(string game, WebResearchResult result, CancellationToken ct)
+    private static async Task TryDuckDuckGoAsync(string search, WebResearchResult result, CancellationToken ct)
     {
         try
         {
             // DuckDuckGo HTML page – parse result links. This is a fallback only.
-            string url = "https://html.duckduckgo.com/html/?q=" + Uri.EscapeDataString(game + " system requirements");
+            string url = "https://html.duckduckgo.com/html/?q=" + Uri.EscapeDataString(search + " system requirements");
             using var resp = await Http.GetAsync(url, ct).ConfigureAwait(false);
             resp.EnsureSuccessStatusCode();
             string html = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);

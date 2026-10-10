@@ -8,6 +8,20 @@ public static class Changelog
 {
     public static readonly ChangelogEntry[] Entries =
     {
+        new("0.4.2", "Oktober 2026", new[]
+        {
+            "Beim Start werden verfügbare Updates automatisch installiert – danach zeigt ein Popup, dass ein Neustart zum Aktivieren nötig ist.",
+            "Gaming Hub startet automatisch mit Windows und läuft dabei leise im Hintergrund (Infobereich).",
+            "Moderne Navigationsleiste mit abgerundetem Logo und neuem Design.",
+            "Spielebibliothek: Beim Start werden nur noch Änderungen übernommen (kein kompletter Neuscann mehr) – zusätzlich „Vollständiger Scan“-Knopf.",
+            "System-Ressourcen: Fehlgeschlagene Werte werden automatisch 2× nach je 20 Sekunden erneut abgefragt; GPU-Auslastung wird jetzt korrekt erfasst.",
+            "Neuer „Verlauf“-Bereich: alle 5 Minuten aufgezeichnete CPU-/RAM-/GPU-/Prozess-Daten als Diagramm (1 Woche, mit Premium 4 Wochen).",
+            "Premium ohne Kauf: Freischalt-Codes einlösen oder durch Abzeichen (Bibliothekar, Systemprofi, Aufräumer, Bugreporter) verdienen.",
+            "Haftungsausschluss muss nach jedem Update mit Lesezeit-Gate erneut bestätigt werden.",
+            "Disk Cleanup: Hinweis zur Dauer (ca. 2 TB ≈ 15–20 Min.) und Live-Restzeitanzeige.",
+            "Web-Recherche berücksichtigt optional eine Spielversion (z. B. „2.1“) für präzisere Systemanforderungen.",
+            "Chat: Eigene Nachrichten erscheinen sofort (kein stundenlanges Warten mehr)."
+        }),
         new("0.4.1", "Oktober 2026", new[]
         {
             "Geschriebene Nachrichten erscheinen jetzt sofort im Chat (zuvor wurden sie teilweise erst nach Stunden sichtbar).",

@@ -44,6 +44,9 @@ public sealed class SystemSnapshot
     public List<NetworkAdapterSample> Adapters { get; set; } = new();
     public List<ProcessSample> Processes { get; set; } = new();
 
+    /// <summary>Anzahl aller laufenden Prozesse zum Stichzeitpunkt.</summary>
+    public int ProcessCount { get; set; }
+
     public DateTime TimestampUtc { get; set; } = DateTime.UtcNow;
 }
 

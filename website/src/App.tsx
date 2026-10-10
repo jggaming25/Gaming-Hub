@@ -16,6 +16,20 @@ const FEATURES = [
 
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   {
+    version: "0.4.2",
+    date: "Oktober 2026",
+    items: [
+      "Beim Start werden verfügbare Updates automatisch installiert – danach ein Popup: „Neustart erforderlich“.",
+      "Gaming Hub startet automatisch mit Windows und läuft leise im Hintergrund (Infobereich).",
+      "Moderne Navigationsleiste mit neuem Design.",
+      "Spielebibliothek: nur noch Änderungen beim Start (kein Voll-Rescan) + „Vollständiger Scan“-Knopf.",
+      "Verlauf: CPU-/RAM-/GPU-/Prozess-Daten alle 5 Minuten als Diagramm (1 Woche, Premium: 4 Wochen).",
+      "Premium ohne Kauf: Freischalt-Codes oder über Abzeichen (Bibliothekar, Systemprofi, Aufräumer, Bugreporter).",
+      "Haftungsausschluss nach jedem Update mit Lesezeit-Gate · Disk Cleanup mit Live-Restzeit.",
+      "Web-Recherche berücksichtigt optional eine Spielversion (z. B. „2.1“)."
+    ]
+  },
+  {
     version: "0.4.1",
     date: "Oktober 2026",
     items: [

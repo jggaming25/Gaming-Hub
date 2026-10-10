@@ -48,14 +48,18 @@
                     <CheckBox Content="In Papierkorb (sicher)" IsChecked="{Binding UseRecycleBin, Mode=TwoWay}" FontSize="12" />
                 </StackPanel>
 
-                <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="8" Margin="0,12,0,0">
-                    <Button Content="Prüfung starten" Command="{Binding ScanCommand}" Classes="accent" />
-                    <Button Content="Abbrechen" Command="{Binding CancelCommand}" />
-                    <Button Content="Scan löschen" Command="{Binding ClearScanCommand}" />
-                    <Button Content="Alle außer Original markieren" Command="{Binding SelectAllGroupsCommand}" />
-                    <Button Content="Auswahl aufheben" Command="{Binding DeselectAllGroupsCommand}" />
-                    <Button Content="Ausgewählte löschen" Command="{Binding DeleteSelectedCommand}" />
-                    <Button Content="Full Auto Clean" Command="{Binding FullAutoCleanCommand}" Classes="accent" />
+                <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,12,0,0">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="Prüfung starten" Command="{Binding ScanCommand}" Classes="accent" />
+                        <Button Content="Abbrechen" Command="{Binding CancelCommand}" />
+                        <Button Content="Scan löschen" Command="{Binding ClearScanCommand}" />
+                        <Button Content="Alle außer Original markieren" Command="{Binding SelectAllGroupsCommand}" />
+                        <Button Content="Auswahl aufheben" Command="{Binding DeselectAllGroupsCommand}" />
+                        <Button Content="Ausgewählte löschen" Command="{Binding DeleteSelectedCommand}" />
+                        <Button Content="Full Auto Clean" Command="{Binding FullAutoCleanCommand}" Classes="accent" />
+                    </StackPanel>
+                    <TextBlock Text="Hinweis: Je nach Datenmenge dauert die Prüfung einige Minuten – bei ca. 2 TB Festplatten rund 15–20 Minuten."
+                               Classes="muted" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0" />
                 </StackPanel>
             </Grid>
         </Border>
@@ -75,6 +79,7 @@
                         <ProgressBar Minimum="0" Maximum="100" Value="{Binding ScanPercent}" Width="150" Height="8" VerticalAlignment="Center" />
                         <TextBlock Text="{Binding ScanPercent, StringFormat='{}{0} %'}" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" />
                         <TextBlock Text="{Binding ElapsedDisplay}" FontSize="12" Classes="muted" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding EtaDisplay}" FontSize="12" Foreground="#22D3EE" VerticalAlignment="Center" />
                     </StackPanel>
                     <TextBlock Text="{Binding ElapsedDisplay}" FontSize="12" Classes="muted" IsVisible="{Binding !IsScanning}" />
                 </StackPanel>

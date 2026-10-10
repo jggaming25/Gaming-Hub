@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.Linq;
+using Avalonia;
 using Avalonia.Data.Converters;
 using Avalonia.Layout;
 using Avalonia.Media;
@@ -47,10 +49,37 @@ public sealed class StringNotEmptyConverter : IValueConverter
         => throw new NotSupportedException();
 }
 
+/// <summary>Wandelt eine Reihe von Prozentwerten (0–100) in die Points eines
+/// Polyline-Diagramms um (x = Index, y = 100 − Wert).</summary>
+public sealed class SeriesToPointsConverter : IValueConverter
+{
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        var points = new Points();
+        if (value is not IEnumerable<double> series)
+            return points;
+
+        var values = series.ToList();
+        if (values.Count == 0)
+            return points;
+
+        for (int i = 0; i < values.Count; i++)
+        {
+            double y = Math.Clamp(values[i], 0, 100);
+            points.Add(new Point(i, 100 - y));
+        }
+        return points;
+    }
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
 public static class CommonConverters
 {
     public static readonly BoolToOpacityConverter BadgeOpacity = new() { True = 1.0, False = 0.4 };
     public static readonly StringNotEmptyConverter NotEmpty = new();
     public static readonly BoolToAlignmentConverter MessageAlign = new();
     public static readonly BoolToBrushConverter MessageBrush = new() { True = "#2563EB", False = "#1B1F3A" };
+    public static readonly SeriesToPointsConverter SeriesToPoints = new();
 }

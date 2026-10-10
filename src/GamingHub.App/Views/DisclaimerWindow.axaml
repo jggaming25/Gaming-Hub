@@ -43,11 +43,13 @@
         </Border>
 
         <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="0,16,0,0">
-            <CheckBox Grid.Column="0" x:Name="AcceptCheck" Content="Ich habe den Haftungsausschluss gelesen und akzeptiere ihn."
-                      VerticalAlignment="Center" />
-            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10">
+            <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="4">
+                <CheckBox x:Name="AcceptCheck" Content="Ich habe den Haftungsausschluss gelesen und akzeptiere ihn." />
+                <TextBlock x:Name="ReadHint" Classes="muted" FontSize="11" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                 <Button Content="Ablehnen &amp; Beenden" Click="OnDeclineClick" />
-                <Button Content="Akzeptieren" Click="OnAcceptClick" IsEnabled="{Binding #AcceptCheck.IsChecked}" x:Name="AcceptButton" Classes="accent" />
+                <Button Content="Akzeptieren" Click="OnAcceptClick" x:Name="AcceptButton" Classes="accent" />
             </StackPanel>
         </Grid>
     </Grid>

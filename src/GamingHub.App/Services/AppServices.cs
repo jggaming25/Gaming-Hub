@@ -14,11 +14,13 @@ public static class AppServices
     public static DuplicateFinderService DuplicateFinder { get; }
     public static FileDeletionService FileDeletion { get; }
     public static SystemMonitorService SystemMonitor { get; }
+    public static HistoryService History { get; }
     public static CompatibilityService Compatibility { get; }
     public static WebResearchService WebResearch { get; }
     public static UpdateService Updater { get; }
     public static AuthService Auth { get; }
     public static ProfileService Profile { get; }
+    public static PremiumService Premium { get; }
     public static BadgeService Badges { get; }
     public static BugService Bugs { get; }
     public static ChatService Chat { get; }
@@ -28,6 +30,7 @@ public static class AppServices
     public static void Shutdown()
     {
         Calls.Stop();
+        History.Stop();
         Notifications.Shutdown();
     }
 
@@ -55,6 +58,7 @@ public static class AppServices
         DuplicateFinder = new DuplicateFinderService();
         FileDeletion = new FileDeletionService();
         SystemMonitor = new SystemMonitorService();
+        History = new HistoryService();
         Compatibility = new CompatibilityService();
         WebResearch = new WebResearchService();
         Updater = new UpdateService();
@@ -62,6 +66,7 @@ public static class AppServices
         Profile = new ProfileService();
         Badges = new BadgeService(Settings.DataDirectory);
         Badges.EvaluateAutomatic(Settings.Settings.FirstEverLaunchUtc);
+        Premium = new PremiumService();
         Bugs = new BugService();
         Chat = new ChatService();
         Calls = new CallService();

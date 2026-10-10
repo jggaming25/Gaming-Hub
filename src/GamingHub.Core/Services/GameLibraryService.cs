@@ -1,4 +1,7 @@
 using System.Diagnostics;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 using GamingHub.Core.Models;
 
 namespace GamingHub.Core.Services;
@@ -6,6 +9,14 @@ namespace GamingHub.Core.Services;
 /// <summary>
 /// Aggregates all game scanners, merges with persisted playtime, detects running
 /// instances and provides launch / stop / restart control.
+///
+/// Das teure Scannen der Bibliotheken wird in einem lokalen Cache
+/// (games-cache.json) gespeichert. Beim nächsten Programmstart werden nur die
+/// „Markierungen“ der installierten Bibliotheken verglichen (Steam-/Epic-
+/// Manifeste und Registry-Uninstall-Einträge); hat sich nichts geändert, wird
+/// einfach der Cache geladen und nur die Änderungen (neue/entfernte Titel)
+/// übernommen – ein vollständiger Rescan ist nur nach echten Änderungen oder
+/// per „Vollständiger Scan“-Knopf nötig.
 /// </summary>
 public sealed class GameLibraryService
 {
@@ -13,23 +24,44 @@ public sealed class GameLibraryService
     private readonly EpicScanner _epic = new();
     private readonly RegistryAppScanner _registry = new();
     private readonly PlaytimeStore _playtime;
+    private readonly string _cachePath;
 
     private DateTime _lastTickUtc;
     private DateTime _lastSaveUtc = DateTime.UtcNow;
+    private string _markers = string.Empty;
 
     public List<GameInfo> Games { get; private set; } = new();
 
     public GameLibraryService(string dataDirectory)
     {
         _playtime = new PlaytimeStore(dataDirectory);
+        _cachePath = Path.Combine(dataDirectory, "games-cache.json");
         _lastTickUtc = DateTime.UtcNow;
     }
 
-    /// <summary>Runs all scanners and merges playtime data. Should run off the UI thread.</summary>
-    public Task<List<GameInfo>> RefreshAsync()
+    /// <summary>Gibt an, ob bereits ein Scan-Cache aus einem früheren Lauf vorliegt.</summary>
+    public bool HasCache => File.Exists(_cachePath);
+
+    /// <summary>Runs all scanners (or the cache when nothing changed) and merges
+    /// playtime data. Should run off the UI thread.</summary>
+    public Task<List<GameInfo>> RefreshAsync(bool forceRescan = false)
     {
         return Task.Run(() =>
         {
+            string markers = ComputeMarkers();
+
+            // Nur Änderungen anwenden: Cache laden, wenn sich nichts geändert hat.
+            if (!forceRescan && !string.IsNullOrEmpty(_markers) &&
+                string.Equals(_markers, markers, StringComparison.Ordinal)
+                && TryLoadCache(out var cached))
+            {
+                foreach (var game in cached)
+                    MergePlaytime(game);
+                Games = cached;
+                UpdateRunningStates();
+                return cached;
+            }
+
             var all = new List<GameInfo>();
             SafeAdd(all, _steam.Scan);
             SafeAdd(all, _epic.Scan);
@@ -45,20 +77,149 @@ public sealed class GameLibraryService
             foreach (var game in merged)
             {
                 game.Category = GameClassifier.Classify(game.Name, game.Source);
-
-                // Import already-existing playtime (e.g. Steam) as baseline so it counts.
-                if (game.TotalPlaytime.TotalSeconds > 0)
-                    _playtime.SeedBaseline(game.Id, game.TotalPlaytime.TotalSeconds, game.LastPlayedUtc);
-
-                var rec = _playtime.Get(game.Id);
-                game.TotalPlaytime = TimeSpan.FromSeconds(rec.TotalSeconds);
-                game.LastPlayedUtc = rec.LastPlayedUtc;
+                MergePlaytime(game);
             }
 
             Games = merged;
+            _markers = markers;
+            SaveCache(merged, markers);
             UpdateRunningStates();
             return merged;
         });
+    }
+
+    private void MergePlaytime(GameInfo game)
+    {
+        // Import already-existing playtime (e.g. Steam) as baseline so it counts.
+        if (game.TotalPlaytime.TotalSeconds > 0)
+            _playtime.SeedBaseline(game.Id, game.TotalPlaytime.TotalSeconds, game.LastPlayedUtc);
+
+        var rec = _playtime.Get(game.Id);
+        game.TotalPlaytime = TimeSpan.FromSeconds(rec.TotalSeconds);
+        game.LastPlayedUtc = rec.LastPlayedUtc;
+    }
+
+    private void SaveCache(List<GameInfo> games, string markers)
+    {
+        try
+        {
+            var payload = new GameCacheFile { Markers = markers, Games = games };
+            File.WriteAllText(_cachePath,
+                JsonSerializer.Serialize(payload, CacheOptions),
+                Encoding.UTF8);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine("games-cache save failed: " + ex.Message);
+        }
+    }
+
+    private bool TryLoadCache(out List<GameInfo> games)
+    {
+        games = new List<GameInfo>();
+        try
+        {
+            if (!File.Exists(_cachePath)) return false;
+            var payload = JsonSerializer.Deserialize<GameCacheFile>(File.ReadAllText(_cachePath), CacheOptions);
+            if (payload?.Games is null) return false;
+            if (!string.Equals(payload.Markers, _markers, StringComparison.Ordinal)) return false;
+            games = payload.Games;
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static readonly JsonSerializerOptions CacheOptions = new() { WriteIndented = true };
+
+    /// <summary>Berechnet schnell änderbare „Fingerabdrücke“ der installierten
+    /// Bibliotheken, damit ein vollständiger Rescan nur bei echten Änderungen läuft.</summary>
+    private static string ComputeMarkers()
+    {
+        var markers = new List<string>();
+        try { markers.AddRange(FindSteamManifests()); } catch { }
+        try { markers.AddRange(FindEpicManifests()); } catch { }
+        try { markers.AddRange(FindRegistryMarkers()); } catch { }
+        markers.Sort(StringComparer.OrdinalIgnoreCase);
+
+        using var sha = SHA256.Create();
+        return Convert.ToHexString(sha.ComputeHash(Encoding.UTF8.GetBytes(string.Join('\n', markers))));
+    }
+
+    private static IEnumerable<string> FindSteamManifests()
+    {
+        var steamapps = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        void AddFromKey(Microsoft.Win32.RegistryKey? key)
+        {
+            if (key?.GetValue("SteamPath") is string p && !string.IsNullOrWhiteSpace(p))
+                steamapps.Add(Path.Combine(p.Trim(), "steamapps"));
+        }
+
+        AddFromKey(Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SOFTWARE\WOW6432Node\Valve\Steam"));
+        AddFromKey(Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Valve\Steam"));
+
+        foreach (var baseDir in steamapps.ToList())
+        {
+            string vdf = Path.Combine(baseDir, "libraryfolders.vdf");
+            if (!File.Exists(vdf)) continue;
+            foreach (var line in File.ReadAllLines(vdf))
+            {
+                var m = System.Text.RegularExpressions.Regex.Match(line,
+                    "\"\\w+\"\\s+\"(.+?)\"\\s*(?://.*)?$");
+                if (m.Success)
+                {
+                    string value = m.Groups[1].Value.Replace(@"\\", @"\").Trim('\\');
+                    if (value.Length >= 2 && value[1] == ':')
+                        steamapps.Add(Path.Combine(value, "steamapps"));
+                }
+            }
+        }
+
+        var files = new List<string>();
+        foreach (var d in steamapps.Where(Directory.Exists))
+            files.AddRange(Directory.GetFiles(d, "appmanifest_*.acf", SearchOption.TopDirectoryOnly));
+        return files;
+    }
+
+    private static IEnumerable<string> FindEpicManifests()
+    {
+        var files = new List<string>();
+        foreach (string? path in new[]
+                 {
+                     Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SOFTWARE\WOW6432Node\EpicGames\EpicGamesLauncher")?.GetValue("AppDataPath") as string,
+                     Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SOFTWARE\EpicGames\EpicGamesLauncher")?.GetValue("AppDataPath") as string,
+                 })
+        {
+            if (string.IsNullOrWhiteSpace(path)) continue;
+            string manifests = Path.Combine(path.Trim(), "Manifests");
+            if (Directory.Exists(manifests))
+                files.AddRange(Directory.GetFiles(manifests, "*.item", SearchOption.TopDirectoryOnly));
+        }
+        return files;
+    }
+
+    private static IEnumerable<string> FindRegistryMarkers()
+    {
+        var markers = new List<string>();
+        foreach (Microsoft.Win32.RegistryKey? key in new[]
+                 {
+                     Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"),
+                     Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"),
+                     Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"),
+                     Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths"),
+                 })
+        {
+            using (key)
+            {
+                if (key is null) continue;
+                foreach (var name in key.GetSubKeyNames())
+                    markers.Add(name);
+            }
+        }
+        return markers.Distinct(StringComparer.OrdinalIgnoreCase);
     }
 
     private static void SafeAdd(List<GameInfo> target, Func<IEnumerable<GameInfo>> scanner)
@@ -199,4 +360,11 @@ public sealed class GameLibraryService
         await Task.Delay(2500);
         return Launch(game);
     }
+}
+
+/// <summary>Persisted cache of a previous library scan (avoids full rescans).</summary>
+public sealed class GameCacheFile
+{
+    public string Markers { get; set; } = string.Empty;
+    public List<GameInfo> Games { get; set; } = new();
 }

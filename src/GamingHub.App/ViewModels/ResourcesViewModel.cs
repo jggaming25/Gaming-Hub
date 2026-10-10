@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Linq;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -8,9 +9,26 @@ using GamingHub.Core.Services;
 
 namespace GamingHub.App.ViewModels;
 
-public sealed record ProcessRow(string Name, string CpuText, string MemText, int Pid, bool IsOurs)
+public sealed partial class ProcessRow : ObservableObject
 {
-    public string CanStopDisplay => IsOurs ? "—" : "Beenden";
+    public string Name { get; init; } = string.Empty;
+    public string CpuText { get; init; } = string.Empty;
+    public string MemText { get; init; } = string.Empty;
+    public int Pid { get; init; }
+    public bool IsOurs { get; init; }
+
+    /// <summary>Erster Klick bewaffnet den Beenden-Knopf, der zweite führt aus.</summary>
+    [ObservableProperty] private bool _confirmArmed;
+
+    public bool ShowConfirmButton => !IsOurs;
+    public string ConfirmText => ConfirmArmed ? "Erneut klicken zum Beenden!" : "✕ Beenden";
+    public string ConfirmTextColor => ConfirmArmed ? "#F87171" : "#8B91AC";
+
+    partial void OnConfirmArmedChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ConfirmText));
+        OnPropertyChanged(nameof(ConfirmTextColor));
+    }
 }
 
 public sealed record NetworkRow(string Name, string DownloadText, string UploadText);
@@ -40,12 +58,31 @@ public partial class ResourcesViewModel : ViewModelBase
     public ObservableCollection<ProcessRow> ProcessItems { get; } = new();
     public ObservableCollection<NetworkRow> NetworkItems { get; } = new();
 
+    // Verlauf (Hintergrund-Aufzeichnung alle 5 Minuten, ca. 1 Woche / Premium 4 Wochen)
+    private IReadOnlyList<double> _cpuSeries = Array.Empty<double>();
+    private IReadOnlyList<double> _ramSeries = Array.Empty<double>();
+    private IReadOnlyList<double> _gpuSeries = Array.Empty<double>();
+    private IReadOnlyList<double> _procSeries = Array.Empty<double>();
+
+    public IReadOnlyList<double> CpuSeries => _cpuSeries;
+    public IReadOnlyList<double> RamSeries => _ramSeries;
+    public IReadOnlyList<double> GpuSeries => _gpuSeries;
+    public IReadOnlyList<double> ProcSeries => _procSeries;
+
+    [ObservableProperty] private string _historyStatusText = "Zeichnet alle 5 Minuten auf…";
+    [ObservableProperty] private bool _hasHistory;
+    [ObservableProperty] private string _historyRetentionText = "Aufbewahrung: 1 Woche (Premium: 4 Wochen)";
+    public bool IsPremium => AppServices.Profile.IsPremium;
+
     public string CpuUsageDisplay => $"{CpuUsage:0} %";
     public string RamUsageDisplay => $"{RamUsage:0} %";
 
     public ObservableCollection<string> GameNames { get; } = new();
 
     [ObservableProperty] private string? _selectedGame;
+    /// <summary>Optionale Versions-Präzisierung für die Web-Recherche
+    /// (z. B. „2.1“), damit die Systemanforderungen zur installierten Version passen.</summary>
+    [ObservableProperty] private string? _selectedGameVersion;
     [ObservableProperty] private bool _hasResult;
     [ObservableProperty] private string _resultPreset = string.Empty;
     [ObservableProperty] private string _resultSummary = string.Empty;
@@ -61,6 +98,7 @@ public partial class ResourcesViewModel : ViewModelBase
     [ObservableProperty] private bool _webSearchEnabled = true;
     [ObservableProperty] private bool _hasWebResult;
     [ObservableProperty] private string _webSummary = string.Empty;
+    [ObservableProperty] private string _webVersionNote = string.Empty;
     [ObservableProperty] private string _webStatus = string.Empty;
     public ObservableCollection<WebResearchSource> WebSources { get; } = new();
 
@@ -86,6 +124,37 @@ public partial class ResourcesViewModel : ViewModelBase
         _timer.Start();
         Update();
         _ = LoadFlagsAsync();
+
+        UpdateHistoryRetention();
+        ReloadHistory();
+        AppServices.History.Changed += ReloadHistory;
+        AppServices.Profile.Changed += () => { UpdateHistoryRetention(); ReloadHistory(); };
+    }
+
+    private void UpdateHistoryRetention()
+    {
+        HistoryRetentionText = IsPremium ? "Premium: 4 Wochen" : "Aufbewahrung: 1 Woche (Premium: 4 Wochen)";
+    }
+
+    /// <summary>Lädt die hintergrundaufgezeichneten Verkaufsdaten neu (CSV + Protokoll).</summary>
+    private void ReloadHistory()
+    {
+        var points = AppServices.History.LoadChartData();
+        _cpuSeries = points.Select(p => p.CpuCol).ToList();
+        _ramSeries = points.Select(p => p.RamCol).ToList();
+        _gpuSeries = points.Where(p => p.HasGpu).Select(p => p.GpuCol).ToList();
+        double maxProc = points.Count > 0 ? Math.Max(1, points.Max(p => (double)p.ProcessCount)) : 1;
+        _procSeries = points.Select(p => Math.Clamp(p.ProcessCount / maxProc * 100.0, 0, 100)).ToList();
+
+        HasHistory = points.Count > 0;
+        HistoryStatusText = points.Count == 0
+            ? "Noch keine Aufzeichnung vorhanden – die ersten Messdaten entstehen automatisch im Hintergrund (alle 5 Minuten). Das Protokoll wird unter „Datenordner → history“ gespeichert."
+            : $"Aufzeichnung aktiv: {points.Count} Messpunkte · letzter Punkt um {points[^1].TimestampUtc.ToLocalTime():HH:mm:ss} · max. {points.Max(p => p.ProcessCount)} Prozesse gleichzeitig.";
+
+        OnPropertyChanged(nameof(CpuSeries));
+        OnPropertyChanged(nameof(RamSeries));
+        OnPropertyChanged(nameof(GpuSeries));
+        OnPropertyChanged(nameof(ProcSeries));
     }
 
     private async Task LoadFlagsAsync()
@@ -133,11 +202,14 @@ public partial class ResourcesViewModel : ViewModelBase
 
         ProcessItems.Clear();
         foreach (var p in s.Processes)
-            ProcessItems.Add(new ProcessRow(p.Name,
-                $"{p.CpuPercent:0.0} %",
-                Format.Bytes(p.WorkingSetBytes),
-                p.Pid,
-                p.IsOurs));
+            ProcessItems.Add(new ProcessRow
+            {
+                Name = p.Name,
+                CpuText = $"{p.CpuPercent:0.0} %",
+                MemText = Format.Bytes(p.WorkingSetBytes),
+                Pid = p.Pid,
+                IsOurs = p.IsOurs
+            });
     }
 
     [RelayCommand]
@@ -147,6 +219,16 @@ public partial class ResourcesViewModel : ViewModelBase
         {
             if (row is not null && row.IsOurs)
                 StatusText = "Der eigene Gaming-Hub-Prozess kann nicht beendet werden.";
+            return;
+        }
+
+        // Zwei-Stufen-Bestätigung: erster Klick bewaffnet, zweiter Klick beendet.
+        if (!row.ConfirmArmed)
+        {
+            foreach (var other in ProcessItems)
+                other.ConfirmArmed = false;
+            row.ConfirmArmed = true;
+            StatusText = $"Erneut auf „{row.Name}“ klicken, um ihn wirklich zu beenden.";
             return;
         }
 
@@ -166,6 +248,7 @@ public partial class ResourcesViewModel : ViewModelBase
         finally
         {
             IsBusy = false;
+            if (row is not null) row.ConfirmArmed = false;
         }
     }
 
@@ -230,13 +313,15 @@ public partial class ResourcesViewModel : ViewModelBase
         IsResearching = true;
         HasWebResult = false;
         WebSummary = string.Empty;
+        WebVersionNote = string.Empty;
         WebSources.Clear();
         WebStatus = $"Recherchiere im Hintergrund zu „{name}\"…";
 
         try
         {
-var res = await AppServices.WebResearch.ResearchAsync(name);
+            var res = await AppServices.WebResearch.ResearchAsync(name, SelectedGameVersion);
             WebSummary = res.Summary;
+            WebVersionNote = res.VersionNote ?? string.Empty;
             foreach (var s in res.Sources)
                 WebSources.Add(s);
             HasWebResult = res.Found;

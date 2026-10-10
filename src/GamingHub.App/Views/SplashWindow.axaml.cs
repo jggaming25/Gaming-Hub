@@ -1,10 +1,15 @@
 using Avalonia.Controls;
+using Avalonia.Threading;
 using GamingHub.App.Services;
 
 namespace GamingHub.App.Views;
 
 public partial class SplashWindow : Window
 {
+    private readonly bool _hiddenStart =
+        Environment.GetCommandLineArgs().Contains("--hidden", StringComparer.OrdinalIgnoreCase)
+        || Environment.GetCommandLineArgs().Contains("--tray", StringComparer.OrdinalIgnoreCase);
+
     public SplashWindow()
     {
         InitializeComponent();
@@ -12,32 +17,39 @@ public partial class SplashWindow : Window
     }
 
     /// <summary>
-    /// Plays the intro sound, checks for updates at startup and shows the splash
-    /// long enough for the animation to be visible. The update is NOT installed here –
-    /// installation happens after the main window is up (see App.ShowSplashThenMain),
-    /// which is the same code path as the manual update and therefore reliable.
+    /// Plays the intro sound (unless the app was started hidden via autostart),
+    /// checks for updates at startup and shows the splash long enough for the
+    /// content to be visible. If a new version was found, it is downloaded and
+    /// prepared right here (installation), so only a restart is needed to
+    /// activate it – the main window then shows a restart popup.
     /// </summary>
     public async Task<UpdateCheckResult> RunStartupAsync()
     {
-        SoundHelper.PlayIntro();
+        if (!_hiddenStart)
+            SoundHelper.PlayIntro();
+
         var minimumDelay = Task.Delay(1700);
         var settings = AppServices.Settings.Settings;
         var result = new UpdateCheckResult(false, null, null, null);
 
+        void SetStatus(string text) => Dispatcher.UIThread.Post(() => StatusText.Text = text);
+
         if (settings.AutoCheckUpdates)
         {
-            StatusText.Text = "Suche nach Updates…";
+            SetStatus("Suche nach Updates…");
             try
             {
                 result = await AppServices.Updater.CheckForUpdatesAsync();
-                if (result.HasUpdate && !settings.AutoInstallUpdates)
+                if (result.HasUpdate)
                 {
-                    StatusText.Text = $"Update {result.Version} verfügbar (siehe Einstellungen).";
-                    await Task.Delay(1200);
-                }
-                else if (result.HasUpdate)
-                {
-                    StatusText.Text = $"Update {result.Version} gefunden – wird nach dem Start installiert…";
+                    SetStatus($"Update {result.Version} wird heruntergeladen und installiert…");
+                    bool prepared = await AppServices.Updater.PrepareUpdateAsync(p =>
+                        SetStatus($"Update {result.Version} wird heruntergeladen… {p} %"));
+
+                    if (prepared)
+                        SetStatus($"Update {result.Version} installiert – Neustart wird vorbereitet.");
+                    else
+                        SetStatus($"Update {result.Version} konnte nicht geladen werden.");
                 }
             }
             catch
@@ -47,7 +59,7 @@ public partial class SplashWindow : Window
         }
 
         await minimumDelay;
-        StatusText.Text = "Starte Gaming Hub…";
+        SetStatus("Starte Gaming Hub…");
         return result;
     }
 }
