@@ -37,8 +37,21 @@ export function BugTracker({ configured }: Props) {
   useEffect(() => {
     if (!configured) return;
     void refresh();
+    const { data: sub } = supabase?.auth.onAuthStateChange(_e => {
+      void refresh();
+    }) ?? { data: { subscription: undefined } };
+    return () => sub.subscription?.unsubscribe();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [configured]);
+
+  /** Live-Check, ob wirklich noch ein Nutzer angemeldet ist – blockiert sonst den Bugreport. */
+  const requireAuth = async (): Promise<boolean> => {
+    if (!supabase) return false;
+    const { data, error } = await supabase.auth.getUser();
+    const ok = !error && Boolean(data?.user);
+    setAuthed(ok);
+    return ok;
+  };
 
   async function handleAuth(e: FormEvent, mode: "in" | "up") {
     e.preventDefault();
@@ -56,6 +69,11 @@ export function BugTracker({ configured }: Props) {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    const loggedIn = await requireAuth();
+    if (!loggedIn) {
+      setStatus("Du bist nicht (mehr) angemeldet – bitte melde dich an, um einen Bug zu melden.");
+      return;
+    }
     if (!title.trim() || !steps.trim()) {
       setStatus("Bitte Titel und Schritte ausfüllen.");
       return;
@@ -107,6 +125,10 @@ export function BugTracker({ configured }: Props) {
         </form>
       ) : (
         <>
+          <div className="bugmeta-loggedin">
+            <span className="badge-admin">✓ Angemeldet</span>
+            <span className="muted small">Nur angemeldete Nutzer können Bugs melden – der Status wird live geprüft.</span>
+          </div>
           <form className="bugform" onSubmit={handleSubmit}>
             <input placeholder="Kurzer Titel" value={title} onChange={(e) => setTitle(e.target.value)} />
             <select value={category} onChange={(e) => setCategory(e.target.value)}>

@@ -102,6 +102,8 @@ code { background: var(--panel2); padding: 1px 6px; border-radius: 6px; }
 .changelog-item h4 { margin: 0 0 4px; }
 .card h4 + p { margin: 0; }
 
+.bugmeta-loggedin { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+
 .auth, .bugform { display: flex; flex-direction: column; gap: 10px; margin: 14px 0 22px; }
 input, select, textarea {
   background: var(--panel2); border: 1px solid rgba(255,255,255,0.1);
