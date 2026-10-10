@@ -22,6 +22,17 @@ const FEATURES = [
 
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   {
+    version: "0.5.1",
+    date: "Oktober 2026",
+    items: [
+      "Chat: Nachrichten erscheinen jetzt sofort (robustes Senden, Post-Send-Poll, Fehler-Logging).",
+      "Internet-Checker (Premium/Admin): visueller Pfad-Test, 4-Wochen-Verlauf, Ausfall-Einschätzung (Router vs. ISP).",
+      "Spiele-Icons: Automatische Extraktion & Anzeige in der Bibliothek.",
+      "GPU-Auslastung repariert (korrekte WMI-Klasse), Cleanup-ETA immer sichtbar mit 10-Sek-Takt.",
+      "Downloads per Admin-Flag sperrbar, Premium-Codes mit Laufzeit/Gültig-bis, Offline-Hinweis in der Nav."
+    ]
+  },
+  {
     version: "0.5.0",
     date: "Oktober 2026",
     items: [
