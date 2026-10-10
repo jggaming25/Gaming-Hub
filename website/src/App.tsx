@@ -319,12 +319,12 @@ export function App() {
         <section id="versionen" style={{ marginTop: "24px" }}>
           <h2 className="section-title">Frühere Versionen</h2>
           <p className="muted small">
-            Alle früheren Versionen bleiben dauerhaft herunterladbar. Hinweis: Nur die jeweils
-            <strong> neueste Version</strong> erhält automatische Updates – ältere Versionen
-            aktualisieren sich nicht von selbst und sind nur zu Test-/Archivzwecken gedacht.
+            Die letzten 6 Versionen stehen zum Download bereit. Ältere Versionen finden Sie auf der
+            <a href={RELEASES_PAGE_URL} target="_blank" rel="noreferrer">GitHub Releases-Seite</a>.
+            Hinweis: Nur die jeweils <strong>neueste Version</strong> erhält automatische Updates.
           </p>
           <div className="changelog">
-            {CHANGELOG.map((c, i) => (
+            {CHANGELOG.slice(0, 6).map((c, i) => (
               <div className="card changelog-item" key={c.version}>
                 <span className="changelog-check">⬇</span>
                 <div style={{ flex: 1 }}>
