@@ -7,6 +7,10 @@ using GamingHub.Core.Models;
 
 namespace GamingHub.App.ViewModels;
 
+public sealed record ProcessRow(string Name, string CpuText, string MemText, bool IsOurs);
+
+public sealed record NetworkRow(string Name, string DownloadText, string UploadText);
+
 public partial class ResourcesViewModel : ViewModelBase
 {
     private readonly DispatcherTimer _timer;
@@ -19,6 +23,20 @@ public partial class ResourcesViewModel : ViewModelBase
     [ObservableProperty] private double _ramUsage;
     [ObservableProperty] private string _ramUsedDisplay = "—";
     [ObservableProperty] private string _ramTotalDisplay = "—";
+    [ObservableProperty] private string _uptimeDisplay = "—";
+    [ObservableProperty] private string _osDisplay = "—";
+    [ObservableProperty] private string _diskReadDisplay = "—";
+    [ObservableProperty] private string _diskWriteDisplay = "—";
+
+    public ObservableCollection<double> CpuHistory { get; } = new();
+    public ObservableCollection<double> RamHistory { get; } = new();
+    public ObservableCollection<double> NetUpHistory { get; } = new();
+    public ObservableCollection<double> NetDownHistory { get; } = new();
+    public ObservableCollection<ProcessRow> ProcessItems { get; } = new();
+    public ObservableCollection<NetworkRow> NetworkItems { get; } = new();
+
+    public string CpuUsageDisplay => $"{CpuUsage:0} %";
+    public string RamUsageDisplay => $"{RamUsage:0} %";
 
     public ObservableCollection<string> GameNames { get; } = new();
 
@@ -31,8 +49,11 @@ public partial class ResourcesViewModel : ViewModelBase
     public ObservableCollection<string> ResultNotes { get; } = new();
     public ObservableCollection<string> ResultBottlenecks { get; } = new();
 
-    public string CpuUsageDisplay => $"{CpuUsage:0} %";
-    public string RamUsageDisplay => $"{RamUsage:0} %";
+    [ObservableProperty] private string _webSearchUrl = string.Empty;
+
+    public bool HasNoResult => !HasResult;
+
+    partial void OnHasResultChanged(bool value) => OnPropertyChanged(nameof(HasNoResult));
 
     public ResourcesViewModel()
     {
@@ -56,8 +77,40 @@ public partial class ResourcesViewModel : ViewModelBase
         RamUsage = s.RamUsagePercent;
         RamUsedDisplay = Format.Bytes((long)s.RamUsedBytes);
         RamTotalDisplay = Format.Bytes((long)s.RamTotalBytes);
+        UptimeDisplay = Format.Duration(s.Uptime);
+        OsDisplay = s.MachineName + " · " + s.OsDescription;
+        DiskReadDisplay = Format.BytesPerSec(s.DiskReadBytesPerSec);
+        DiskWriteDisplay = Format.BytesPerSec(s.DiskWriteBytesPerSec);
         OnPropertyChanged(nameof(CpuUsageDisplay));
         OnPropertyChanged(nameof(RamUsageDisplay));
+
+        PushHistory(CpuHistory, Math.Clamp(CpuUsage, 0, 100) * 0.55);
+        PushHistory(RamHistory, Math.Clamp(RamUsage, 0, 100) * 0.55);
+
+        double down = s.Adapters.Sum(a => a.DownloadBytesPerSec);
+        double up = s.Adapters.Sum(a => a.UploadBytesPerSec);
+        PushHistory(NetDownHistory, Math.Min(60, down / (10.0 * 1024 * 1024) * 60));
+        PushHistory(NetUpHistory, Math.Min(60, up / (10.0 * 1024 * 1024) * 60));
+
+        NetworkItems.Clear();
+        foreach (var a in s.Adapters)
+            NetworkItems.Add(new NetworkRow(a.Name,
+                Format.BytesPerSec(a.DownloadBytesPerSec),
+                Format.BytesPerSec(a.UploadBytesPerSec)));
+
+        ProcessItems.Clear();
+        foreach (var p in s.Processes)
+            ProcessItems.Add(new ProcessRow(p.Name,
+                $"{p.CpuPercent:0.0} %",
+                Format.Bytes(p.WorkingSetBytes),
+                p.IsOurs));
+    }
+
+    private static void PushHistory(ObservableCollection<double> history, double value)
+    {
+        history.Add(Math.Max(0, value));
+        while (history.Count > 60)
+            history.RemoveAt(0);
     }
 
     public void ReloadGameNames()
@@ -96,10 +149,14 @@ public partial class ResourcesViewModel : ViewModelBase
             _ => "#F87171"
         };
         ResultSummary = result.Summary;
+        WebSearchUrl = "https://www.google.com/search?q=" + Uri.EscapeDataString(name + " systemanforderungen");
 
         ResultNotes.Clear();
         foreach (var n in result.Notes) ResultNotes.Add(n);
         ResultBottlenecks.Clear();
         foreach (var b in result.Bottlenecks) ResultBottlenecks.Add(b);
     }
+
+    [RelayCommand]
+    private void OpenWebSearch() => AppServices.OpenBrowser(WebSearchUrl);
 }

@@ -20,6 +20,22 @@ public static class AppServices
     public static BadgeService Badges { get; }
     public static BugService Bugs { get; }
 
+    public static void OpenBrowser(string url)
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url)
+            {
+                UseShellExecute = true,
+                Verb = "open"
+            });
+        }
+        catch
+        {
+            // ignore
+        }
+    }
+
     static AppServices()
     {
         Settings = new SettingsService();

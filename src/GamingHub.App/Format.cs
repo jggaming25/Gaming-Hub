@@ -29,4 +29,15 @@ public static class Format
 
     public static string Date(DateTime? utc)
         => utc is null ? "—" : utc.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm");
+
+    public static string Duration(TimeSpan t)
+    {
+        if (t.TotalDays >= 1) return $"{(int)t.TotalDays} T {t.Hours} Std";
+        if (t.TotalHours >= 1) return $"{(int)t.TotalHours} Std {t.Minutes} Min";
+        if (t.TotalMinutes >= 1) return $"{(int)t.TotalMinutes} Min {t.Seconds} s";
+        return $"{(int)t.TotalSeconds} s";
+    }
+
+    public static string BytesPerSec(double bytesPerSec)
+        => bytesPerSec <= 0 ? "—" : Bytes((long)bytesPerSec) + "/s";
 }

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Management;
 using System.Runtime.InteropServices;
 using GamingHub.Core.Models;
@@ -5,11 +6,21 @@ using Microsoft.Win32;
 
 namespace GamingHub.Core.Services;
 
-/// <summary>Reads live CPU / RAM usage and static CPU / GPU information.</summary>
+/// <summary>
+/// Reads live CPU / RAM / disk / network usage, running processes and static
+/// CPU / GPU information for a Task-Manager-like system overview.
+/// </summary>
 public sealed class SystemMonitorService
 {
+    private readonly int _ourPid = Environment.ProcessId;
+
     private ulong _prevIdle, _prevKernel, _prevUser;
     private bool _hasPrev;
+
+    private Dictionary<int, (TimeSpan Cpu, DateTime At)> _prevProcessTimes = new();
+    private readonly Dictionary<string, (PerformanceCounter Read, PerformanceCounter Write)> _netCounters = new();
+    private PerformanceCounter? _diskReadCounter;
+    private PerformanceCounter? _diskWriteCounter;
 
     public string CpuName { get; private set; } = "Unbekannte CPU";
     public string GpuName { get; private set; } = "Unbekannte GPU";
@@ -39,8 +50,135 @@ public sealed class SystemMonitorService
             GpuName = GpuName,
             GpuVramBytes = GpuVramBytes,
             GpuUsagePercent = -1,
+            Uptime = TimeSpan.FromMilliseconds(Environment.TickCount64),
+            OsDescription = RuntimeInformation.OSDescription.Trim(),
+            MachineName = Environment.MachineName,
+            DiskReadBytesPerSec = GetDiskRead(),
+            DiskWriteBytesPerSec = GetDiskWrite(),
+            Adapters = SampleNetwork(),
+            Processes = SampleProcesses(),
             TimestampUtc = DateTime.UtcNow
         };
+    }
+
+    private double GetDiskRead()
+    {
+        try
+        {
+            _diskReadCounter ??= new PerformanceCounter("PhysicalDisk", "Disk Read Bytes/sec", "_Total");
+            return Math.Max(0, _diskReadCounter.NextValue());
+        }
+        catch { return 0; }
+    }
+
+    private double GetDiskWrite()
+    {
+        try
+        {
+            _diskWriteCounter ??= new PerformanceCounter("PhysicalDisk", "Disk Write Bytes/sec", "_Total");
+            return Math.Max(0, _diskWriteCounter.NextValue());
+        }
+        catch { return 0; }
+    }
+
+    private List<NetworkAdapterSample> SampleNetwork()
+    {
+        var result = new List<NetworkAdapterSample>();
+        try
+        {
+            if (!PerformanceCounterCategory.Exists("Network Interface"))
+                return result;
+
+            var names = PerformanceCounterCategory.GetCategories()
+                .FirstOrDefault(c => c.CategoryName == "Network Interface")
+                ?.GetInstanceNames();
+
+            if (names is null)
+                return result;
+
+            foreach (string name in names)
+            {
+                if (name.Contains("isatap", StringComparison.OrdinalIgnoreCase) ||
+                    name.Contains("teredo", StringComparison.OrdinalIgnoreCase) ||
+                    name.Contains("loopback", StringComparison.OrdinalIgnoreCase) ||
+                    name.Equals("asdse", StringComparison.OrdinalIgnoreCase) ||
+                    name.StartsWith("vEthernet", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                if (!_netCounters.TryGetValue(name, out var pair))
+                {
+                    pair = (
+                        new PerformanceCounter("Network Interface", "Bytes Received/sec", name),
+                        new PerformanceCounter("Network Interface", "Bytes Sent/sec", name));
+                    _netCounters[name] = pair;
+                }
+
+                result.Add(new NetworkAdapterSample
+                {
+                    Name = name,
+                    DownloadBytesPerSec = Math.Max(0, pair.Read.NextValue()),
+                    UploadBytesPerSec = Math.Max(0, pair.Write.NextValue())
+                });
+            }
+        }
+        catch
+        {
+            // ignore
+        }
+
+        return result;
+    }
+
+    private List<ProcessSample> SampleProcesses()
+    {
+        var current = new Dictionary<int, (TimeSpan Cpu, DateTime At)>();
+        var samples = new List<ProcessSample>();
+        var now = DateTime.UtcNow;
+
+        try
+        {
+            foreach (var p in Process.GetProcesses())
+            {
+                try
+                {
+                    var cpu = p.TotalProcessorTime;
+                    current[p.Id] = (cpu, now);
+
+                    if (_prevProcessTimes.TryGetValue(p.Id, out var prev))
+                    {
+                        double delta = Math.Max(0, (cpu - prev.Cpu).TotalSeconds);
+                        double elapsed = Math.Max(0.001, (now - prev.At).TotalSeconds);
+                        double percent = delta / elapsed / Math.Max(1, Environment.ProcessorCount) * 100.0;
+                        if (percent >= 0)
+                        {
+                            samples.Add(new ProcessSample
+                            {
+                                Name = string.IsNullOrWhiteSpace(p.ProcessName) ? "unbekannt" : p.ProcessName,
+                                Pid = p.Id,
+                                CpuPercent = percent,
+                                WorkingSetBytes = p.WorkingSet64,
+                                IsOurs = p.Id == _ourPid
+                            });
+                        }
+                    }
+                }
+                catch
+                {
+                    // skip unreadable process
+                }
+            }
+        }
+        catch
+        {
+            // ignore
+        }
+
+        _prevProcessTimes = current;
+        return samples
+            .OrderByDescending(x => x.CpuPercent)
+            .ThenByDescending(x => x.WorkingSetBytes)
+            .Take(12)
+            .ToList();
     }
 
     private void LoadStaticCpuInfo()

@@ -3,63 +3,177 @@
              xmlns:vm="using:GamingHub.App.ViewModels"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             mc:Ignorable="d" d:DesignWidth="940" d:DesignHeight="700"
+             mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="760"
              x:Class="GamingHub.App.Views.ResourcesView"
              x:DataType="vm:ResourcesViewModel">
 
-    <Grid RowDefinitions="Auto,*" Margin="12">
+    <Grid RowDefinitions="Auto,Auto,*" Margin="12">
         <StackPanel Grid.Row="0" Spacing="2" Margin="0,0,0,12">
             <TextBlock Text="System-Ressourcen" Classes="h1" />
-            <TextBlock Text="Live-Auslastung und Einschätzung, ob dein PC ein Spiel schafft." Classes="muted" FontSize="12" />
+            <TextBlock Text="Live-Auslastung (Task-Manager-artig) und Einschätzung, ob dein PC ein Spiel schafft." Classes="muted" FontSize="12" />
         </StackPanel>
 
-        <Grid Grid.Row="1" ColumnDefinitions="*,*">
-            <!-- Live info -->
-            <ScrollViewer Grid.Column="0" Margin="0,0,10,0">
-                <StackPanel Spacing="12">
-                    <Border Classes="card">
-                        <StackPanel Spacing="8">
+        <ScrollViewer Grid.Row="1" MaxHeight="360" Margin="0,0,0,12">
+            <StackPanel Spacing="10">
+                <!-- Top cards -->
+                <Grid ColumnDefinitions="*,*,*,*" >
+                    <Border Classes="card" Margin="0,0,10,0">
+                        <StackPanel Spacing="6">
                             <TextBlock Text="CPU" FontWeight="SemiBold" />
-                            <TextBlock Text="{Binding CpuName}" FontSize="13" TextWrapping="Wrap" />
                             <TextBlock Text="{Binding CpuCoresDisplay}" FontSize="11" Classes="muted" />
-                            <ProgressBar Minimum="0" Maximum="100" Value="{Binding CpuUsage}" Height="10" />
-                            <TextBlock Text="{Binding CpuUsageDisplay}" FontSize="12" />
+                            <ProgressBar Minimum="0" Maximum="100" Value="{Binding CpuUsage}" Height="8" />
+                            <TextBlock Text="{Binding CpuUsageDisplay}" FontSize="16" FontWeight="Bold" />
+                            <TextBlock Text="{Binding CpuName}" FontSize="10" Classes="muted" TextWrapping="Wrap" MaxHeight="30" />
+                            <Border Background="#22D3EE33" CornerRadius="4" Height="60" VerticalAlignment="Bottom" Padding="3">
+                                <ItemsControl ItemsSource="{Binding CpuHistory}">
+                                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom" HorizontalAlignment="Left" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate><Border Width="4" Height="{Binding}" Background="#22D3EE" CornerRadius="1" Margin="0,0,2,0" VerticalAlignment="Bottom" /></DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Border>
                         </StackPanel>
                     </Border>
 
-                    <Border Classes="card">
-                        <StackPanel Spacing="8">
+                    <Border Classes="card" Margin="0,0,10,0">
+                        <StackPanel Spacing="6">
                             <TextBlock Text="RAM" FontWeight="SemiBold" />
-                            <ProgressBar Minimum="0" Maximum="100" Value="{Binding RamUsage}" Height="10" />
-                            <StackPanel Orientation="Horizontal" Spacing="14">
-                                <TextBlock Text="{Binding RamUsageDisplay}" FontSize="12" />
+                            <ProgressBar Minimum="0" Maximum="100" Value="{Binding RamUsage}" Height="8" />
+                            <TextBlock Text="{Binding RamUsageDisplay}" FontSize="16" FontWeight="Bold" />
+                            <StackPanel Orientation="Horizontal" Spacing="10">
                                 <TextBlock FontSize="12" Classes="muted">
                                     <TextBlock.Text>
-                                        <MultiBinding StringFormat="{}{0} / {1}">
+                                        <MultiBinding StringFormat="{}{0} / {1} verwendet">
                                             <Binding Path="RamUsedDisplay" />
                                             <Binding Path="RamTotalDisplay" />
                                         </MultiBinding>
                                     </TextBlock.Text>
                                 </TextBlock>
                             </StackPanel>
+                            <Border Background="#4ADE8033" CornerRadius="4" Height="60" Padding="3">
+                                <ItemsControl ItemsSource="{Binding RamHistory}">
+                                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom" HorizontalAlignment="Left" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate><Border Width="4" Height="{Binding}" Background="#4ADE80" CornerRadius="1" Margin="0,0,2,0" VerticalAlignment="Bottom" /></DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Classes="card" Margin="0,0,10,0">
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="Netzwerk (Wi-Fi / LAN)" FontWeight="SemiBold" />
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <Border CornerRadius="3" Background="#38BDF8" Width="8" Height="8" VerticalAlignment="Center" />
+                                    <TextBlock Text="Download" FontSize="10" Classes="muted" />
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <Border CornerRadius="3" Background="#FACC15" Width="8" Height="8" VerticalAlignment="Center" />
+                                    <TextBlock Text="Upload" FontSize="10" Classes="muted" />
+                                </StackPanel>
+                            </StackPanel>
+                            <Grid Height="60">
+                                <ItemsControl ItemsSource="{Binding NetDownHistory}">
+                                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom" HorizontalAlignment="Left" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate><Border Width="3" Height="{Binding}" Background="#38BDF8" CornerRadius="1" Margin="0,0,2,0" VerticalAlignment="Bottom" /></DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <ItemsControl ItemsSource="{Binding NetUpHistory}">
+                                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Top" HorizontalAlignment="Left" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate><Border Width="3" Height="{Binding}" Background="#FACC15" CornerRadius="1" Margin="0,0,2,0" VerticalAlignment="Top" /></DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Grid>
                         </StackPanel>
                     </Border>
 
                     <Border Classes="card">
-                        <StackPanel Spacing="8">
-                            <TextBlock Text="GPU" FontWeight="SemiBold" />
-                            <TextBlock Text="{Binding GpuName}" FontSize="13" TextWrapping="Wrap" />
-                            <TextBlock FontSize="11" Classes="muted">
-                                <Run Text="VRAM: " /><Run Text="{Binding GpuVramDisplay}" />
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="Laufzeit &amp; System" FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding UptimeDisplay}" FontSize="16" FontWeight="Bold" />
+                            <TextBlock Text="{Binding OsDisplay}" FontSize="10" Classes="muted" TextWrapping="Wrap" MaxHeight="28" />
+                            <TextBlock Text="Datenträger" FontWeight="SemiBold" FontSize="12" />
+                            <TextBlock FontSize="11">
+                                <Run Text="Lesen: " /><Run Text="{Binding DiskReadDisplay}" />
                             </TextBlock>
+                            <TextBlock FontSize="11">
+                                <Run Text="Schreiben: " /><Run Text="{Binding DiskWriteDisplay}" />
+                            </TextBlock>
+                            <TextBlock Text="GPU" FontWeight="SemiBold" FontSize="12" />
+                            <TextBlock Text="{Binding GpuName}" FontSize="10" Classes="muted" TextWrapping="Wrap" MaxHeight="28" />
+                            <TextBlock FontSize="11" Classes="muted"><Run Text="VRAM: " /><Run Text="{Binding GpuVramDisplay}" /></TextBlock>
                         </StackPanel>
                     </Border>
-                </StackPanel>
-            </ScrollViewer>
+                </Grid>
 
-            <!-- Compatibility checker -->
-            <ScrollViewer Grid.Column="1">
-                <Border Classes="card">
+                <!-- Processes + adapters -->
+                <Grid ColumnDefinitions="*,*">
+                    <Border Classes="card" Grid.Column="0" Margin="0,0,10,0" Padding="12">
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="Top-Prozesse" FontWeight="SemiBold" />
+                            <ItemsControl ItemsSource="{Binding ProcessItems}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:ProcessRow">
+                                        <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,2">
+                                            <StackPanel Orientation="Horizontal" Spacing="8" Grid.Column="0">
+                                                <TextBlock Text="{Binding Name}" FontSize="12" TextTrimming="CharacterEllipsis" />
+                                                <Border IsVisible="{Binding IsOurs}" Background="#22D3EE33" CornerRadius="4" Padding="5,1">
+                                                    <TextBlock Text="Gaming Hub" FontSize="9" Foreground="#22D3EE" />
+                                                </Border>
+                                            </StackPanel>
+                                            <TextBlock Grid.Column="1" Text="{Binding CpuText}" FontSize="12" FontWeight="SemiBold" Margin="10,0,0,0" />
+                                            <TextBlock Grid.Column="2" Text="{Binding MemText}" FontSize="12" Classes="muted" Margin="10,0,0,0" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Classes="card" Grid.Column="1" Padding="12">
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="Netzwerkadapter" FontWeight="SemiBold" />
+                            <ItemsControl ItemsSource="{Binding NetworkItems}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:NetworkRow">
+                                        <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,2">
+                                            <TextBlock Grid.Column="0" Text="{Binding Name}" FontSize="12" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Grid.Column="1" Text="{Binding DownloadText}" FontSize="12" Foreground="#38BDF8" Margin="8,0,0,0" />
+                                            <TextBlock Grid.Column="2" Text="{Binding UploadText}" FontSize="12" Foreground="#FACC15" Margin="8,0,0,0" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Compatibility checker -->
+        <ScrollViewer Grid.Row="2">
+            <Grid ColumnDefinitions="*,*">
+                <Border Classes="card" Grid.Column="0" Margin="0,0,10,0">
                     <StackPanel Spacing="12">
                         <TextBlock Text="Kann ich das spielen?" FontWeight="SemiBold" FontSize="16" />
                         <TextBlock Text="Spiel auswählen (oder Name eintippen) und prüfen lassen. Die Empfehlung ist eine Schätzung." Classes="muted" FontSize="11" TextWrapping="Wrap" />
@@ -68,37 +182,44 @@
                                   Text="{Binding SelectedGame, Mode=TwoWay}"
                                   PlaceholderText="Spiel wählen oder eingeben…" />
                         <Button Content="Einschätzung berechnen" Command="{Binding EvaluateCommand}" Classes="accent" HorizontalAlignment="Stretch" />
-
-                        <Border IsVisible="{Binding HasResult}" Background="{StaticResource PanelBrush2}" CornerRadius="10" Padding="14">
-                            <StackPanel Spacing="8">
-                                <StackPanel Orientation="Horizontal" Spacing="10">
-                                    <TextBlock Text="Empfehlung:" FontSize="14" VerticalAlignment="Center" />
-                                    <Border Background="{Binding ResultAccent}" CornerRadius="8" Padding="12,4">
-                                        <TextBlock Text="{Binding ResultPreset}" FontWeight="Bold" Foreground="#08101F" />
-                                    </Border>
-                                    <TextBlock VerticalAlignment="Center" FontSize="12" Classes="muted">
-                                        <Run Text="Score " /><Run Text="{Binding ResultScore}" /><Run Text="/100" />
-                                    </TextBlock>
-                                </StackPanel>
-                                <TextBlock Text="{Binding ResultSummary}" TextWrapping="Wrap" FontSize="13" />
-
-                                <TextBlock Text="Details" FontWeight="SemiBold" FontSize="12" Margin="0,6,0,0" />
-                                <ItemsControl ItemsSource="{Binding ResultNotes}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate><TextBlock Text="{Binding}" FontSize="12" Classes="muted" /></DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-
-                                <ItemsControl ItemsSource="{Binding ResultBottlenecks}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate><TextBlock Text="{Binding}" FontSize="12" Foreground="#FACC15" TextWrapping="Wrap" /></DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </StackPanel>
-                        </Border>
                     </StackPanel>
                 </Border>
-            </ScrollViewer>
-        </Grid>
+
+                <Border Classes="card" Grid.Column="1" Padding="14">
+                    <Grid>
+                        <StackPanel Spacing="8" IsVisible="{Binding HasResult}">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <TextBlock Text="Empfehlung:" FontSize="14" VerticalAlignment="Center" />
+                            <Border Background="{Binding ResultAccent}" CornerRadius="8" Padding="12,4">
+                                <TextBlock Text="{Binding ResultPreset}" FontWeight="Bold" Foreground="#08101F" />
+                            </Border>
+                            <TextBlock VerticalAlignment="Center" FontSize="12" Classes="muted">
+                                <Run Text="Score " /><Run Text="{Binding ResultScore}" /><Run Text="/100" />
+                            </TextBlock>
+                        </StackPanel>
+                        <TextBlock Text="{Binding ResultSummary}" TextWrapping="Wrap" FontSize="13" />
+                        <Button Content="Web-Recherche starten" Command="{Binding OpenWebSearchCommand}" FontSize="12" HorizontalAlignment="Stretch" IsVisible="{Binding HasResult}" />
+
+                        <TextBlock Text="Details" FontWeight="SemiBold" FontSize="12" Margin="0,6,0,0" />
+                        <ItemsControl ItemsSource="{Binding ResultNotes}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate><TextBlock Text="{Binding}" FontSize="12" Classes="muted" /></DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <ItemsControl ItemsSource="{Binding ResultBottlenecks}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate><TextBlock Text="{Binding}" FontSize="12" Foreground="#FACC15" TextWrapping="Wrap" /></DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                    <StackPanel Spacing="8" IsVisible="{Binding HasNoResult}">
+                        <TextBlock Text="Ergebnis erscheint hier nach der Berechnung." Classes="muted" FontSize="12" />
+                        <TextBlock Text="Der Web-Recherche-Button öffnet deinen Browser mit Systemanforderungen-Anfragen." Classes="muted" FontSize="11" TextWrapping="Wrap" />
+                    </StackPanel>
+                    </Grid>
+                </Border>
+            </Grid>
+        </ScrollViewer>
     </Grid>
 </UserControl>
