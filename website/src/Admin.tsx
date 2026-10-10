@@ -281,7 +281,7 @@ export function Admin() {
             4-Wochen-Ressourcen-Verlauf statt 1 Woche.
           </p>
           <div className="row wrap">
-            {(["premium_codes_enabled", "premium_activity_enabled"] as const).map((key) => (
+            {(["premium_codes_enabled", "premium_activity_enabled", "downloads_enabled"] as const).map((key) => (
               <label className="row check-inline" key={key}>
                 <input
                   type="checkbox"
