@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using GamingHub.App.Services;
 using GamingHub.Core.Models;
+using GamingHub.Core.Services;
 
 namespace GamingHub.App.ViewModels;
 
@@ -25,8 +26,9 @@ public partial class ResourcesViewModel : ViewModelBase
     [ObservableProperty] private string _ramTotalDisplay = "—";
     [ObservableProperty] private string _uptimeDisplay = "—";
     [ObservableProperty] private string _osDisplay = "—";
-    [ObservableProperty] private string _diskReadDisplay = "—";
-    [ObservableProperty] private string _diskWriteDisplay = "—";
+    [ObservableProperty] private string _diskReadDisplay = "0 B/s";
+    [ObservableProperty] private string _diskWriteDisplay = "0 B/s";
+    [ObservableProperty] private bool _hasNetworkItems;
 
     public ObservableCollection<double> CpuHistory { get; } = new();
     public ObservableCollection<double> RamHistory { get; } = new();
@@ -50,6 +52,16 @@ public partial class ResourcesViewModel : ViewModelBase
     public ObservableCollection<string> ResultBottlenecks { get; } = new();
 
     [ObservableProperty] private string _webSearchUrl = string.Empty;
+    [ObservableProperty] private bool _isResearching;
+    [ObservableProperty] private bool _webSearchEnabled = true;
+    [ObservableProperty] private bool _hasWebResult;
+    [ObservableProperty] private string _webSummary = string.Empty;
+    [ObservableProperty] private string _webStatus = string.Empty;
+    public ObservableCollection<WebResearchSource> WebSources { get; } = new();
+
+    public bool HasNoWebResult => !HasWebResult;
+
+    partial void OnHasWebResultChanged(bool value) => OnPropertyChanged(nameof(HasNoWebResult));
 
     public bool HasNoResult => !HasResult;
 
@@ -68,6 +80,21 @@ public partial class ResourcesViewModel : ViewModelBase
         _timer.Tick += (_, _) => Update();
         _timer.Start();
         Update();
+        _ = LoadFlagsAsync();
+    }
+
+    private async Task LoadFlagsAsync()
+    {
+        try
+        {
+            var flags = await AppServices.Chat.LoadFlagsAsync();
+            if (flags.TryGetValue("websearch_enabled", out var v))
+                WebSearchEnabled = v || AppServices.Profile?.IsAdmin == true;
+        }
+        catch
+        {
+            // ignore
+        }
     }
 
     private void Update()
@@ -93,10 +120,11 @@ public partial class ResourcesViewModel : ViewModelBase
         PushHistory(NetUpHistory, Math.Min(60, up / (10.0 * 1024 * 1024) * 60));
 
         NetworkItems.Clear();
-        foreach (var a in s.Adapters)
+        foreach (var a in s.Adapters.OrderByDescending(a => a.DownloadBytesPerSec + a.UploadBytesPerSec))
             NetworkItems.Add(new NetworkRow(a.Name,
                 Format.BytesPerSec(a.DownloadBytesPerSec),
                 Format.BytesPerSec(a.UploadBytesPerSec)));
+        HasNetworkItems = NetworkItems.Count > 0;
 
         ProcessItems.Clear();
         foreach (var p in s.Processes)
@@ -159,4 +187,35 @@ public partial class ResourcesViewModel : ViewModelBase
 
     [RelayCommand]
     private void OpenWebSearch() => AppServices.OpenBrowser(WebSearchUrl);
+
+    [RelayCommand]
+    private async Task ResearchAsync()
+    {
+        string name = string.IsNullOrWhiteSpace(SelectedGame) ? "Ausgewähltes Spiel" : SelectedGame!;
+        IsResearching = true;
+        HasWebResult = false;
+        WebSummary = string.Empty;
+        WebSources.Clear();
+        WebStatus = $"Recherchiere im Hintergrund zu „{name}\"…";
+
+        try
+        {
+            var res = await AppServices.WebResearch.ResearchAsync(name + " Systemanforderungen");
+            WebSummary = res.Summary;
+            foreach (var s in res.Sources)
+                WebSources.Add(s);
+            HasWebResult = res.Found;
+            WebStatus = res.Found
+                ? $"Ergebnisse für „{name}\" geladen."
+                : res.Error is null ? "Keine Treffer gefunden." : "Fehler: " + res.Error;
+        }
+        catch (Exception ex)
+        {
+            WebStatus = "Fehler: " + ex.Message;
+        }
+        finally
+        {
+            IsResearching = false;
+        }
+    }
 }

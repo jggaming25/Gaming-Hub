@@ -13,6 +13,7 @@ public sealed record UpdateCheckResult(bool HasUpdate, string? Version, string? 
 public sealed class UpdateService
 {
     private UpdateManager? _manager;
+    private UpdateInfo? _pendingUpdate;
 
     private UpdateManager? Manager
     {
@@ -46,7 +47,12 @@ public sealed class UpdateService
         {
             var update = await mgr.CheckForUpdatesAsync();
             if (update is null)
+            {
+                _pendingUpdate = null;
                 return new UpdateCheckResult(false, null, null, null);
+            }
+
+            _pendingUpdate = update;
 
             return new UpdateCheckResult(
                 true,
@@ -60,17 +66,22 @@ public sealed class UpdateService
         }
     }
 
-    public async Task DownloadAndRestartAsync(Action<int>? progress = null)
+    /// <summary>
+    /// Downloads the update found by the last <see cref="CheckForUpdatesAsync"/> and
+    /// restarts the app into the new version. Falls back to a fresh check if needed.
+    /// </summary>
+    public async Task<bool> DownloadAndRestartAsync(Action<int>? progress = null)
     {
         var mgr = Manager;
         if (mgr is null || !mgr.IsInstalled)
-            return;
+            return false;
 
-        var update = await mgr.CheckForUpdatesAsync();
+        var update = _pendingUpdate ?? await mgr.CheckForUpdatesAsync();
         if (update is null)
-            return;
+            return false;
 
         await mgr.DownloadUpdatesAsync(update, p => progress?.Invoke(p));
         mgr.ApplyUpdatesAndRestart(update);
+        return true;
     }
 }

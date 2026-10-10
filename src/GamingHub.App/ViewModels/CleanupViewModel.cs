@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using GamingHub.App.Services;
@@ -9,17 +11,22 @@ namespace GamingHub.App.ViewModels;
 public partial class CleanupViewModel : ViewModelBase
 {
     private CancellationTokenSource? _cts;
+    private readonly Stopwatch _stopwatch = new();
+    private readonly DispatcherTimer _elapsedTimer;
+
+    // Automatische Mindestgröße – kleine Dateien werden übersprungen, damit der
+    // Scan schnell bleibt. Die frühere manuelle 1/10/100/1024-MB-Auswahl entfällt.
+    private const long AutoMinFileSizeBytes = 64 * 1024;
 
     public ObservableCollection<string> ScanPaths { get; } = new();
     public ObservableCollection<DuplicateGroupViewModel> Groups { get; } = new();
     public ObservableCollection<DriveScanOption> Drives { get; } = new();
 
-    public long[] MinSizeChoices { get; } = { 1, 10, 100, 1024 };
-
-    [ObservableProperty] private int _minSizeIndex = 1;
     [ObservableProperty] private bool _isScanning;
     [ObservableProperty] private string _statusText = "Wähle Ordner und starte die Prüfung auf doppelte Dateien.";
     [ObservableProperty] private string _progressPhase = string.Empty;
+    [ObservableProperty] private int _scanPercent;
+    [ObservableProperty] private string _elapsedDisplay = string.Empty;
     [ObservableProperty] private int _groupsCount;
     [ObservableProperty] private string _wastedDisplay = "0 B";
 
@@ -37,6 +44,14 @@ public partial class CleanupViewModel : ViewModelBase
     public CleanupViewModel()
     {
         LoadDrives();
+
+        _elapsedTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+        _elapsedTimer.Tick += (_, _) =>
+        {
+            if (IsScanning)
+                ElapsedDisplay = Format.Elapsed(_stopwatch.Elapsed);
+        };
+        _elapsedTimer.Start();
 
         var settings = AppServices.Settings.Settings;
         if (settings.CleanupScanPaths.Count > 0)
@@ -96,7 +111,7 @@ public partial class CleanupViewModel : ViewModelBase
         StatusText = "Scan gelöscht. Wähle Ordner oder Laufwerke und starte erneut.";
     }
 
-    private long MinSizeBytes => MinSizeChoices[Math.Clamp(MinSizeIndex, 0, MinSizeChoices.Length - 1)] * 1024L * 1024L;
+    private long MinSizeBytes => AutoMinFileSizeBytes;
 
     [RelayCommand]
     private void AddFolder()
@@ -143,6 +158,9 @@ public partial class CleanupViewModel : ViewModelBase
         Groups.Clear();
         UpdateStats();
         StatusText = "Prüfung läuft…";
+        _stopwatch.Restart();
+        ScanPercent = 0;
+        ElapsedDisplay = "0sek";
 
         var options = new DuplicateScanOptions
         {
@@ -152,7 +170,15 @@ public partial class CleanupViewModel : ViewModelBase
 
         var progress = new Progress<DuplicateScanProgress>(p =>
         {
-            ProgressPhase = $"{p.Phase} – {p.FilesInspected} Dateien geprüft";
+            if (p.Percent >= 0)
+            {
+                ScanPercent = Math.Clamp(p.Percent, 0, 100);
+                ProgressPhase = $"{p.Phase} – {ScanPercent} % ({p.FilesInspected:N0} Dateien)";
+            }
+            else
+            {
+                ProgressPhase = $"{p.Phase} – {p.FilesInspected:N0} Dateien geprüft…";
+            }
         });
 
         try
@@ -162,16 +188,20 @@ public partial class CleanupViewModel : ViewModelBase
                 Groups.Add(new DuplicateGroupViewModel(g));
             UpdateStats();
             AppServices.Badges.Grant("aufraeumer");
+            _stopwatch.Stop();
+            ElapsedDisplay = Format.Elapsed(_stopwatch.Elapsed);
             StatusText = groups.Count == 0
-                ? "Keine doppelten Dateien gefunden."
-                : $"{groups.Count} Gruppen doppelter Dateien gefunden.";
+                ? $"Keine doppelten Dateien gefunden (Dauer: {ElapsedDisplay})."
+                : $"{groups.Count} Gruppen doppelter Dateien gefunden (Dauer: {ElapsedDisplay}).";
         }
         catch (OperationCanceledException)
         {
+            _stopwatch.Stop();
             StatusText = "Prüfung abgebrochen.";
         }
         catch (Exception ex)
         {
+            _stopwatch.Stop();
             StatusText = "Fehler: " + ex.Message;
         }
         finally

@@ -212,6 +212,40 @@ public sealed class SupabaseClient
         return new RestResult(resp.IsSuccessStatusCode, resp.IsSuccessStatusCode ? text : (ExtractError(text) ?? text));
     }
 
+    /// <summary>Calls a Postgres function exposed via PostgREST RPC.</summary>
+    public async Task<RestResult> RpcAsync(string function, object args)
+    {
+        if (Session is not null && !IsLoggedIn)
+            await RefreshAsync();
+
+        using var req = new HttpRequestMessage(HttpMethod.Post, $"{Url}/rest/v1/rpc/{function}");
+        AddApiKey(req); AddBearer(req);
+        req.Content = JsonContent(args);
+        var resp = await _http.SendAsync(req);
+        string text = await resp.Content.ReadAsStringAsync();
+        return new RestResult(resp.IsSuccessStatusCode, resp.IsSuccessStatusCode ? text : (ExtractError(text) ?? text));
+    }
+
+    /// <summary>Uploads bytes to a public Supabase Storage bucket.</summary>
+    public async Task<RestResult> UploadAsync(string bucket, string path, byte[] data, string contentType)
+    {
+        if (Session is not null && !IsLoggedIn)
+            await RefreshAsync();
+
+        string encodedPath = string.Join('/', path.Split('/').Select(Uri.EscapeDataString));
+        using var req = new HttpRequestMessage(HttpMethod.Post, $"{Url}/storage/v1/object/{bucket}/{encodedPath}");
+        AddApiKey(req); AddBearer(req);
+        req.Headers.TryAddWithoutValidation("x-upsert", "true");
+        req.Content = new ByteArrayContent(data);
+        req.Content.Headers.ContentType = new MediaTypeHeaderValue(string.IsNullOrWhiteSpace(contentType) ? "application/octet-stream" : contentType);
+        var resp = await _http.SendAsync(req);
+        string text = await resp.Content.ReadAsStringAsync();
+        return new RestResult(resp.IsSuccessStatusCode, resp.IsSuccessStatusCode ? text : (ExtractError(text) ?? text));
+    }
+
+    public string PublicStorageUrl(string bucket, string path)
+        => $"{Url}/storage/v1/object/public/{bucket}/{string.Join('/', path.Split('/').Select(Uri.EscapeDataString))}";
+
     // ---------------- Helpers ----------------
 
     private void AddApiKey(HttpRequestMessage req)

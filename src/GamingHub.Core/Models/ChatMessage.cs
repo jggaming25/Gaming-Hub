@@ -11,6 +11,18 @@ public sealed class ChatMessage
     [JsonPropertyName("author_name")] public string? AuthorName { get; set; }
     [JsonPropertyName("body")] public string Body { get; set; } = string.Empty;
     [JsonPropertyName("created_at")] public DateTimeOffset CreatedAt { get; set; }
+
+    [JsonPropertyName("reply_to_id")] public string? ReplyToId { get; set; }
+    [JsonPropertyName("reply_preview")] public string? ReplyPreview { get; set; }
+
+    [JsonPropertyName("attachment_url")] public string? AttachmentUrl { get; set; }
+    [JsonPropertyName("attachment_name")] public string? AttachmentName { get; set; }
+    [JsonPropertyName("attachment_size")] public long AttachmentSize { get; set; }
+
+    [JsonPropertyName("deleted")] public bool Deleted { get; set; }
+
+    [JsonIgnore] public bool HasAttachment => !string.IsNullOrWhiteSpace(AttachmentUrl);
+    [JsonIgnore] public bool HasReply => !string.IsNullOrWhiteSpace(ReplyPreview);
 }
 
 /// <summary>A chat partner shown in the contact list.</summary>
@@ -27,4 +39,16 @@ public sealed class ChatContact
         : (!string.IsNullOrWhiteSpace(Email) ? Email! : "Unbekannt");
 
     public bool IsOnline => LastSeen is { } seen && (DateTimeOffset.UtcNow - seen) < TimeSpan.FromSeconds(90);
+}
+
+/// <summary>A friendship record between two users.</summary>
+public sealed class Friendship
+{
+    [JsonPropertyName("id")] public string Id { get; set; } = string.Empty;
+    [JsonPropertyName("requester_id")] public string RequesterId { get; set; } = string.Empty;
+    [JsonPropertyName("addressee_id")] public string AddresseeId { get; set; } = string.Empty;
+    [JsonPropertyName("status")] public string Status { get; set; } = "pending";
+    [JsonPropertyName("created_at")] public DateTimeOffset CreatedAt { get; set; }
+
+    public bool IsAccepted => string.Equals(Status, "accepted", StringComparison.OrdinalIgnoreCase);
 }

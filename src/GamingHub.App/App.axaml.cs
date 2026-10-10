@@ -80,7 +80,7 @@ public partial class App : Application
         {
             try
             {
-                await splash.RunStartupAsync();
+                var update = await splash.RunStartupAsync();
 
                 var main = new MainWindow { DataContext = new MainViewModel() };
                 desktop.MainWindow = main;
@@ -93,6 +93,24 @@ public partial class App : Application
                     desktop.Shutdown();
                 };
                 splash.Close();
+
+                // Install a found update only now that the main window is fully up –
+                // same path as the manual "Update installieren" button.
+                if (update.HasUpdate && AppServices.Settings.Settings.AutoInstallUpdates)
+                {
+                    _ = Dispatcher.UIThread.InvokeAsync(async () =>
+                    {
+                        try
+                        {
+                            await Task.Delay(800);
+                            await AppServices.Updater.DownloadAndRestartAsync();
+                        }
+                        catch (Exception ex)
+                        {
+                            CrashLog.Write("startup-update", ex);
+                        }
+                    });
+                }
             }
             catch (Exception ex)
             {

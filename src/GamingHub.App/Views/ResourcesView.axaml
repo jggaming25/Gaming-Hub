@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:GamingHub.App.ViewModels"
+             xmlns:svc="using:GamingHub.Core.Services"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="760"
@@ -130,19 +131,25 @@
                 <Grid ColumnDefinitions="*,*">
                     <Border Classes="card" Grid.Column="0" Margin="0,0,10,0" Padding="12">
                         <StackPanel Spacing="6">
-                            <TextBlock Text="Top-Prozesse" FontWeight="SemiBold" />
+                            <TextBlock Text="Top-Prozesse (Top 12)" FontWeight="SemiBold" />
+                            <Grid ColumnDefinitions="*,80,90">
+                                <TextBlock Grid.Column="0" Text="Prozess" FontSize="10" Classes="muted" />
+                                <TextBlock Grid.Column="1" Text="CPU" FontSize="10" Classes="muted" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="2" Text="Arbeitsspeicher" FontSize="10" Classes="muted" HorizontalAlignment="Right" />
+                            </Grid>
+                            <Border Height="1" Background="#2A3550" />
                             <ItemsControl ItemsSource="{Binding ProcessItems}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="vm:ProcessRow">
-                                        <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,2">
+                                        <Grid ColumnDefinitions="*,80,90" Margin="0,3">
                                             <StackPanel Orientation="Horizontal" Spacing="8" Grid.Column="0">
-                                                <TextBlock Text="{Binding Name}" FontSize="12" TextTrimming="CharacterEllipsis" />
-                                                <Border IsVisible="{Binding IsOurs}" Background="#22D3EE33" CornerRadius="4" Padding="5,1">
+                                                <TextBlock Text="{Binding Name}" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                                <Border IsVisible="{Binding IsOurs}" Background="#22D3EE33" CornerRadius="4" Padding="5,1" VerticalAlignment="Center">
                                                     <TextBlock Text="Gaming Hub" FontSize="9" Foreground="#22D3EE" />
                                                 </Border>
                                             </StackPanel>
-                                            <TextBlock Grid.Column="1" Text="{Binding CpuText}" FontSize="12" FontWeight="SemiBold" Margin="10,0,0,0" />
-                                            <TextBlock Grid.Column="2" Text="{Binding MemText}" FontSize="12" Classes="muted" Margin="10,0,0,0" />
+                                            <TextBlock Grid.Column="1" Text="{Binding CpuText}" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="2" Text="{Binding MemText}" FontSize="12" Classes="muted" HorizontalAlignment="Right" VerticalAlignment="Center" />
                                         </Grid>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
@@ -153,17 +160,24 @@
                     <Border Classes="card" Grid.Column="1" Padding="12">
                         <StackPanel Spacing="6">
                             <TextBlock Text="Netzwerkadapter" FontWeight="SemiBold" />
+                            <Grid ColumnDefinitions="*,90,90" IsVisible="{Binding HasNetworkItems}">
+                                <TextBlock Grid.Column="0" Text="Adapter" FontSize="10" Classes="muted" />
+                                <TextBlock Grid.Column="1" Text="Download" FontSize="10" Classes="muted" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="2" Text="Upload" FontSize="10" Classes="muted" HorizontalAlignment="Right" />
+                            </Grid>
+                            <Border Height="1" Background="#2A3550" IsVisible="{Binding HasNetworkItems}" />
                             <ItemsControl ItemsSource="{Binding NetworkItems}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="vm:NetworkRow">
-                                        <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,2">
-                                            <TextBlock Grid.Column="0" Text="{Binding Name}" FontSize="12" TextTrimming="CharacterEllipsis" />
-                                            <TextBlock Grid.Column="1" Text="{Binding DownloadText}" FontSize="12" Foreground="#38BDF8" Margin="8,0,0,0" />
-                                            <TextBlock Grid.Column="2" Text="{Binding UploadText}" FontSize="12" Foreground="#FACC15" Margin="8,0,0,0" />
+                                        <Grid ColumnDefinitions="*,90,90" Margin="0,3">
+                                            <TextBlock Grid.Column="0" Text="{Binding Name}" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="1" Text="{Binding DownloadText}" FontSize="12" Foreground="#38BDF8" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="2" Text="{Binding UploadText}" FontSize="12" Foreground="#FACC15" HorizontalAlignment="Right" VerticalAlignment="Center" />
                                         </Grid>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
+                            <TextBlock Text="Keine aktiven Netzwerkadapter gefunden." Classes="muted" FontSize="11" IsVisible="{Binding !HasNetworkItems}" />
                         </StackPanel>
                     </Border>
                 </Grid>
@@ -198,7 +212,11 @@
                             </TextBlock>
                         </StackPanel>
                         <TextBlock Text="{Binding ResultSummary}" TextWrapping="Wrap" FontSize="13" />
-                        <Button Content="Web-Recherche starten" Command="{Binding OpenWebSearchCommand}" FontSize="12" HorizontalAlignment="Stretch" IsVisible="{Binding HasResult}" />
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Content="Web-Recherche (im Programm)" Command="{Binding ResearchCommand}" FontSize="12" Classes="accent" IsVisible="{Binding WebSearchEnabled}" />
+                            <Button Content="Im Browser öffnen" Command="{Binding OpenWebSearchCommand}" FontSize="12" />
+                        </StackPanel>
+                        <ProgressBar IsIndeterminate="True" Height="4" IsVisible="{Binding IsResearching}" />
 
                         <TextBlock Text="Details" FontWeight="SemiBold" FontSize="12" Margin="0,6,0,0" />
                         <ItemsControl ItemsSource="{Binding ResultNotes}">
@@ -212,6 +230,22 @@
                                 <DataTemplate><TextBlock Text="{Binding}" FontSize="12" Foreground="#FACC15" TextWrapping="Wrap" /></DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
+
+                        <StackPanel Spacing="6" Margin="0,8,0,0" IsVisible="{Binding WebSearchEnabled}">
+                            <TextBlock Text="Web-Recherche" FontWeight="SemiBold" FontSize="12" />
+                            <TextBlock Text="{Binding WebStatus}" FontSize="11" Classes="muted" TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding WebSummary}" FontSize="12" TextWrapping="Wrap" IsVisible="{Binding HasWebResult}" />
+                            <ItemsControl ItemsSource="{Binding WebSources}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="svc:WebResearchSource">
+                                        <StackPanel Margin="0,4,0,0">
+                                            <TextBlock Text="{Binding Title}" FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding Snippet}" FontSize="11" Classes="muted" TextWrapping="Wrap" MaxLines="3" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
                     </StackPanel>
                     <StackPanel Spacing="8" IsVisible="{Binding HasNoResult}">
                         <TextBlock Text="Ergebnis erscheint hier nach der Berechnung." Classes="muted" FontSize="12" />

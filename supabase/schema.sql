@@ -277,3 +277,143 @@ create or replace function public.heartbeat()
 returns void language sql security definer set search_path = public as $$
     update public.profiles set last_seen = now() where id = auth.uid();
 $$;
+
+-- ============================================================
+-- Kommunikation – Erweiterung: Antworten, Anhänge, Sperre,
+-- Freundschaften, Admin-Schalter (Feature-Flags) und Moderation
+-- ============================================================
+
+-- Nachrichten: Antworten (Reply), Dateianhänge und Soft-Delete (Moderation)
+alter table public.chat_messages add column if not exists reply_to_id uuid;
+alter table public.chat_messages add column if not exists reply_preview text;
+alter table public.chat_messages add column if not exists attachment_url text;
+alter table public.chat_messages add column if not exists attachment_name text;
+alter table public.chat_messages add column if not exists attachment_size bigint;
+alter table public.chat_messages add column if not exists deleted boolean not null default false;
+
+-- DM-Mitgliedschaft anhand der Kanal-ID "dm-<uidA>-<uidB>" (feste Längen)
+create or replace function public.is_dm_member(ch text)
+returns boolean
+language sql stable
+as $$
+    select case
+        when ch not like 'dm-%' then true
+        when length(ch) < 76 then false
+        else auth.uid()::text in (substring(ch from 4 for 36), substring(ch from 41 for 36))
+    end;
+$$;
+
+-- Auswahl: allgemeine Kanäle für alle Angemeldeten, DMs nur für die Beteiligten
+drop policy if exists "chat_messages_select" on public.chat_messages;
+create policy "chat_messages_select" on public.chat_messages
+    for select using (auth.role() = 'authenticated' and public.is_dm_member(channel_id));
+
+-- Schreiben: als man selbst, nicht gesperrt, und nur in Kanälen, in denen man Mitglied ist
+drop policy if exists "chat_messages_insert" on public.chat_messages;
+create policy "chat_messages_insert" on public.chat_messages
+    for insert with check (
+        auth.uid() = author_id
+        and public.is_dm_member(channel_id)
+        and coalesce((select not coalesce(is_banned, false) from public.profiles where id = auth.uid()), true)
+    );
+
+-- Moderation: eigener Lösch-Button + Admin darf löschen; zusätzlich "deleted" setzen
+drop policy if exists "chat_messages_delete" on public.chat_messages;
+create policy "chat_messages_delete" on public.chat_messages
+    for delete using (auth.uid() = author_id or public.is_admin());
+
+drop policy if exists "chat_messages_update" on public.chat_messages;
+create policy "chat_messages_update" on public.chat_messages
+    for update using (auth.uid() = author_id or public.is_admin())
+    with check (auth.uid() = author_id or public.is_admin());
+
+-- Sperrliste (Blockieren)
+create table if not exists public.blocks (
+    blocker_id uuid not null references auth.users(id) on delete cascade,
+    blocked_id uuid not null references auth.users(id) on delete cascade,
+    created_at timestamptz not null default now(),
+    primary key (blocker_id, blocked_id)
+);
+alter table public.blocks enable row level security;
+drop policy if exists "blocks_select_own" on public.blocks;
+create policy "blocks_select_own" on public.blocks for select using (auth.uid() = blocker_id);
+drop policy if exists "blocks_insert_own" on public.blocks;
+create policy "blocks_insert_own" on public.blocks for insert with check (auth.uid() = blocker_id);
+drop policy if exists "blocks_delete_own" on public.blocks;
+create policy "blocks_delete_own" on public.blocks for delete using (auth.uid() = blocker_id);
+
+-- Freundschaften
+create table if not exists public.friendships (
+    id           uuid primary key default gen_random_uuid(),
+    requester_id uuid not null references auth.users(id) on delete cascade,
+    addressee_id uuid not null references auth.users(id) on delete cascade,
+    status       text not null default 'pending',   -- pending | accepted
+    created_at   timestamptz not null default now(),
+    unique (requester_id, addressee_id)
+);
+alter table public.friendships enable row level security;
+drop policy if exists "friendships_select" on public.friendships;
+create policy "friendships_select" on public.friendships
+    for select using (auth.uid() = requester_id or auth.uid() = addressee_id);
+drop policy if exists "friendships_insert" on public.friendships;
+create policy "friendships_insert" on public.friendships
+    for insert with check (auth.uid() = requester_id);
+drop policy if exists "friendships_update" on public.friendships;
+create policy "friendships_update" on public.friendships
+    for update using (auth.uid() = requester_id or auth.uid() = addressee_id)
+    with check (auth.uid() = requester_id or auth.uid() = addressee_id);
+drop policy if exists "friendships_delete" on public.friendships;
+create policy "friendships_delete" on public.friendships
+    for delete using (auth.uid() = requester_id or auth.uid() = addressee_id);
+
+-- Admin-Schalter (Feature-Flags): Funktionen für Nicht-Admins an/aus schalten
+create table if not exists public.app_settings (
+    key        text primary key,
+    value      boolean not null default true,
+    updated_at timestamptz not null default now()
+);
+insert into public.app_settings (key, value) values
+    ('chat_enabled', true),
+    ('dm_enabled', true),
+    ('voice_enabled', true),
+    ('video_enabled', true),
+    ('files_enabled', true),
+    ('websearch_enabled', true),
+    ('cleanup_enabled', true),
+    ('games_enabled', true),
+    ('bugreport_enabled', true)
+on conflict (key) do nothing;
+
+alter table public.app_settings enable row level security;
+drop policy if exists "app_settings_select" on public.app_settings;
+create policy "app_settings_select" on public.app_settings
+    for select using (auth.role() = 'authenticated' or auth.role() = 'anon');
+drop policy if exists "app_settings_admin" on public.app_settings;
+create policy "app_settings_admin" on public.app_settings
+    for all using (public.is_admin()) with check (public.is_admin());
+
+-- Nutzer per E-Mail finden (für "DM per E-Mail" und Freundschaftsanfragen)
+create or replace function public.find_user_by_email(p_email text)
+returns table (id uuid, display_name text, email text, avatar_url text, last_seen timestamptz)
+language sql security definer set search_path = public stable as $$
+    select id, display_name, email, avatar_url, last_seen
+    from public.profiles
+    where lower(email) = lower(trim(p_email))
+    limit 1;
+$$;
+
+-- ============================================================
+-- Dateianhänge: Storage-Bucket (öffentlich lesbar, angemeldet schreibbar)
+-- ============================================================
+insert into storage.buckets (id, name, public)
+values ('chat-attachments', 'chat-attachments', true)
+on conflict (id) do update set public = true;
+
+drop policy if exists "chat_attachments_read" on storage.objects;
+create policy "chat_attachments_read" on storage.objects
+    for select using (bucket_id = 'chat-attachments');
+
+drop policy if exists "chat_attachments_insert" on storage.objects;
+create policy "chat_attachments_insert" on storage.objects
+    for insert with check (bucket_id = 'chat-attachments' and auth.role() = 'authenticated');
+

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Management;
+using System.Net.NetworkInformation;
 using System.Runtime.InteropServices;
 using GamingHub.Core.Models;
 using Microsoft.Win32;
@@ -18,9 +19,7 @@ public sealed class SystemMonitorService
     private bool _hasPrev;
 
     private Dictionary<int, (TimeSpan Cpu, DateTime At)> _prevProcessTimes = new();
-    private readonly Dictionary<string, (PerformanceCounter Read, PerformanceCounter Write)> _netCounters = new();
-    private PerformanceCounter? _diskReadCounter;
-    private PerformanceCounter? _diskWriteCounter;
+    private readonly Dictionary<string, (long Received, long Sent, DateTime At)> _netPrev = new();
 
     public string CpuName { get; private set; } = "Unbekannte CPU";
     public string GpuName { get; private set; } = "Unbekannte GPU";
@@ -38,6 +37,7 @@ public sealed class SystemMonitorService
     {
         double cpu = GetCpuUsage();
         GetMemory(out ulong total, out ulong used);
+        GetDiskThroughput(out double diskRead, out double diskWrite);
 
         return new SystemSnapshot
         {
@@ -53,71 +53,65 @@ public sealed class SystemMonitorService
             Uptime = TimeSpan.FromMilliseconds(Environment.TickCount64),
             OsDescription = RuntimeInformation.OSDescription.Trim(),
             MachineName = Environment.MachineName,
-            DiskReadBytesPerSec = GetDiskRead(),
-            DiskWriteBytesPerSec = GetDiskWrite(),
+            DiskReadBytesPerSec = diskRead,
+            DiskWriteBytesPerSec = diskWrite,
             Adapters = SampleNetwork(),
             Processes = SampleProcesses(),
             TimestampUtc = DateTime.UtcNow
         };
     }
 
-    private double GetDiskRead()
+    private static void GetDiskThroughput(out double read, out double write)
     {
+        read = 0;
+        write = 0;
         try
         {
-            _diskReadCounter ??= new PerformanceCounter("PhysicalDisk", "Disk Read Bytes/sec", "_Total");
-            return Math.Max(0, _diskReadCounter.NextValue());
+            using var searcher = new ManagementObjectSearcher(
+                "SELECT DiskReadBytesPersec, DiskWriteBytesPersec FROM Win32_PerfFormattedData_PerfDisk_PhysicalDisk WHERE Name='_Total'");
+            foreach (var obj in searcher.Get())
+            {
+                read = Math.Max(0, Convert.ToDouble(obj["DiskReadBytesPersec"] ?? 0.0));
+                write = Math.Max(0, Convert.ToDouble(obj["DiskWriteBytesPersec"] ?? 0.0));
+                break;
+            }
         }
-        catch { return 0; }
-    }
-
-    private double GetDiskWrite()
-    {
-        try
-        {
-            _diskWriteCounter ??= new PerformanceCounter("PhysicalDisk", "Disk Write Bytes/sec", "_Total");
-            return Math.Max(0, _diskWriteCounter.NextValue());
-        }
-        catch { return 0; }
+        catch { }
     }
 
     private List<NetworkAdapterSample> SampleNetwork()
     {
         var result = new List<NetworkAdapterSample>();
+        var now = DateTime.UtcNow;
         try
         {
-            if (!PerformanceCounterCategory.Exists("Network Interface"))
-                return result;
-
-            var names = PerformanceCounterCategory.GetCategories()
-                .FirstOrDefault(c => c.CategoryName == "Network Interface")
-                ?.GetInstanceNames();
-
-            if (names is null)
-                return result;
-
-            foreach (string name in names)
+            foreach (var ni in NetworkInterface.GetAllNetworkInterfaces())
             {
-                if (name.Contains("isatap", StringComparison.OrdinalIgnoreCase) ||
-                    name.Contains("teredo", StringComparison.OrdinalIgnoreCase) ||
-                    name.Contains("loopback", StringComparison.OrdinalIgnoreCase) ||
-                    name.Equals("asdse", StringComparison.OrdinalIgnoreCase) ||
-                    name.StartsWith("vEthernet", StringComparison.OrdinalIgnoreCase))
+                if (ni.OperationalStatus != OperationalStatus.Up)
+                    continue;
+                if (ni.NetworkInterfaceType is NetworkInterfaceType.Loopback or NetworkInterfaceType.Tunnel)
                     continue;
 
-                if (!_netCounters.TryGetValue(name, out var pair))
+                IPv4InterfaceStatistics stats;
+                try { stats = ni.GetIPv4Statistics(); }
+                catch { continue; }
+
+                long received = stats.BytesReceived;
+                long sent = stats.BytesSent;
+                double down = 0, up = 0;
+                if (_netPrev.TryGetValue(ni.Id, out var prev))
                 {
-                    pair = (
-                        new PerformanceCounter("Network Interface", "Bytes Received/sec", name),
-                        new PerformanceCounter("Network Interface", "Bytes Sent/sec", name));
-                    _netCounters[name] = pair;
+                    double sec = Math.Max(0.001, (now - prev.At).TotalSeconds);
+                    down = Math.Max(0, (received - prev.Received) / sec);
+                    up = Math.Max(0, (sent - prev.Sent) / sec);
                 }
+                _netPrev[ni.Id] = (received, sent, now);
 
                 result.Add(new NetworkAdapterSample
                 {
-                    Name = name,
-                    DownloadBytesPerSec = Math.Max(0, pair.Read.NextValue()),
-                    UploadBytesPerSec = Math.Max(0, pair.Write.NextValue())
+                    Name = ni.Name,
+                    DownloadBytesPerSec = down,
+                    UploadBytesPerSec = up
                 });
             }
         }

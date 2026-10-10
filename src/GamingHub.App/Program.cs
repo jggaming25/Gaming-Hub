@@ -13,7 +13,7 @@ sealed class Program
     public static void Main(string[] args)
     {
         // Marker for Velopack packaging (Setup-Installer). Der Auto-Update-Check
-        // über GitHub Releases ist bewusst entfernt – Updates laufen nicht mehr automatisch.
+        // läuft beim Start (siehe SplashWindow + App.ShowSplashThenMain).
         VelopackApp.Build().Run();
 
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);

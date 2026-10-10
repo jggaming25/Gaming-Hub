@@ -39,5 +39,15 @@ public static class Format
     }
 
     public static string BytesPerSec(double bytesPerSec)
-        => bytesPerSec <= 0 ? "—" : Bytes((long)bytesPerSec) + "/s";
+        => Bytes((long)Math.Max(0, bytesPerSec)) + "/s";
+
+    /// <summary>Elapsed time as e.g. "5min, 25sek" (as requested for scan timing).</summary>
+    public static string Elapsed(TimeSpan t)
+    {
+        if (t.TotalHours >= 1)
+            return $"{(int)t.TotalHours}h, {t.Minutes}min, {t.Seconds}sek";
+        if (t.TotalMinutes >= 1)
+            return $"{(int)t.TotalMinutes}min, {t.Seconds}sek";
+        return $"{t.Seconds}sek";
+    }
 }

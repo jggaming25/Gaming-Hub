@@ -1,14 +1,61 @@
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using Avalonia;
 using Avalonia.Styling;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using GamingHub.App.Services;
 
 namespace GamingHub.App.ViewModels;
 
+/// <summary>One admin-controlled feature switch (mirrors a row in app_settings).</summary>
+public sealed partial class FlagToggle : ObservableObject
+{
+    private bool _suppress;
+
+    public string Key { get; init; } = string.Empty;
+    public string Label { get; init; } = string.Empty;
+
+    [ObservableProperty] private bool _value;
+
+    partial void OnValueChanged(bool value)
+    {
+        if (_suppress) return;
+        _ = AppServices.Chat.SetFlagAsync(Key, value);
+    }
+
+    public void SetSilently(bool value)
+    {
+        _suppress = true;
+        Value = value;
+        _suppress = false;
+    }
+}
+
 public partial class SettingsViewModel : ViewModelBase
 {
+    private static readonly (string Key, string Label)[] FlagLabels =
+    {
+        ("chat_enabled", "Chat erlauben"),
+        ("dm_enabled", "Direktnachrichten erlauben"),
+        ("voice_enabled", "Sprachanrufe erlauben"),
+        ("video_enabled", "Videoanrufe erlauben"),
+        ("files_enabled", "Dateiversand erlauben"),
+        ("websearch_enabled", "Web-Recherche erlauben"),
+        ("cleanup_enabled", "Disk Cleanup erlauben"),
+        ("games_enabled", "Spielebibliothek erlauben"),
+        ("bugreport_enabled", "Bugreport erlauben")
+    };
+
+    public ObservableCollection<FlagToggle> Flags { get; } = new();
+
+    [ObservableProperty] private bool _isAdmin;
+    [ObservableProperty] private string _adminStatusText = string.Empty;
+
+    public bool ShowAdminSection => IsAdmin;
+    partial void OnIsAdminChanged(bool value) => OnPropertyChanged(nameof(ShowAdminSection));
+
     [ObservableProperty] private string _updateStatus = "Noch nicht geprüft.";
     [ObservableProperty] private bool _updateAvailable;
     [ObservableProperty] private bool _isChecking;
@@ -17,6 +64,7 @@ public partial class SettingsViewModel : ViewModelBase
     public string DataDirectory => AppServices.Settings.DataDirectory;
     public string RepositoryUrl => AppInfo.RepositoryUrl;
     public string WebsiteUrl => AppInfo.WebsiteUrl;
+    public IReadOnlyList<ChangelogEntry> ChangelogEntries => Changelog.Entries;
 
     public bool AutoCheckUpdates
     {
@@ -80,6 +128,34 @@ public partial class SettingsViewModel : ViewModelBase
         ? "Verbunden (Standard-Zugang aktiv)"
         : "Nicht konfiguriert";
     public string OAuthRedirectUrl => $"http://localhost:51555/callback";
+
+    public SettingsViewModel()
+    {
+        UpdateAdminState();
+        AppServices.Profile.Changed += () => Dispatcher.UIThread.Post(UpdateAdminState);
+        _ = LoadFlagsAsync();
+    }
+
+    private void UpdateAdminState()
+    {
+        IsAdmin = AppServices.Profile?.IsAdmin == true;
+        if (IsAdmin && Flags.Count == 0)
+            _ = LoadFlagsAsync();
+    }
+
+    private async Task LoadFlagsAsync()
+    {
+        var flags = await AppServices.Chat.LoadFlagsAsync();
+        if (flags.Count == 0)
+        {
+            AdminStatusText = "Keine Schalter gefunden – bitte das Supabase-Schema (app_settings) ausführen.";
+            return;
+        }
+        Flags.Clear();
+        foreach (var (key, label) in FlagLabels)
+            Flags.Add(new FlagToggle { Key = key, Label = label, Value = !flags.TryGetValue(key, out var v) || v });
+        AdminStatusText = "Änderungen werden sofort gespeichert und gelten für alle Nicht-Admins.";
+    }
 
     [RelayCommand]
     private void SaveSupabase()

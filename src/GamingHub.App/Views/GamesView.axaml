@@ -7,18 +7,15 @@
              x:Class="GamingHub.App.Views.GamesView"
              x:DataType="vm:GamesViewModel">
 
-    <Grid RowDefinitions="Auto,Auto,Auto,*" Margin="12">
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" Margin="12">
         <!-- Header / toolbar -->
-        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,12">
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
             <StackPanel Grid.Column="0" Spacing="2">
                 <TextBlock Text="Spielebibliothek" Classes="h1" />
                 <TextBlock Text="{Binding StatusText}" Classes="muted" FontSize="12" />
             </StackPanel>
             <WrapPanel Grid.Column="1" VerticalAlignment="Center" MaxWidth="680">
                 <TextBox Width="130" Margin="0,0,8,0" PlaceholderText="Suchen…" Text="{Binding SearchText, Mode=TwoWay}" />
-                <ComboBox Width="165" Margin="0,0,8,0" ItemsSource="{Binding CategoryOptions}"
-                          SelectedItem="{Binding SelectedCategory, Mode=TwoWay}"
-                          DisplayMemberBinding="{Binding Label}" />
                 <ComboBox Width="150" Margin="0,0,8,0" ItemsSource="{Binding DriveOptions}"
                           SelectedItem="{Binding SelectedDrive, Mode=TwoWay}" />
                 <Button Margin="0,0,8,0" Content="Scannen" Command="{Binding ScanCommand}" Classes="accent" />
@@ -27,8 +24,26 @@
             </WrapPanel>
         </Grid>
 
+        <!-- Kategorie-Reiter (ein Reiter pro Programmart) -->
+        <Border Grid.Row="1" Classes="card" Padding="8" Margin="0,0,0,10">
+            <ListBox ItemsSource="{Binding CategoryOptions}"
+                     SelectedItem="{Binding SelectedCategory, Mode=TwoWay}"
+                     Background="Transparent" BorderThickness="0" Padding="0">
+                <ListBox.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel />
+                    </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="vm:CategoryFilterOption">
+                        <TextBlock Text="{Binding Label}" FontSize="12" />
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Border>
+
         <!-- Drives -->
-        <ItemsControl Grid.Row="1" ItemsSource="{Binding Volumes}" Margin="0,0,0,12">
+        <ItemsControl Grid.Row="2" ItemsSource="{Binding Volumes}" Margin="0,0,0,12">
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
                     <WrapPanel />
@@ -62,12 +77,12 @@
             </ItemsControl.ItemTemplate>
         </ItemsControl>
 
-        <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="10" Margin="0,0,0,8">
+        <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="10" Margin="0,0,0,8">
             <ProgressBar IsIndeterminate="True" Width="120" Height="6" IsVisible="{Binding IsLoading}" />
         </StackPanel>
 
         <!-- Games list -->
-        <ScrollViewer Grid.Row="3">
+        <ScrollViewer Grid.Row="4">
             <ItemsControl ItemsSource="{Binding Games}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="vm:GameItemViewModel">

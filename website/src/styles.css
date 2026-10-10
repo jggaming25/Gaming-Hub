@@ -41,6 +41,14 @@ code { background: var(--panel2); padding: 1px 6px; border-radius: 6px; }
 .nav nav { display: flex; gap: 18px; }
 .nav nav a { color: var(--muted); }
 .nav nav a:hover { color: var(--text); }
+.nav nav .navlink {
+  background: none; border: 0; padding: 0; cursor: pointer;
+  color: var(--muted); font: inherit; font-size: 14px;
+}
+.nav nav .navlink:hover { color: var(--text); }
+.nav nav .navlink.active { color: var(--text); font-weight: 600; }
+.changelog-list { margin: 6px 0 0; padding-left: 18px; }
+.changelog-list li { color: var(--muted); font-size: 13px; margin: 3px 0; }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; }
 .logo {
   display: grid; place-items: center;
