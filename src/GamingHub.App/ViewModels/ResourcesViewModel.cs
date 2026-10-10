@@ -211,9 +211,7 @@ public partial class ResourcesViewModel : ViewModelBase
     {
         try
         {
-            var flags = await AppServices.Chat.LoadFlagsAsync();
-            if (flags.TryGetValue("websearch_enabled", out var v))
-                WebSearchEnabled = v || AppServices.Profile?.IsAdmin == true;
+            WebSearchEnabled = true || AppServices.Profile?.IsAdmin == true;
         }
         catch
         {

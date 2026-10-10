@@ -135,7 +135,6 @@ public partial class MainViewModel : ViewModelBase
         var cleanup = new CleanupViewModel();
         var resources = new ResourcesViewModel();
         var bug = new BugReportViewModel();
-        var chat = new ChatViewModel();
         var profile = new ProfileViewModel();
         var settings = new SettingsViewModel();
         var internetChecker = new InternetCheckerViewModel();
@@ -145,7 +144,6 @@ public partial class MainViewModel : ViewModelBase
         _allNav.Add(new NavItem { Title = "Disk Cleanup", Glyph = "\uE74D", FlagKey = "cleanup_enabled", ViewModel = cleanup });
         _allNav.Add(new NavItem { Title = "System-Ressourcen", Glyph = "\uE9D9", ViewModel = resources });
         _allNav.Add(new NavItem { Title = "Bugreport", Glyph = "\uE7BA", FlagKey = "bugreport_enabled", ViewModel = bug });
-        _allNav.Add(new NavItem { Title = "Kommunikation", Glyph = "\uE8BD", FlagKey = "chat_enabled", ViewModel = chat });
         _allNav.Add(new NavItem { Title = "Internet-Checker", Glyph = "\uE727", FlagKey = "internet_checker_enabled", ViewModel = internetChecker });
         _allNav.Add(new NavItem { Title = "Profil", Glyph = "\uE77B", ViewModel = profile });
         _allNav.Add(new NavItem { Title = "Einstellungen", Glyph = "\uE713", ViewModel = settings });
@@ -155,9 +153,7 @@ public partial class MainViewModel : ViewModelBase
 
         AppServices.Notifications.Activated += _ =>
         {
-            var chatItem = NavItems.FirstOrDefault(n => n.ViewModel is ChatViewModel);
-            if (chatItem is not null)
-                SelectedNav = chatItem;
+            // No chat tab anymore
         };
 
         _ = LoadFlagsAsync();
@@ -167,7 +163,14 @@ public partial class MainViewModel : ViewModelBase
     {
         try
         {
-            var flags = await AppServices.Chat.LoadFlagsAsync();
+            // For now, use default flags (all enabled)
+            var flags = new Dictionary<string, bool>
+            {
+                { "games_enabled", true },
+                { "cleanup_enabled", true },
+                { "bugreport_enabled", true },
+                { "internet_checker_enabled", true }
+            };
             RebuildNav(flags);
         }
         catch

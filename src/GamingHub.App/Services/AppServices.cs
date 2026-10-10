@@ -24,14 +24,11 @@ public static class AppServices
     public static PremiumService Premium { get; }
     public static BadgeService Badges { get; }
     public static BugService Bugs { get; }
-    public static ChatService Chat { get; }
-    public static CallService Calls { get; }
     public static NotificationService Notifications { get; } = new();
 
     public static void Shutdown()
     {
         Internet.Stop();
-        Calls.Stop();
         History.Stop();
         Notifications.Shutdown();
     }
@@ -71,9 +68,6 @@ public static class AppServices
         Badges.EvaluateAutomatic(Settings.Settings.FirstEverLaunchUtc);
         Premium = new PremiumService();
         Bugs = new BugService();
-        Chat = new ChatService();
-        Calls = new CallService();
-        Calls.Start();
         Internet.Start();
     }
 }

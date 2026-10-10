@@ -98,10 +98,10 @@ public partial class InternetCheckerViewModel : ViewModelBase
         GatewayIpText = AppServices.Internet.GatewayIp ?? "–";
         ShowOfflineHint = AppServices.Internet.OfflineMode;
 
-        // Update step statuses based on live data (rough)
-        if (Steps.Count >= 4)
+        // Update step statuses based on live data (rough) - but not during manual test
+        if (!IsTesting && Steps.Count >= 4)
         {
-            Steps[0].IsComplete = AppServices.Internet.GatewayIp != null; // gateway reachable checked elsewhere
+            Steps[0].IsComplete = AppServices.Internet.GatewayIp != null;
         }
     }
 
@@ -130,6 +130,9 @@ public partial class InternetCheckerViewModel : ViewModelBase
             s.StatusText = "Wartet…";
             s.StatusColor = "#8B91AC";
         }
+
+        // Pause live updates during manual test
+        _refreshTimer.Stop();
 
         _testTimer.Start();
     }

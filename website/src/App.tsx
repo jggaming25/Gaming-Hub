@@ -114,6 +114,7 @@ function parseHash(): Page {
 export function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isPremium, setIsPremium] = useState(false);
   const [page, setPage] = useState<Page>(parseHash());
   const [downloadsEnabled, setDownloadsEnabled] = useState(true);
 
@@ -139,6 +140,15 @@ export function App() {
   useEffect(() => {
     void isDownloadsEnabled().then(setDownloadsEnabled);
   }, []);
+
+  useEffect(() => {
+    if (session) {
+      void supabase?.from("profiles").select("premium_until").eq("id", session.user?.id).single()
+        .then(({ data }) => setIsPremium(data?.premium_until ? new Date(data.premium_until) > new Date() : false));
+    } else {
+      setIsPremium(false);
+    }
+  }, [session]);
 
   const userEmail = session?.user?.email;
 
@@ -315,13 +325,13 @@ export function App() {
         </section>
       )}
 
-      {page === "versionen" && (
+{page === "versionen" && (
         <section id="versionen" style={{ marginTop: "24px" }}>
           <h2 className="section-title">Frühere Versionen</h2>
           <p className="muted small">
-            Die letzten 6 Versionen stehen zum Download bereit. Ältere Versionen finden Sie auf der
+            Die neueste Version ist für alle kostenlos. Ältere Versionen (letzte 5) sind ein
+            <strong>Premium-Feature</strong>. Ältere Versionen finden Sie auf der
             <a href={RELEASES_PAGE_URL} target="_blank" rel="noreferrer">GitHub Releases-Seite</a>.
-            Hinweis: Nur die jeweils <strong>neueste Version</strong> erhält automatische Updates.
           </p>
           <div className="changelog">
             {CHANGELOG.slice(0, 6).map((c, i) => (
@@ -333,11 +343,13 @@ export function App() {
                     {i === 0 ? (
                       <span className="badge-you">aktuell</span>
                     ) : (
-                      <span className="muted small">· {c.date}</span>
+                      <span className="muted small">· {c.date} · Premium</span>
                     )}
                   </h4>
-<div className="row" style={{ marginTop: 8 }}>
-                      {(downloadsEnabled || isAdmin) && (
+                  <div className="row" style={{ marginTop: 8 }}>
+                    {i === 0 ? (
+                      // Neueste Version: für alle wenn Downloads aktiv
+                      (downloadsEnabled || isAdmin) && (
                         <>
                           <a className="btn tiny" href={releaseAssetUrl(c.version, "setup")}>
                             Setup (.exe)
@@ -346,11 +358,27 @@ export function App() {
                             Portable (.zip)
                           </a>
                         </>
-                      )}
-                      {(!downloadsEnabled && !isAdmin) && (
-                        <span className="muted small">Downloads deaktiviert</span>
-                      )}
-                    </div>
+                      )
+                    ) : (
+                      // Ältere Versionen: nur Premium/Admin
+                      (isPremium || isAdmin) && (downloadsEnabled || isAdmin) && (
+                        <>
+                          <a className="btn tiny" href={releaseAssetUrl(c.version, "setup")}>
+                            Setup (.exe)
+                          </a>
+                          <a className="btn tiny ghost" href={releaseAssetUrl(c.version, "portable")}>
+                            Portable (.zip)
+                          </a>
+                        </>
+                      )
+                    )}
+                    {(!downloadsEnabled && !isAdmin) && (
+                      <span className="muted small">Downloads deaktiviert</span>
+                    )}
+                    {i > 0 && !isPremium && !isAdmin && downloadsEnabled && (
+                      <span className="muted small">Premium erforderlich</span>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}

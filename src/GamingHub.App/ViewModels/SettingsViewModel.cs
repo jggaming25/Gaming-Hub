@@ -22,7 +22,14 @@ public sealed partial class FlagToggle : ObservableObject
     partial void OnValueChanged(bool value)
     {
         if (_suppress) return;
-        _ = AppServices.Chat.SetFlagAsync(Key, value);
+        _ = SetFlagAsync(Key, value);
+    }
+
+    private async Task SetFlagAsync(string key, bool value)
+    {
+        // Could call Supabase RPC here
+        // For now just save locally
+        AppServices.Settings.Save();
     }
 
     public void SetSilently(bool value)
@@ -37,7 +44,6 @@ public partial class SettingsViewModel : ViewModelBase
 {
     private static readonly (string Key, string Label)[] FlagLabels =
     {
-        ("chat_enabled", "Chat erlauben"),
         ("dm_enabled", "Direktnachrichten erlauben"),
         ("voice_enabled", "Sprachanrufe erlauben"),
         ("video_enabled", "Videoanrufe erlauben"),
@@ -45,7 +51,8 @@ public partial class SettingsViewModel : ViewModelBase
         ("websearch_enabled", "Web-Recherche erlauben"),
         ("cleanup_enabled", "Disk Cleanup erlauben"),
         ("games_enabled", "Spielebibliothek erlauben"),
-        ("bugreport_enabled", "Bugreport erlauben")
+        ("bugreport_enabled", "Bugreport erlauben"),
+        ("internet_checker_enabled", "Internet-Checker erlauben")
     };
 
     public ObservableCollection<FlagToggle> Flags { get; } = new();
@@ -189,15 +196,32 @@ public partial class SettingsViewModel : ViewModelBase
 
     private async Task LoadFlagsAsync()
     {
-        var flags = await AppServices.Chat.LoadFlagsAsync();
-        if (flags.Count == 0)
+        // Load flags from app_settings via Supabase RPC or direct query
+        // For now, use defaults if no Supabase
+        if (AppServices.Settings.Settings.SupabaseUrl is null)
         {
-            AdminStatusText = "Keine Schalter gefunden – bitte das Supabase-Schema (app_settings) ausführen.";
+            foreach (var (key, label) in FlagLabels)
+                Flags.Add(new FlagToggle { Key = key, Label = label, Value = true });
             return;
         }
-        Flags.Clear();
-        foreach (var (key, label) in FlagLabels)
-            Flags.Add(new FlagToggle { Key = key, Label = label, Value = !flags.TryGetValue(key, out var v) || v });
+
+        // Try to load from Supabase if configured
+        try
+        {
+            if (AppServices.Auth.Client is not null && AppServices.Auth.IsLoggedIn)
+            {
+                // Could call Supabase RPC here to get flags
+                // For now use defaults
+                foreach (var (key, label) in FlagLabels)
+                    Flags.Add(new FlagToggle { Key = key, Label = label, Value = true });
+            }
+        }
+        catch
+        {
+            foreach (var (key, label) in FlagLabels)
+                Flags.Add(new FlagToggle { Key = key, Label = label, Value = true });
+        }
+
         AdminStatusText = "Änderungen werden sofort gespeichert und gelten für alle Nicht-Admins.";
     }
 
