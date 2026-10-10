@@ -55,7 +55,7 @@ export function App() {
         <h1>Dein Gaming-Dashboard für Windows</h1>
         <p>
           Spiele verwalten, Speicher aufräumen, System im Blick behalten – und mit Freunden reden.
-          Von Gamern für Gamer. Kostenlos und quelloffen.
+          Von Gamern für Gamer. Kostenlos für Windows.
         </p>
         <div className="hero-actions">
           <a className="btn primary" href={DOWNLOAD_URL}>Für Windows herunterladen</a>
@@ -74,6 +74,26 @@ export function App() {
             <p>{f.text}</p>
           </div>
         ))}
+      </section>
+
+      <section className="wide" id="neu" style={{ margin: "30px 0" }}>
+        <h2 className="section-title">Zuletzt dazugekommen</h2>
+        <div className="changelog">
+          {[
+            ["Spiel-Kategorien", "Automatische Einordnung plus Filter – die Liste zeigt standardmäßig nur echte Spiele."],
+            ["Steam-Spielzeit-Import", "Bereits vorhandene Spielzeit aus dem Steam-Profil wird übernommen und weitergezählt."],
+            ["System-Monitor", "Task-Manager-artige Live-Ansicht: CPU, RAM, Netzwerk, Datenträger und Top-Prozesse mit Verlauf."],
+            ["Desktop-Benachrichtigungen", "Neue Nachrichten, klingelnde und verpasste Anrufe erscheinen unten rechts mit Logo und Klingelton."]
+          ].map(([t, d]) => (
+            <div className="card changelog-item" key={t}>
+              <span className="changelog-check">✓</span>
+              <div>
+                <h4>{t}</h4>
+                <p>{d}</p>
+              </div>
+            </div>
+          ))}
+        </div>
       </section>
 
       <section id="bugs">

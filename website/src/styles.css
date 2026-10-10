@@ -90,6 +90,18 @@ code { background: var(--panel2); padding: 1px 6px; border-radius: 6px; }
 .muted { color: var(--muted); }
 .small { font-size: 13px; }
 
+.section-title { font-size: 22px; margin: 0 0 14px; }
+.changelog { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+.changelog-item { display: flex; gap: 12px; align-items: flex-start; }
+.changelog-check {
+  display: grid; place-items: center; flex: 0 0 auto;
+  width: 26px; height: 26px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: #08101f; font-weight: 800; font-size: 14px; margin-top: 2px;
+}
+.changelog-item h4 { margin: 0 0 4px; }
+.card h4 + p { margin: 0; }
+
 .auth, .bugform { display: flex; flex-direction: column; gap: 10px; margin: 14px 0 22px; }
 input, select, textarea {
   background: var(--panel2); border: 1px solid rgba(255,255,255,0.1);
