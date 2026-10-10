@@ -90,6 +90,12 @@ dotnet run --project src/GamingHub.App
 dotnet run --project tools/GamingHub.LogoGen -c Release
 ```
 
+## Download
+
+Die aktuelle Version kann direkt über die **Website** heruntergeladen werden
+(Setup und Portable-Version):
+<https://jggaming25.github.io/Gaming-Hub/>
+
 ## Release / Update-Mechanik
 
 Releases werden über **Velopack** paketiert und als GitHub-Release veröffentlicht
@@ -100,4 +106,6 @@ diesem Repository.
 
 ## Lizenz
 
-MIT – siehe [LICENSE](LICENSE).
+Alle Rechte vorbehalten – **© 2026 Jann Genzmann**. Jede Bearbeitung, Modifikation,
+Vervielfältigung oder Verbreitung ist ohne ausdrückliche schriftliche Genehmigung
+untersagt. Details siehe [LICENSE](LICENSE).

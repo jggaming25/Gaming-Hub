@@ -1,6 +1,12 @@
 export const REPO_URL = "https://github.com/jggaming25/Gaming-Hub";
 export const RELEASES_URL = `${REPO_URL}/releases/latest`;
-export const DOWNLOAD_URL = `${REPO_URL}/releases/latest/download/GamingHub-win-Setup.exe`;
+
+// Downloads werden direkt von dieser Website (GitHub Pages) serviert –
+// die Installer liegen unter /Gaming-Hub/download/ und werden durch den
+// Website-Workflow automatisch aus dem neuesten Release übernommen.
+const BASE = import.meta.env.BASE_URL;
+export const DOWNLOAD_URL = `${BASE}download/GamingHub-win-Setup.exe`;
+export const PORTABLE_URL = `${BASE}download/GamingHub-win-Portable.zip`;
 
 // Fest hinterlegter öffentlicher Zugang (publishable/anon Key). Wird durch RLS abgesichert.
 const DEFAULT_SUPABASE_URL = "https://swrmlwmfyeyztargwsbs.supabase.co";

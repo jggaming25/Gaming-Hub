@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
 import { BugTracker } from "./BugTracker";
-import { DOWNLOAD_URL, RELEASES_URL, REPO_URL, isSupabaseConfigured } from "./config";
+import { DOWNLOAD_URL, PORTABLE_URL, REPO_URL, isSupabaseConfigured } from "./config";
 
 const FEATURES = [
   { icon: "🎮", title: "Spielbibliothek", text: "Steam, Epic und installierte Programme automatisch erkennen, starten, stoppen und Spielzeiten verfolgen." },
@@ -59,7 +59,7 @@ export function App() {
         </p>
         <div className="hero-actions">
           <a className="btn primary" href={DOWNLOAD_URL}>Für Windows herunterladen</a>
-          <a className="btn ghost" href={RELEASES_URL} target="_blank" rel="noreferrer">Alle Releases</a>
+          <a className="btn ghost" href={PORTABLE_URL}>Portable (ZIP)</a>
         </div>
         <p className="muted small">
           Hinweis: Gaming Hub wird ohne Gewähr bereitgestellt. Nutzung auf eigene Gefahr.
@@ -81,9 +81,9 @@ export function App() {
       </section>
 
       <footer>
-        <span>© {new Date().getFullYear()} Gaming Hub</span>
+        <span>© {new Date().getFullYear()} Jann Genzmann – Gaming Hub</span>
         <span>
-          <a href={REPO_URL} target="_blank" rel="noreferrer">Quellcode</a> · MIT-Lizenz
+          <a href={REPO_URL} target="_blank" rel="noreferrer">Quellcode</a> · Alle Rechte vorbehalten
         </span>
       </footer>
     </div>
