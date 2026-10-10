@@ -38,22 +38,32 @@ public sealed class AuthService
 
     private (string? url, string? key) ResolveConfig()
     {
+        // 1) Vom Nutzer gespeicherte Werte haben Vorrang.
         var s = AppServices.Settings.Settings;
-        if (!string.IsNullOrWhiteSpace(s.SupabaseUrl) && !string.IsNullOrWhiteSpace(s.SupabaseAnonKey))
-            return (s.SupabaseUrl, s.SupabaseAnonKey);
+        string? url = string.IsNullOrWhiteSpace(s.SupabaseUrl) ? null : s.SupabaseUrl;
+        string? key = string.IsNullOrWhiteSpace(s.SupabaseAnonKey) ? null : s.SupabaseAnonKey;
 
-        try
+        // 2) Optionales Override per Datei neben der Exe.
+        if (url is null || key is null)
         {
-            string configPath = Path.Combine(AppContext.BaseDirectory, "supabase.config.json");
-            if (File.Exists(configPath))
+            try
             {
-                var json = JsonNode.Parse(File.ReadAllText(configPath));
-                return (json?["url"]?.GetValue<string>(), json?["anonKey"]?.GetValue<string>());
+                string configPath = Path.Combine(AppContext.BaseDirectory, "supabase.config.json");
+                if (File.Exists(configPath))
+                {
+                    var json = JsonNode.Parse(File.ReadAllText(configPath));
+                    url ??= json?["url"]?.GetValue<string>();
+                    key ??= json?["anonKey"]?.GetValue<string>();
+                }
             }
+            catch { /* ignore */ }
         }
-        catch { /* ignore */ }
 
-        return (null, null);
+        // 3) Fest hinterlegte Standardwerte -> funktioniert sofort für jeden.
+        url ??= SupabaseDefaults.Url;
+        key ??= SupabaseDefaults.AnonKey;
+
+        return (url, key);
     }
 
     public string GetOAuthRedirectUrl() => $"http://localhost:{OAuthPort}/callback";

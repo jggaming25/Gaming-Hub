@@ -64,7 +64,7 @@ public partial class SettingsViewModel : ViewModelBase
 
     public bool IsSupabaseConfigured => AppServices.Auth.IsConfigured;
     public string SupabaseStatus => AppServices.Auth.IsConfigured
-        ? "Verbunden"
+        ? "Verbunden (Standard-Zugang aktiv)"
         : "Nicht konfiguriert";
     public string OAuthRedirectUrl => $"http://localhost:51555/callback";
 

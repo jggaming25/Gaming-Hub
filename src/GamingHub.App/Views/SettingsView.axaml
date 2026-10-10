@@ -48,9 +48,9 @@
                         <TextBlock Text="{Binding SupabaseStatus}" FontSize="12" Classes="muted" VerticalAlignment="Center" />
                     </StackPanel>
                     <TextBlock TextWrapping="Wrap" Classes="muted" FontSize="12"
-                               Text="Hinterlege hier die Projekt-URL und den öffentlichen anon-Key deines Supabase-Projekts. Damit werden Login, Abzeichen, Bugtracker und Chat aktiviert. Der anon-Key ist öffentlich und darf im Client stehen." />
-                    <TextBox Text="{Binding SupabaseUrl, Mode=TwoWay}" PlaceholderText="https://xxxx.supabase.co" />
-                    <TextBox Text="{Binding SupabaseAnonKey, Mode=TwoWay}" PlaceholderText="anon public key" />
+                               Text="Ein Standard-Zugang ist bereits fest hinterlegt – Login, Abzeichen, Bugtracker und Chat funktionieren ohne Eingabe. Die Felder unten sind nur nötig, wenn du ein eigenes Supabase-Projekt verwenden willst (überschreibt den Standard)." />
+                    <TextBox Text="{Binding SupabaseUrl, Mode=TwoWay}" PlaceholderText="Standard aktiv – eigene URL optional" />
+                    <TextBox Text="{Binding SupabaseAnonKey, Mode=TwoWay}" PlaceholderText="Standard aktiv – eigener anon key optional" />
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <Button Content="Speichern" Command="{Binding SaveSupabaseCommand}" Classes="accent" />
                     </StackPanel>
