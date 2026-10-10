@@ -19,6 +19,9 @@ create table if not exists public.profiles (
     created_at   timestamptz not null default now()
 );
 
+-- Nachrüstbar für Bestandsdatenbanken: Spalte fehlt dort noch
+alter table public.profiles add column if not exists is_banned boolean not null default false;
+
 -- Profil automatisch beim Registrieren anlegen
 create or replace function public.handle_new_user()
 returns trigger
