@@ -44,8 +44,7 @@
                         <Button Content="Leeren" Command="{Binding ClearCommand}" />
                     </StackPanel>
 
-                    <TextBlock Text="Hinweis: Derzeit wird der Report als vorausgefülltes GitHub-Issue geöffnet. Die direkte Cloud-Übermittlung mit Kommentaren und Status folgt mit der Supabase-Anbindung."
-                               FontSize="11" Classes="muted" TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding DeliveryHint}" FontSize="11" Classes="muted" TextWrapping="Wrap" />
                 </StackPanel>
             </Border>
         </StackPanel>

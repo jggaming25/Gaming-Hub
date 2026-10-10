@@ -48,6 +48,35 @@ public partial class SettingsViewModel : ViewModelBase
         }
     }
 
+    [ObservableProperty] private string _supabaseStatusText = string.Empty;
+
+    public string SupabaseUrl
+    {
+        get => AppServices.Settings.Settings.SupabaseUrl ?? string.Empty;
+        set { AppServices.Settings.Settings.SupabaseUrl = value.Trim(); OnPropertyChanged(); }
+    }
+
+    public string SupabaseAnonKey
+    {
+        get => AppServices.Settings.Settings.SupabaseAnonKey ?? string.Empty;
+        set { AppServices.Settings.Settings.SupabaseAnonKey = value.Trim(); OnPropertyChanged(); }
+    }
+
+    public bool IsSupabaseConfigured => AppServices.Auth.IsConfigured;
+    public string SupabaseStatus => AppServices.Auth.IsConfigured
+        ? "Verbunden"
+        : "Nicht konfiguriert";
+    public string OAuthRedirectUrl => $"http://localhost:51555/callback";
+
+    [RelayCommand]
+    private void SaveSupabase()
+    {
+        AppServices.Settings.Save();
+        SupabaseStatusText = "Gespeichert. Bitte Gaming Hub neu starten, damit die Verbindung aktiv wird.";
+        OnPropertyChanged(nameof(IsSupabaseConfigured));
+        OnPropertyChanged(nameof(SupabaseStatus));
+    }
+
     [RelayCommand]
     private async Task CheckForUpdatesAsync()
     {

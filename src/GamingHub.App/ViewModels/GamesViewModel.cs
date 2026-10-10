@@ -62,6 +62,7 @@ public partial class GamesViewModel : ViewModelBase
                 _all.Add(new GameItemViewModel(g, AppServices.Games));
             ApplyFilter();
             StatusText = $"{games.Count} Spiele & Apps gefunden.";
+            if (games.Count > 0) AppServices.Badges.Grant("bibliothekar");
         }
         catch (Exception ex)
         {

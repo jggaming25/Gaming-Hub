@@ -124,6 +124,7 @@ public partial class CleanupViewModel : ViewModelBase
             foreach (var g in groups)
                 Groups.Add(new DuplicateGroupViewModel(g));
             UpdateStats();
+            AppServices.Badges.Grant("aufraeumer");
             StatusText = groups.Count == 0
                 ? "Keine doppelten Dateien gefunden."
                 : $"{groups.Count} Gruppen doppelter Dateien gefunden.";

@@ -24,10 +24,15 @@ public partial class BugReportViewModel : ViewModelBase
     [ObservableProperty] private string _title = string.Empty;
     [ObservableProperty] private string _steps = string.Empty;
     [ObservableProperty] private string _statusText = string.Empty;
+    [ObservableProperty] private bool _isBusy;
 
-    private string BuildBody()
-    {
-        return
+    public bool CloudAvailable => AppServices.Bugs.CloudAvailable;
+
+    public string DeliveryHint => CloudAvailable
+        ? "Der Report wird direkt an den Gaming-Hub-Bugtracker übermittelt."
+        : "Supabase ist nicht konfiguriert – der Report wird als vorausgefülltes GitHub-Issue geöffnet.";
+
+    private string BuildBody() =>
 $@"### Kategorie
 {SelectedCategory}
 
@@ -37,26 +42,52 @@ $@"### Kategorie
 ### Schritte zum Reproduzieren
 {Steps}
 
-### Zusätzliche Infos
+### Umgebung
 - Betriebssystem: {Environment.OSVersion}
 - Erstellt über Gaming Hub Bugreport
 ";
-    }
 
     [RelayCommand]
-    private void Submit()
+    private async Task SubmitAsync()
     {
+        if (IsBusy) return;
         if (string.IsNullOrWhiteSpace(Title) || string.IsNullOrWhiteSpace(Steps))
         {
             StatusText = "Bitte Titel und Schritte zum Reproduzieren ausfüllen.";
             return;
         }
 
+        if (CloudAvailable)
+        {
+            IsBusy = true;
+            StatusText = "Sende Bugreport…";
+            try
+            {
+                var (ok, message) = await AppServices.Bugs.SubmitAsync(Title, SelectedCategory, Steps);
+                StatusText = message;
+                if (ok)
+                {
+                    AppServices.Badges.Grant("bugreporter");
+                    Title = string.Empty;
+                    Steps = string.Empty;
+                }
+            }
+            finally
+            {
+                IsBusy = false;
+            }
+            return;
+        }
+
+        OpenGitHubIssue();
+    }
+
+    private void OpenGitHubIssue()
+    {
         string url = $"{AppInfo.RepositoryUrl}/issues/new" +
                      $"?title={WebUtility.UrlEncode("[Bug] " + Title)}" +
                      $"&body={WebUtility.UrlEncode(BuildBody())}" +
                      $"&labels={WebUtility.UrlEncode("bug")}";
-
         try
         {
             Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });

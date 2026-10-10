@@ -77,6 +77,7 @@ public partial class ResourcesViewModel : ViewModelBase
             (ulong)Math.Max(0, monitor.Sample().RamTotalBytes));
 
         HasResult = true;
+        AppServices.Badges.Grant("systemprofi");
         ResultScore = result.Score;
         ResultPreset = result.Recommended switch
         {

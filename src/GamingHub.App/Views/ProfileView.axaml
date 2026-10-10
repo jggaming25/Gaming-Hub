@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:GamingHub.App.ViewModels"
+             xmlns:models="using:GamingHub.Core.Models"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="940" d:DesignHeight="700"
@@ -8,30 +9,67 @@
              x:DataType="vm:ProfileViewModel">
 
     <ScrollViewer Margin="12">
-        <StackPanel Spacing="14" MaxWidth="720" HorizontalAlignment="Left">
+        <StackPanel Spacing="14" MaxWidth="760" HorizontalAlignment="Left">
             <StackPanel Spacing="2">
                 <TextBlock Text="Profil &amp; Erfolge" Classes="h1" />
-                <TextBlock Text="{Binding StatusText}" Classes="muted" FontSize="12" />
+                <TextBlock Text="{Binding VersionDisplay}" Classes="muted" FontSize="12" />
             </StackPanel>
 
             <Border Classes="card">
-                <StackPanel Spacing="12">
-                    <TextBlock Text="Anmelden (optional)" FontWeight="SemiBold" FontSize="16" />
-                    <TextBlock Text="{Binding DisplayName}" Classes="muted" />
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Button Content="Mit E-Mail" Command="{Binding NotAvailableYetCommand}" />
-                        <Button Content="Mit Google" Command="{Binding NotAvailableYetCommand}" />
-                        <Button Content="Mit Discord" Command="{Binding NotAvailableYetCommand}" />
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Konto" FontWeight="SemiBold" FontSize="16" />
+                    <TextBlock Text="{Binding DisplayName}" FontSize="14" />
+                    <TextBlock Text="{Binding ConfigHint}" TextWrapping="Wrap" FontSize="12" Foreground="#FACC15"
+                               IsVisible="{Binding !IsConfigured}" />
+
+                    <StackPanel Spacing="8" IsVisible="{Binding !IsLoggedIn}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBox Width="220" Text="{Binding Email, Mode=TwoWay}" PlaceholderText="E-Mail" />
+                            <TextBox Width="200" Text="{Binding Password, Mode=TwoWay}" PasswordChar="•" PlaceholderText="Passwort" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Content="Anmelden" Command="{Binding SignInCommand}" Classes="accent" />
+                            <Button Content="Registrieren" Command="{Binding SignUpCommand}" />
+                            <Button Content="Mit Google" Command="{Binding OAuthCommand}" CommandParameter="google" />
+                            <Button Content="Mit Discord" Command="{Binding OAuthCommand}" CommandParameter="discord" />
+                        </StackPanel>
                     </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsLoggedIn}">
+                        <Button Content="Abmelden" Command="{Binding SignOutCommand}" />
+                    </StackPanel>
+
+                    <TextBlock Text="{Binding StatusText}" FontSize="12" Classes="muted" TextWrapping="Wrap" />
                 </StackPanel>
             </Border>
 
             <Border Classes="card">
-                <StackPanel Spacing="6">
+                <StackPanel Spacing="10">
                     <TextBlock Text="Abzeichen" FontWeight="SemiBold" FontSize="16" />
                     <TextBlock Text="Früher-Adopter: Wer Gaming Hub 2026 oder früher zum ersten Mal nutzt, erhält ein exklusives Abzeichen."
                                TextWrapping="Wrap" Classes="muted" FontSize="12" />
-                    <TextBlock Text="{Binding VersionDisplay}" Classes="muted" FontSize="11" />
+                    <ItemsControl ItemsSource="{Binding Badges}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="models:Badge">
+                                <Border Background="{StaticResource PanelBrush2}" CornerRadius="10" Padding="12" Width="230" Margin="0,0,10,10"
+                                        Opacity="{Binding Earned, Converter={x:Static vm:CommonConverters.BadgeOpacity}}">
+                                    <StackPanel Spacing="6">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <TextBlock Text="{Binding Glyph}" FontFamily="{StaticResource IconFont}" FontSize="22" />
+                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                            <TextBlock Text="✓" Foreground="#4ADE80" IsVisible="{Binding Earned}" />
+                                        </StackPanel>
+                                        <TextBlock Text="{Binding Description}" FontSize="11" Classes="muted" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
                 </StackPanel>
             </Border>
         </StackPanel>
