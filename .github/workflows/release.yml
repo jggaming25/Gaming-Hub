@@ -86,14 +86,15 @@ jobs:
           ls -la checksums.txt
 
 - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: ncipollo/release-action@v1
         with:
           name: "Gaming Hub v${{ steps.version.outputs.value }}"
-          tag_name: v${{ steps.version.outputs.value }}
+          tag: v${{ steps.version.outputs.value }}
           draft: false
           prerelease: false
-          generate_release_notes: true
-          files: |
+          generateReleaseNotes: true
+          artifacts: |
             Releases/*
             portable/GamingHub-win-Portable.zip
             checksums.txt
+          token: ${{ github.token }}
