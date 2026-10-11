@@ -76,7 +76,19 @@ jobs:
           } | Out-File checksums.txt
           Get-Content checksums.txt
 
-      - name: Create Release & Upload Assets
+      - name: List files for debugging
+        run: |
+          echo "=== Releases directory ==="
+          ls -la Releases/
+          echo "=== Portable directory ==="
+          ls -la portable/
+          echo "=== Checksums ==="
+          ls -la checksums.txt
+          echo "=== Current dir ==="
+          pwd
+          ls -la
+
+- name: Create Release & Upload Assets
         uses: softprops/action-gh-release@v1
         env:
           GITHUB_TOKEN: ${{ github.token }}
