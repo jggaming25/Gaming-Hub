@@ -89,7 +89,7 @@ jobs:
           ls -la
 
 - name: Create Release & Upload Assets
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         if: success()
         env:
           GITHUB_TOKEN: ${{ github.token }}
