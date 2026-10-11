@@ -76,17 +76,13 @@ jobs:
           } | Out-File checksums.txt
           Get-Content checksums.txt
 
-      - name: List files for debugging
+      - name: Create Release & Upload Assets
         run: |
-          echo "=== Releases directory ==="
-          ls -la Releases/
-          echo "=== Portable directory ==="
-          ls -la portable/
-          echo "=== Checksums ==="
+          echo "=== Checking files ==="
+          ls -la ./Releases/
+          ls -la ./portable/
           ls -la checksums.txt
-
-- name: Create Release & Upload Assets
-        run: |
+          echo "=== Creating release ==="
           gh release create "v${{ steps.version.outputs.value }}" \
             --title "Gaming Hub v${{ steps.version.outputs.value }}" \
             --notes "Full Changelog: https://github.com/jggaming25/Gaming-Hub/compare/v0.5.6...v${{ steps.version.outputs.value }}" \
