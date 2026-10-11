@@ -86,15 +86,22 @@ jobs:
           ls -la checksums.txt
 
 - name: Publish GitHub Release
-        uses: ncipollo/release-action@v1
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         with:
-          name: "Gaming Hub v${{ steps.version.outputs.value }}"
-          tag: v${{ steps.version.outputs.value }}
+          tag_name: v${{ steps.version.outputs.value }}
+          release_name: Gaming Hub v${{ steps.version.outputs.value }}
+          body: |
+            Full Changelog: https://github.com/jggaming25/Gaming-Hub/compare/v0.5.6...v${{ steps.version.outputs.value }}
           draft: false
           prerelease: false
-          generateReleaseNotes: true
-          artifacts: |
-            Releases/*
-            portable/GamingHub-win-Portable.zip
+
+- name: Upload Release Assets
+        run: |
+          gh release upload "v${{ steps.version.outputs.value }}" \
+            Releases/* \
+            portable/GamingHub-win-Portable.zip \
             checksums.txt
-          token: ${{ github.token }}
+        env:
+          GH_TOKEN: ${{ github.token }}
