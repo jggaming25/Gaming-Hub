@@ -76,13 +76,24 @@ jobs:
           } | Out-File checksums.txt
           Get-Content checksums.txt
 
-      - name: Publish GitHub Release
+      - name: List files for debugging
         run: |
-          gh release create "v${{ steps.version.outputs.value }}" \
-            --title "Gaming Hub v${{ steps.version.outputs.value }}" \
-            --notes "Full Changelog: https://github.com/jggaming25/Gaming-Hub/compare/v0.5.6...v${{ steps.version.outputs.value }}" \
-            Releases/* \
-            portable/GamingHub-win-Portable.zip \
+          echo "=== Releases directory ==="
+          ls -la Releases/
+          echo "=== Portable directory ==="
+          ls -la portable/
+          echo "=== Checksums ==="
+          ls -la checksums.txt
+
+- name: Publish GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: "Gaming Hub v${{ steps.version.outputs.value }}"
+          tag_name: v${{ steps.version.outputs.value }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            Releases/*
+            portable/GamingHub-win-Portable.zip
             checksums.txt
-        env:
-          GH_TOKEN: ${{ github.token }}
