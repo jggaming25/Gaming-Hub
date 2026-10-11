@@ -85,7 +85,8 @@ jobs:
           echo "=== Checksums ==="
           ls -la checksums.txt
 
-- name: Publish GitHub Release
+- name: Create GitHub Release
+        id: create_release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -97,11 +98,42 @@ jobs:
           draft: false
           prerelease: false
 
-- name: Upload Release Assets
-        run: |
-          gh release upload "v${{ steps.version.outputs.value }}" \
-            Releases/* \
-            portable/GamingHub-win-Portable.zip \
-            checksums.txt
+- name: Upload Setup EXE
+        uses: actions/upload-release-asset@v1
         env:
-          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./Releases/GamingHub-win-Setup.exe
+          asset_name: GamingHub-win-Setup.exe
+          asset_content_type: application/octet-stream
+
+- name: Upload Portable ZIP
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./portable/GamingHub-win-Portable.zip
+          asset_name: GamingHub-win-Portable.zip
+          asset_content_type: application/zip
+
+- name: Upload Checksums
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./checksums.txt
+          asset_name: checksums.txt
+          asset_content_type: text/plain
+
+- name: Upload Velopack Assets
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./Releases
+          asset_name: velopack-assets
+          asset_content_type: application/octet-stream
