@@ -46,6 +46,9 @@ public sealed class GameInfo
     /// <summary>Optional path to an extracted icon file (PNG/ICO) for display in the library.</summary>
     public string? IconPath { get; set; }
 
+    /// <summary>Optional path to a larger thumbnail image (PNG/JPG) for the game card.</summary>
+    public string? ThumbnailPath { get; set; }
+
     public long SizeOnDisk { get; set; }
 
     public GameCategory Category { get; set; } = GameCategory.Other;

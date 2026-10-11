@@ -141,6 +141,19 @@ public sealed class StringNotEmptyConverter : IValueConverter
         => throw new NotSupportedException();
 }
 
+public sealed class FirstCharConverter : IValueConverter
+{
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is string s && !string.IsNullOrEmpty(s))
+            return s[0].ToString().ToUpperInvariant();
+        return "?";
+    }
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
 /// <summary>Wandelt eine Reihe von Prozentwerten (0–100) in die Points eines
 /// Polyline-Diagramms um (x = Index, y = 100 − Wert).</summary>
 public sealed class SeriesToPointsConverter : IValueConverter
@@ -171,6 +184,7 @@ public static class CommonConverters
 {
     public static readonly BoolToOpacityConverter BadgeOpacity = new() { True = 1.0, False = 0.4 };
     public static readonly StringNotEmptyConverter NotEmpty = new();
+    public static readonly FirstCharConverter FirstChar = new();
     public static readonly BoolToAlignmentConverter MessageAlign = new();
     public static readonly BoolToBrushConverter MessageBrush = new() { True = "#2563EB", False = "#1B1F3A" };
     public static readonly BoolToColorConverter BoolToColor = new();

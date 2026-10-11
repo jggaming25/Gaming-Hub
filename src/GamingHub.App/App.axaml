@@ -126,5 +126,72 @@
         <Style Selector="ListBox.nav ListBoxItem:selected TextBlock">
             <Setter Property="Foreground" Value="#FFFFFF" />
         </Style>
+
+        <!-- Game Button Styles -->
+        <Style Selector="Button.game-btn-start">
+            <Setter Property="Background" Value="#34D399" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Padding" Value="24,10" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="BorderBrush" Value="Black" />
+            <Setter Property="BorderThickness" Value="1.5" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+        </Style>
+        <Style Selector="Button.game-btn-start:pointerover">
+            <Setter Property="Background" Value="#2DD48A" />
+        </Style>
+        <Style Selector="Button.game-btn-start:pressed">
+            <Setter Property="Background" Value="#1FA67A" />
+        </Style>
+        <Style Selector="Button.game-btn-start:disabled">
+            <Setter Property="Background" Value="#1E3A2E" />
+            <Setter Property="Foreground" Value="#4A5A4A" />
+        </Style>
+
+        <Style Selector="Button.game-btn-stop">
+            <Setter Property="Background" Value="#1E3A5F" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Padding" Value="24,10" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="BorderBrush" Value="Black" />
+            <Setter Property="BorderThickness" Value="1.5" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+        </Style>
+        <Style Selector="Button.game-btn-stop:pointerover">
+            <Setter Property="Background" Value="#254A7A" />
+        </Style>
+        <Style Selector="Button.game-btn-stop:pressed">
+            <Setter Property="Background" Value="#152E4A" />
+        </Style>
+        <Style Selector="Button.game-btn-stop:disabled">
+            <Setter Property="Background" Value="#1A2A3A" />
+            <Setter Property="Foreground" Value="#4A5A6A" />
+        </Style>
+
+        <Style Selector="Border.game-card-collapsed">
+            <Setter Property="Background" Value="#1A1D2E" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="ClipToBounds" Value="True" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.2" />
+                </Transitions>
+            </Setter>
+        </Style>
+
+        <Style Selector="Border.game-card-expanded">
+            <Setter Property="Background" Value="#1A1D2E" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="ClipToBounds" Value="True" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.2" />
+                </Transitions>
+            </Setter>
+        </Style>
     </Application.Styles>
 </Application>

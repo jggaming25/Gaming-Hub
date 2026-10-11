@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using GamingHub.Core.Models;
 using GamingHub.Core.Services;
+using System.IO;
 
 namespace GamingHub.App.ViewModels;
 
@@ -12,11 +13,13 @@ public partial class GameItemViewModel : ViewModelBase
     public GameInfo Model { get; }
 
     public Avalonia.Media.Imaging.Bitmap? Icon => _icon;
+    public Avalonia.Media.Imaging.Bitmap? Thumbnail => _thumbnail;
 
     [ObservableProperty] private bool _isRunning;
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private long _sizeBytes;
     [ObservableProperty] private TimeSpan _playtime;
+    [ObservableProperty] private bool _isExpanded;
 
     public GameItemViewModel(GameInfo model, GameLibraryService library)
     {
@@ -26,17 +29,26 @@ public partial class GameItemViewModel : ViewModelBase
         _playtime = model.TotalPlaytime;
         _isRunning = model.IsRunning;
 
+        // Load icon (small)
         if (!string.IsNullOrWhiteSpace(model.IconPath) && File.Exists(model.IconPath))
         {
-            try
-            {
-                _icon = new Avalonia.Media.Imaging.Bitmap(model.IconPath);
-            }
-            catch { /* ignore */ }
+            try { _icon = new Avalonia.Media.Imaging.Bitmap(model.IconPath); } catch { }
+        }
+
+        // Load thumbnail (larger, for the card)
+        if (!string.IsNullOrWhiteSpace(model.ThumbnailPath) && File.Exists(model.ThumbnailPath))
+        {
+            try { _thumbnail = new Avalonia.Media.Imaging.Bitmap(model.ThumbnailPath); }
+            catch { }
+        }
+        else if (!string.IsNullOrWhiteSpace(model.IconPath) && File.Exists(model.IconPath))
+        {
+            try { _thumbnail = new Avalonia.Media.Imaging.Bitmap(model.IconPath); } catch { }
         }
     }
 
     private Avalonia.Media.Imaging.Bitmap? _icon;
+    private Avalonia.Media.Imaging.Bitmap? _thumbnail;
 
     public string Name => Model.Name;
     public string SourceName => Model.Source.ToString();
@@ -50,6 +62,8 @@ public partial class GameItemViewModel : ViewModelBase
     public bool IsGameCategory => Model.Category == GameCategory.Game;
 
     public string RunStateText => IsRunning ? "Läuft" : "Gestoppt";
+
+    public bool HasThumbnail => Thumbnail != null;
 
     public void Refresh()
     {
@@ -68,7 +82,10 @@ public partial class GameItemViewModel : ViewModelBase
 
     partial void OnIsRunningChanged(bool value) => OnPropertyChanged(nameof(RunStateText));
 
-    partial void OnPlaytimeChanged(TimeSpan value) => OnPropertyChanged(nameof(PlaytimeDisplay));
+    partial void OnIsExpandedChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsExpanded));
+    }
 
     [RelayCommand]
     private void Launch()
@@ -88,5 +105,11 @@ public partial class GameItemViewModel : ViewModelBase
         IsBusy = true;
         try { await _library.RestartAsync(Model); }
         finally { IsBusy = false; }
+    }
+
+    [RelayCommand]
+    private void ToggleExpanded()
+    {
+        IsExpanded = !IsExpanded;
     }
 }

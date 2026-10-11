@@ -1,6 +1,7 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:GamingHub.App.ViewModels"
+             xmlns:models="using:GamingHub.Core.Services"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="940" d:DesignHeight="700"
@@ -15,17 +16,13 @@
                 <TextBlock Text="{Binding StatusText}" Classes="muted" FontSize="12" />
             </StackPanel>
             <WrapPanel Grid.Column="1" VerticalAlignment="Center" MaxWidth="680">
-                <TextBox Width="130" Margin="0,0,8,0" PlaceholderText="Suchen…" Text="{Binding SearchText, Mode=TwoWay}" />
+                <TextBox Width="130" Margin="0,0,8,0" PlaceholderText="Suchen..." Text="{Binding SearchText, Mode=TwoWay}" />
                 <ComboBox Width="150" Margin="0,0,8,0" ItemsSource="{Binding DriveOptions}"
                           SelectedItem="{Binding SelectedDrive, Mode=TwoWay}" />
-                <Button Margin="0,0,8,0" Content="Scannen" Command="{Binding ScanCommand}" Classes="accent" />
-                <Button Margin="0,0,8,0" Content="Vollständiger Scan" Command="{Binding FullRescanCommand}" />
-                <Button Margin="0,0,8,0" Content="Größen" Command="{Binding LoadSizesCommand}" />
-                <Button Content="Löschen" Command="{Binding ClearScanCommand}" />
             </WrapPanel>
         </Grid>
 
-        <!-- Kategorie-Reiter (ein Reiter pro Programmart) -->
+        <!-- Kategorie-Reiter -->
         <Border Grid.Row="1" Classes="card" Padding="8" Margin="0,0,0,10">
             <ListBox ItemsSource="{Binding CategoryOptions}"
                      SelectedItem="{Binding SelectedCategory, Mode=TwoWay}"
@@ -89,44 +86,166 @@
             <ProgressBar IsIndeterminate="True" Width="120" Height="6" IsVisible="{Binding IsLoading}" />
         </StackPanel>
 
-        <!-- Games list -->
+        <!-- Games list - Modern Card Grid -->
         <ScrollViewer Grid.Row="4">
             <ItemsControl ItemsSource="{Binding Games}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal" ItemWidth="320" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="vm:GameItemViewModel">
-                        <Border Classes="card" Margin="0,0,0,10">
-                            <Grid ColumnDefinitions="Auto,*,Auto">
-                                <Border Grid.Column="0" Width="32" Height="32" CornerRadius="6" Margin="0,0,12,0"
-                                        VerticalAlignment="Top"
-                                        IsVisible="{Binding Icon, Converter={x:Static vm:CommonConverters.NotEmpty}}">
-                                    <Image Source="{Binding Icon}" Stretch="Uniform" />
+                        <Border Classes="game-card" Margin="8" Width="300">
+                            <Grid>
+                                <!-- Collapsed View - Logo/Thumbnail Card -->
+                                <Border Classes="game-card-collapsed" Background="#1A1D2E" CornerRadius="12" ClipToBounds="True"
+                                        IsVisible="{Binding !IsExpanded}">
+                                    <Grid RowDefinitions="Auto,Auto" Margin="12">
+                                        <!-- Thumbnail/Image Area -->
+                                        <Grid Grid.Row="0" Height="160">
+                                            <!-- Thumbnail/Image -->
+                                            <Border Height="160" CornerRadius="8" ClipToBounds="True"
+                                                    Background="#0F1122"
+                                                    IsVisible="{Binding HasThumbnail}">
+                                                <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" />
+                                            </Border>
+                                            <Border Height="160" CornerRadius="8" ClipToBounds="True"
+                                                    Background="#0F1122"
+                                                    IsVisible="{Binding !HasThumbnail}">
+                                                <TextBlock Text="{Binding Name, Converter={x:Static vm:CommonConverters.FirstChar}}"
+                                                           FontSize="48" FontWeight="Bold" Foreground="#3A3F5E"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            </Border>
+
+                                            <!-- Overlay: Play indicator when running -->
+                                            <Border Background="#80000000" CornerRadius="8"
+                                                    IsVisible="{Binding IsRunning}"
+                                                    HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
+                                                    <Border Width="48" Height="48" CornerRadius="24" Background="#4ADE80">
+                                                        <TextBlock Text="▶" FontSize="20" Foreground="White"
+                                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                    </Border>
+                                                    <TextBlock Text="Läuft" FontSize="14" FontWeight="Bold" Foreground="White" />
+                                                </StackPanel>
+                                            </Border>
+                                        </Grid>
+
+                                        <!-- Game Name -->
+                                        <TextBlock Grid.Row="1" Text="{Binding Name}" FontSize="14" FontWeight="Bold"
+                                                   TextTrimming="CharacterEllipsis" Margin="0,8,0,0"
+                                                   HorizontalAlignment="Center" Foreground="#E5E7EB" />
+
+                                        <!-- Source Badge -->
+                                        <Border Grid.Row="1" Margin="0,4,0,0" Padding="4,2" CornerRadius="4"
+                                                Background="#2A3550" HorizontalAlignment="Center"
+                                                IsVisible="{Binding IsGameCategory}">
+                                            <TextBlock Text="{Binding SourceName}" FontSize="9" Classes="muted" />
+                                        </Border>
+                                    </Grid>
                                 </Border>
-                                <StackPanel Grid.Column="1" Spacing="4">
-                                    <StackPanel Orientation="Horizontal" Spacing="10">
-                                        <TextBlock Text="{Binding Name}" FontSize="16" FontWeight="SemiBold" />
-                                        <Border Background="{DynamicResource PanelBrush2}" CornerRadius="6" Padding="7,2">
-                                            <TextBlock Text="{Binding SourceName}" FontSize="10" Classes="muted" />
+
+                                <!-- Expanded View - Detail Frame -->
+                                <Border Classes="game-card-expanded" Background="#1A1D2E" CornerRadius="12" ClipToBounds="True"
+                                        IsVisible="{Binding IsExpanded}"
+                                        Margin="0,0,0,8">
+                                    <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto" Margin="16" RowSpacing="12">
+                                        <!-- Header: Thumbnail + Name + Source -->
+                                        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
+                                            <Border Grid.Column="0" Width="96" Height="96" CornerRadius="8" ClipToBounds="True"
+                                                    Background="#0F1122"
+                                                    IsVisible="{Binding HasThumbnail}">
+                                                <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" />
+                                            </Border>
+                                            <Border Grid.Column="0" Width="96" Height="96" CornerRadius="8" ClipToBounds="True"
+                                                    Background="#0F1122"
+                                                    IsVisible="{Binding !HasThumbnail}">
+                                                <TextBlock Text="{Binding Name, Converter={x:Static vm:CommonConverters.FirstChar}}"
+                                                           FontSize="32" FontWeight="Bold" Foreground="#3A3F5E"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            </Border>
+
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="4">
+                                                <TextBlock Text="{Binding Name}" FontSize="20" FontWeight="Bold" Foreground="#E5E7EB"
+                                                           TextTrimming="CharacterEllipsis" />
+                                                <Border Background="#2A3550" CornerRadius="4" Padding="4,2" HorizontalAlignment="Left">
+                                                    <TextBlock Text="{Binding SourceName}" FontSize="10" Classes="muted" />
+                                                </Border>
+                                                <Border Background="#2A3550" CornerRadius="4" Padding="4,2" HorizontalAlignment="Left"
+                                                        IsVisible="{Binding IsGameCategory}">
+                                                    <TextBlock Text="Spiel" FontSize="10" Classes="muted" />
+                                                </Border>
+                                            </StackPanel>
+
+                                            <Border Grid.Column="2" Width="32" Height="32" CornerRadius="6" VerticalAlignment="Center"
+                                                    Background="{Binding IsRunning, Converter={x:Static vm:CommonConverters.BoolToColor}, ConverterParameter=#4ADE80:#F87171}"
+                                                    IsVisible="{Binding IsRunning}">
+                                                <TextBlock Text="●" FontSize="16" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            </Border>
+                                        </Grid>
+
+                                        <!-- Path Info -->
+                                        <Border Grid.Row="1" Background="#0F1122" CornerRadius="8" Padding="12">
+                                            <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
+                                                <TextBlock Grid.Column="0" Text="📁" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                                <TextBlock Grid.Column="1" Text="{Binding InstallPath}"
+                                                           FontSize="12" Classes="muted" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="2" Text="{Binding SizeDisplay}"
+                                                           FontSize="12" FontWeight="SemiBold" Foreground="#A855F7"
+                                                           VerticalAlignment="Center" />
+                                            </Grid>
                                         </Border>
-                                        <Border Background="#2A3550" CornerRadius="6" Padding="7,2">
-                                            <TextBlock Text="{Binding CategoryDisplay}" FontSize="10" Classes="muted" />
-                                        </Border>
-                                        <Border Background="#2A3550" CornerRadius="6" Padding="7,2"
-                                                IsVisible="{Binding IsRunning}">
-                                            <TextBlock Text="● Läuft" FontSize="10" Foreground="#4ADE80" />
-                                        </Border>
-                                    </StackPanel>
-                                    <TextBlock Text="{Binding InstallPath}" FontSize="11" Classes="muted" TextTrimming="CharacterEllipsis" />
-                                    <StackPanel Orientation="Horizontal" Spacing="18">
-                                        <TextBlock FontSize="12"><Run Text="Größe: " Foreground="#8FA0C8"/><Run Text="{Binding SizeDisplay}"/></TextBlock>
-                                        <TextBlock FontSize="12"><Run Text="Spielzeit: " Foreground="#8FA0C8"/><Run Text="{Binding PlaytimeDisplay}"/></TextBlock>
-                                        <TextBlock FontSize="12"><Run Text="Zuletzt: " Foreground="#8FA0C8"/><Run Text="{Binding LastPlayedDisplay}"/></TextBlock>
-                                    </StackPanel>
-                                </StackPanel>
-                                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                    <Button Content="Starten" Command="{Binding LaunchCommand}" IsEnabled="{Binding CanLaunch}" Classes="accent" />
-                                    <Button Content="Stoppen" Command="{Binding StopCommand}" />
-                                    <Button Content="Neustart" Command="{Binding RestartCommand}" IsEnabled="{Binding IsRunning}" />
-                                </StackPanel>
+
+                                        <!-- Stats Row -->
+                                        <Grid Grid.Row="2" ColumnDefinitions="*,*,*" ColumnSpacing="16">
+                                            <Border Background="#0F1122" CornerRadius="8" Padding="12">
+                                                <StackPanel Spacing="4">
+                                                    <TextBlock Text="⏱ Spielzeit" FontSize="10" Classes="muted" />
+                                                    <TextBlock Text="{Binding PlaytimeDisplay}" FontSize="16" FontWeight="Bold" Foreground="#4ADE80" />
+                                                </StackPanel>
+                                            </Border>
+                                            <Border Background="#0F1122" CornerRadius="8" Padding="12">
+                                                <StackPanel Spacing="4">
+                                                    <TextBlock Text="📅 Zuletzt gespielt" FontSize="10" Classes="muted" />
+                                                    <TextBlock Text="{Binding LastPlayedDisplay}" FontSize="14" FontWeight="Bold" Foreground="#FACC15" />
+                                                </StackPanel>
+                                            </Border>
+                                            <Border Background="#0F1122" CornerRadius="8" Padding="12">
+                                                <StackPanel Spacing="4">
+                                                    <TextBlock Text="💾 Größe" FontSize="10" Classes="muted" />
+                                                    <TextBlock Text="{Binding SizeDisplay}" FontSize="14" FontWeight="Bold" Foreground="#A855F7" />
+                                                </StackPanel>
+                                            </Border>
+                                        </Grid>
+
+                                        <!-- Action Buttons -->
+                                        <Grid Grid.Row="3" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12" Margin="0,4,0,0">
+                                            <!-- Expand/Collapse Toggle -->
+                                            <Button Grid.Column="0" HorizontalAlignment="Left" Padding="12,8"
+                                                    Classes="ghost" Command="{Binding ToggleExpandedCommand}">
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <TextBlock Text="{Binding IsExpanded, Converter={x:Static vm:CommonConverters.BoolToText}, ConverterParameter=▲ Einklappen:▼ Ausklappen}"
+                                                               FontSize="12" VerticalAlignment="Center" />
+                                                </StackPanel>
+                                            </Button>
+
+                                            <!-- Start Button - Light Green -->
+                                            <Button Grid.Column="1" Content="Starten"
+                                                    Command="{Binding LaunchCommand}"
+                                                    IsEnabled="{Binding CanLaunch}"
+                                                    Classes="game-btn-start"
+                                                    Padding="24,10" HorizontalAlignment="Right" />
+
+                                            <!-- Stop/Abbrechen Button - Dark Blue -->
+                                            <Button Grid.Column="2" Content="Abbrechen"
+                                                    Command="{Binding StopCommand}"
+                                                    IsEnabled="{Binding IsRunning}"
+                                                    Classes="game-btn-stop"
+                                                    Padding="24,10" HorizontalAlignment="Right" />
+                                        </Grid>
+                                    </Grid>
+                                </Border>
                             </Grid>
                         </Border>
                     </DataTemplate>
