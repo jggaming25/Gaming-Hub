@@ -110,6 +110,7 @@ jobs:
           asset_path: ./Releases/GamingHub-win-Setup.exe
           asset_name: GamingHub-win-Setup.exe
           asset_content_type: application/octet-stream
+          fail_on_unmatched_files: false
 
 - name: Upload Portable ZIP
         uses: actions/upload-release-asset@v1
@@ -120,6 +121,7 @@ jobs:
           asset_path: ./portable/GamingHub-win-Portable.zip
           asset_name: GamingHub-win-Portable.zip
           asset_content_type: application/zip
+          fail_on_unmatched_files: false
 
 - name: Upload Checksums
         uses: actions/upload-release-asset@v1
@@ -130,6 +132,7 @@ jobs:
           asset_path: ./checksums.txt
           asset_name: checksums.txt
           asset_content_type: text/plain
+          fail_on_unmatched_files: false
 
 - name: Upload nupkg
         uses: actions/upload-release-asset@v1
@@ -140,6 +143,7 @@ jobs:
           asset_path: ./Releases/GamingHub-${{ steps.version.outputs.value }}-full.nupkg
           asset_name: GamingHub-${{ steps.version.outputs.value }}-full.nupkg
           asset_content_type: application/octet-stream
+          fail_on_unmatched_files: false
 
 - name: Upload RELEASES
         uses: actions/upload-release-asset@v1
@@ -150,6 +154,7 @@ jobs:
           asset_path: ./Releases/RELEASES
           asset_name: RELEASES
           asset_content_type: text/plain
+          fail_on_unmatched_files: false
 
 - name: Upload releases.win.json
         uses: actions/upload-release-asset@v1
@@ -160,6 +165,7 @@ jobs:
           asset_path: ./Releases/releases.win.json
           asset_name: releases.win.json
           asset_content_type: application/json
+          fail_on_unmatched_files: false
 
 - name: Upload assets.win.json
         uses: actions/upload-release-asset@v1
@@ -170,6 +176,7 @@ jobs:
           asset_path: ./Releases/assets.win.json
           asset_name: assets.win.json
           asset_content_type: application/json
+          fail_on_unmatched_files: false
 
 - name: Upload Velopack RELEASES
         uses: actions/upload-release-asset@v1
@@ -180,3 +187,15 @@ jobs:
           asset_path: ./Releases/RELEASES
           asset_name: RELEASES
           asset_content_type: text/plain
+          fail_on_unmatched_files: false
+
+- name: Upload Velopack assets.win.json
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./Releases/assets.win.json
+          asset_name: assets.win.json
+          asset_content_type: application/json
+          fail_on_unmatched_files: false
