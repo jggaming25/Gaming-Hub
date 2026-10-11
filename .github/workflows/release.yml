@@ -93,6 +93,7 @@ jobs:
             ./Releases/GamingHub-win-Setup.exe \
             ./portable/GamingHub-win-Portable.zip \
             ./checksums.txt \
-            ./Releases/*
+            ./Releases/*.nupkg \
+            ./Releases/*.json
         env:
           GH_TOKEN: ${{ github.token }}
