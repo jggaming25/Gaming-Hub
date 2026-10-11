@@ -76,6 +76,11 @@ jobs:
           } | Out-File checksums.txt
           Get-Content checksums.txt
 
+      - name: Install GitHub CLI
+        run: |
+          winget install --id GitHub.cli -e --accept-source-agreements --accept-package-agreements
+        shell: pwsh
+
       - name: Publish GitHub Release
         run: |
           gh release create "v${{ steps.version.outputs.value }}" \
