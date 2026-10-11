@@ -2,13 +2,16 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using GamingHub.Core.Models;
 using GamingHub.Core.Services;
+using GamingHub.App.Services;
 using System.IO;
+using Avalonia.Controls;
 
 namespace GamingHub.App.ViewModels;
 
 public partial class GameItemViewModel : ViewModelBase
 {
     private readonly GameLibraryService _library;
+    private readonly AuthService _auth;
 
     public GameInfo Model { get; }
 
@@ -20,14 +23,20 @@ public partial class GameItemViewModel : ViewModelBase
     [ObservableProperty] private long _sizeBytes;
     [ObservableProperty] private TimeSpan _playtime;
     [ObservableProperty] private bool _isExpanded;
+    [ObservableProperty] private bool _isPasswordProtected;
+    [ObservableProperty] private bool _isPasswordPromptVisible;
+    [ObservableProperty] private string _passwordInput = string.Empty;
+    [ObservableProperty] private string _passwordError = string.Empty;
 
-    public GameItemViewModel(GameInfo model, GameLibraryService library)
+    public GameItemViewModel(GameInfo model, GameLibraryService library, AuthService auth)
     {
         Model = model;
         _library = library;
+        _auth = auth;
         _sizeBytes = model.SizeOnDisk;
         _playtime = model.TotalPlaytime;
         _isRunning = model.IsRunning;
+        _isPasswordProtected = model.IsPasswordProtected;
 
         // Load icon (small)
         if (!string.IsNullOrWhiteSpace(model.IconPath) && File.Exists(model.IconPath))
@@ -87,10 +96,95 @@ public partial class GameItemViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsExpanded));
     }
 
-    [RelayCommand]
-    private void Launch()
+    partial void OnIsPasswordProtectedChanged(bool value)
     {
-        _library.Launch(Model);
+        Model.IsPasswordProtected = value;
+        AppServices.Settings.Save();
+    }
+
+    partial void OnIsPasswordPromptVisibleChanged(bool value)
+    {
+        if (!value)
+        {
+            PasswordInput = string.Empty;
+            PasswordError = string.Empty;
+        }
+    }
+
+    [RelayCommand]
+    private async Task LaunchAsync()
+    {
+        if (Model.IsPasswordProtected)
+        {
+            // Show password prompt
+            PasswordInput = string.Empty;
+            PasswordError = string.Empty;
+            IsPasswordPromptVisible = true;
+            return;
+        }
+
+        await ExecuteLaunchAsync(null);
+    }
+
+    [RelayCommand]
+    private async Task ConfirmPasswordAsync()
+    {
+        if (string.IsNullOrWhiteSpace(PasswordInput))
+        {
+            PasswordError = "Bitte Passwort eingeben.";
+            return;
+        }
+
+        var password = PasswordInput;
+        IsPasswordPromptVisible = false;
+        PasswordInput = string.Empty;
+
+        await ExecuteLaunchAsync(password);
+    }
+
+    [RelayCommand]
+    private void CancelPasswordPrompt()
+    {
+        IsPasswordPromptVisible = false;
+        PasswordInput = string.Empty;
+        PasswordError = string.Empty;
+    }
+
+    private async Task ExecuteLaunchAsync(string? password)
+    {
+        if (Model.IsPasswordProtected)
+        {
+            if (string.IsNullOrWhiteSpace(password))
+            {
+                IsPasswordPromptVisible = true;
+                PasswordError = "Passwort erforderlich.";
+                return;
+            }
+
+            // Verify password via Supabase
+            if (_auth?.Client?.Session?.User?.Email is not { } email)
+            {
+                PasswordError = "Nicht angemeldet.";
+                IsPasswordPromptVisible = true;
+                return;
+            }
+
+            var (ok, _) = await _auth.SignInAsync(_auth.Client.Session.User.Email, password);
+            if (!ok)
+            {
+                PasswordError = "Falsches Passwort.";
+                IsPasswordPromptVisible = true;
+                return;
+            }
+        }
+
+        var success = _library.Launch(Model);
+        
+        if (!success && Model.IsPasswordProtected)
+        {
+            IsPasswordPromptVisible = true;
+            PasswordError = "Falsches Passwort oder Anmeldung erforderlich.";
+        }
     }
 
     [RelayCommand]

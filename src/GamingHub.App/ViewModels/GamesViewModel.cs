@@ -95,7 +95,7 @@ public partial class GamesViewModel : ViewModelBase
             var games = await AppServices.Games.RefreshAsync();
             _all.Clear();
             foreach (var g in games)
-                _all.Add(new GameItemViewModel(g, AppServices.Games));
+                _all.Add(new GameItemViewModel(g, AppServices.Games, AppServices.Auth));
             ApplyFilter();
             StatusText = usedCache
                 ? $"Bibliothek aus dem Cache geladen: {games.Count} Einträge (nur Änderungen werden angewendet)."
@@ -124,7 +124,7 @@ public partial class GamesViewModel : ViewModelBase
             var games = await AppServices.Games.RefreshAsync(forceRescan: true);
             _all.Clear();
             foreach (var g in games)
-                _all.Add(new GameItemViewModel(g, AppServices.Games));
+                _all.Add(new GameItemViewModel(g, AppServices.Games, AppServices.Auth));
             ApplyFilter();
             StatusText = $"{games.Count} Einträge gefunden (vollständiger Scan).";
             if (games.Any(g => g.Category == GameCategory.Game))

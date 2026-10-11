@@ -59,4 +59,7 @@ public sealed class GameInfo
     public bool IsRunning { get; set; }
 
     public bool CanLaunch => !string.IsNullOrWhiteSpace(LaunchUri) || !string.IsNullOrWhiteSpace(ExecutablePath);
+
+    /// <summary>Ob die App per Passwort (Account-Passwort) geschützt ist.</summary>
+    public bool IsPasswordProtected { get; set; }
 }
