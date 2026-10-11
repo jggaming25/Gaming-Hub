@@ -109,3 +109,4 @@ jobs:
             ./Releases/releases.win.json
             ./Releases/assets.win.json
             ./Releases/checksums.txt
+          fail_on_unmatched_files: false
