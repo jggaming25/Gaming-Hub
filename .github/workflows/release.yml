@@ -77,7 +77,7 @@ jobs:
           Get-Content checksums.txt
 
       - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v1
         with:
           name: "Gaming Hub v${{ steps.version.outputs.value }}"
           tag_name: v${{ steps.version.outputs.value }}
