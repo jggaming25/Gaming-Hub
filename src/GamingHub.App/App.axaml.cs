@@ -115,6 +115,10 @@ public partial class App : Application
     {
         var splash = new SplashWindow();
         desktop.MainWindow = splash;
+        // Nach dem Disclaimer (oder wenn das Hauptfenster später erst gesetzt wird)
+        // zeigt Avalonia das MainWindow NICHT automatisch – daher explizit anzeigen.
+        if (!splash.IsVisible)
+            splash.Show();
 
         splash.Opened += async (_, _) =>
         {

@@ -65,6 +65,20 @@ if (RgbService.IsServerRunning())
         Console.WriteLine("   (keine Geräte gemeldet)");
     rgb.Disconnect();
     try { Directory.Delete(rgbDir, true); } catch { }
+
+    // Direkter Client-Test: Farbe setzen und über die Gerätebeschreibung zurücklesen.
+    var client = new OpenRgbClient();
+    client.Connect("127.0.0.1", 6742, "GamingHub-Smoke");
+    var c0 = client.GetControllers().FirstOrDefault();
+    if (c0 is not null)
+    {
+        string Join(OpenRgbController c) => string.Join(",", c.Colors.Take(8).Select(x => x.ToHex()));
+        Console.WriteLine($"   [direkt] {c0.Name} · LEDs={c0.LedCount} · vorher=[{Join(c0)}]");
+        client.SetColor(c0.Index, c0.LedCount, new RgbColor(0, 255, 0));
+        var after = client.GetControllers().FirstOrDefault(x => x.Index == c0.Index);
+        Console.WriteLine($"   [direkt] nachher=[{Join(after!)}]");
+    }
+    client.Disconnect();
 }
 else
 {

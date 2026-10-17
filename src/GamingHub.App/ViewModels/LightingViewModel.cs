@@ -166,15 +166,17 @@ public partial class LightingViewModel : ViewModelBase
     }
 
     partial void OnSelectedDeviceChanged(RgbDevice? value)
-    {
-        OnPropertyChanged(nameof(CanControl));
+    {        OnPropertyChanged(nameof(CanControl));
         AvailableEffects.Clear();
 
         if (value != null)
         {
             var effects = value.Modes.Count > 0 ? value.Modes : FallbackEffects.ToList();
             foreach (var e in effects) AvailableEffects.Add(e);
-            SelectedColor = value.CurrentColor;
+            // Ist die aktuelle Gerätefarbe schwarz (z. B. frischer Direct-Modus ohne
+            // Farbe), eine sichtbare Standardfarbe verwenden – sonst würde
+            // „Farbe anwenden“ die LEDs ausschalten.
+            SelectedColor = IsBlack(value.CurrentColor) ? new RgbColor(255, 0, 0) : value.CurrentColor;
             SelectedEffect = AvailableEffects.FirstOrDefault(e =>
                 string.Equals(e, value.CurrentEffect, StringComparison.OrdinalIgnoreCase))
                 ?? AvailableEffects.FirstOrDefault() ?? "static";
@@ -184,6 +186,8 @@ public partial class LightingViewModel : ViewModelBase
             foreach (var e in FallbackEffects) AvailableEffects.Add(e);
         }
     }
+
+    private static bool IsBlack(RgbColor c) => c.R <= 1 && c.G <= 1 && c.B <= 1;
 
     [RelayCommand]
     private async Task ApplyColorAsync()

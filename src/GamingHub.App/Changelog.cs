@@ -8,6 +8,11 @@ public static class Changelog
 {
     public static readonly ChangelogEntry[] Entries =
     {
+        new("0.5.17", "Oktober 2026", new[]
+        {
+            "Bugfix: Nach dem Akzeptieren der Nutzungsbedingungen startet die App jetzt zuverlässig weiter – Splash- und Hauptfenster werden wieder angezeigt.",
+            "Beleuchtung: Beim Auswählen eines Geräts mit schwarzer Standardfarbe wird automatisch eine sichtbare Farbe gesetzt, damit „Farbe anwenden“ die LEDs nicht unbeabsichtigt ausschaltet."
+        }),
         new("0.5.16", "Oktober 2026", new[]
         {
             "Beleuchtung: OpenRGB wird jetzt mit aktiviertem SDK-Server gestartet – Geräte (z. B. Corsair-Tastatur) werden erkannt und sind steuerbar.",

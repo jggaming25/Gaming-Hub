@@ -352,7 +352,8 @@ internal sealed class OpenRgbClient : IDisposable
         }
 
         var colorCount = ReadU16(data, ref pos);
-        pos += colorCount * 4; // Controller-Farben überspringen
+        for (var i = 0; i < colorCount; i++)
+            controller.Colors.Add(ReadColor(data, ref pos));
 
         return controller;
     }
@@ -517,6 +518,7 @@ internal sealed class OpenRgbController
     public int ActiveMode;
     public List<OpenRgbMode> Modes { get; } = new();
     public List<OpenRgbZone> Zones { get; } = new();
+    public List<RgbColor> Colors { get; } = new();
 }
 
 internal sealed class OpenRgbMode

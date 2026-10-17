@@ -22,6 +22,14 @@ const FEATURES = [
 
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   {
+    version: "0.5.17",
+    date: "Oktober 2026",
+    items: [
+      "Bugfix: Nach dem Akzeptieren der Nutzungsbedingungen startet die App jetzt zuverlässig weiter – Splash- und Hauptfenster werden wieder angezeigt.",
+      "Beleuchtung: Geräte mit schwarzer Standardfarbe erhalten automatisch eine sichtbare Farbe, damit „Farbe anwenden“ die LEDs nicht ausschaltet."
+    ]
+  },
+  {
     version: "0.5.16",
     date: "Oktober 2026",
     items: [
