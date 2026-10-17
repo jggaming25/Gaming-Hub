@@ -101,48 +101,60 @@
                                 <!-- Collapsed View - Logo/Thumbnail Card -->
                                 <Border Classes="game-card-collapsed" Background="#1A1D2E" CornerRadius="12" ClipToBounds="True"
                                         IsVisible="{Binding !IsExpanded}">
-                                    <Grid RowDefinitions="Auto,Auto" Margin="12">
-                                        <!-- Thumbnail/Image Area -->
-                                        <Grid Grid.Row="0" Height="160">
-                                            <!-- Thumbnail/Image -->
-                                            <Border Height="160" CornerRadius="8" ClipToBounds="True"
-                                                    Background="#0F1122"
-                                                    IsVisible="{Binding HasThumbnail}">
-                                                <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" />
-                                            </Border>
-                                            <Border Height="160" CornerRadius="8" ClipToBounds="True"
-                                                    Background="#0F1122"
-                                                    IsVisible="{Binding !HasThumbnail}">
-                                                <TextBlock Text="{Binding Name, Converter={x:Static vm:CommonConverters.FirstChar}}"
-                                                           FontSize="48" FontWeight="Bold" Foreground="#3A3F5E"
-                                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                            </Border>
+                                    <Grid RowDefinitions="Auto,Auto,Auto" Margin="12" RowSpacing="8">
+                                        <!-- Clickable area: opens the detail view -->
+                                        <Button Grid.Row="0" Command="{Binding ToggleExpandedCommand}"
+                                                Padding="0" Background="Transparent" BorderThickness="0"
+                                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                                Cursor="Hand" ToolTip.Tip="Details anzeigen">
+                                            <Grid Height="160">
+                                                <Border Height="160" CornerRadius="8" ClipToBounds="True"
+                                                        Background="#0F1122"
+                                                        IsVisible="{Binding HasThumbnail}">
+                                                    <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" />
+                                                </Border>
+                                                <Border Height="160" CornerRadius="8" ClipToBounds="True"
+                                                        Background="#0F1122"
+                                                        IsVisible="{Binding !HasThumbnail}">
+                                                    <TextBlock Text="{Binding Name, Converter={x:Static vm:CommonConverters.FirstChar}}"
+                                                               FontSize="48" FontWeight="Bold" Foreground="#3A3F5E"
+                                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                </Border>
 
-                                            <!-- Overlay: Play indicator when running -->
-                                            <Border Background="#80000000" CornerRadius="8"
-                                                    IsVisible="{Binding IsRunning}"
-                                                    HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
-                                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
-                                                    <Border Width="48" Height="48" CornerRadius="24" Background="#4ADE80">
-                                                        <TextBlock Text="▶" FontSize="20" Foreground="White"
-                                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                                    </Border>
-                                                    <TextBlock Text="Läuft" FontSize="14" FontWeight="Bold" Foreground="White" />
-                                                </StackPanel>
+                                                <!-- Overlay: Play indicator when running -->
+                                                <Border Background="#80000000" CornerRadius="8"
+                                                        IsVisible="{Binding IsRunning}"
+                                                        HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                                                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
+                                                        <Border Width="48" Height="48" CornerRadius="24" Background="#4ADE80">
+                                                            <TextBlock Text="▶" FontSize="20" Foreground="White"
+                                                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                        </Border>
+                                                        <TextBlock Text="Läuft" FontSize="14" FontWeight="Bold" Foreground="White" />
+                                                    </StackPanel>
+                                                </Border>
+                                            </Grid>
+                                        </Button>
+
+                                        <!-- Game Name + Source -->
+                                        <StackPanel Grid.Row="1" Spacing="4">
+                                            <TextBlock Text="{Binding Name}" FontSize="14" FontWeight="Bold"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       HorizontalAlignment="Center" Foreground="#E5E7EB" />
+                                            <Border Padding="4,2" CornerRadius="4" Background="#2A3550" HorizontalAlignment="Center">
+                                                <TextBlock Text="{Binding SourceName}" FontSize="9" Classes="muted" />
                                             </Border>
+                                        </StackPanel>
+
+                                        <!-- Actions: Start / Stop -->
+                                        <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="8">
+                                            <Button Grid.Column="0" Content="Starten" Command="{Binding LaunchCommand}"
+                                                    IsEnabled="{Binding CanLaunch}" Classes="game-btn-start"
+                                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+                                            <Button Grid.Column="1" Content="Abbrechen" Command="{Binding StopCommand}"
+                                                    IsEnabled="{Binding IsRunning}" Classes="game-btn-stop"
+                                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
                                         </Grid>
-
-                                        <!-- Game Name -->
-                                        <TextBlock Grid.Row="1" Text="{Binding Name}" FontSize="14" FontWeight="Bold"
-                                                   TextTrimming="CharacterEllipsis" Margin="0,8,0,0"
-                                                   HorizontalAlignment="Center" Foreground="#E5E7EB" />
-
-                                        <!-- Source Badge -->
-                                        <Border Grid.Row="1" Margin="0,4,0,0" Padding="4,2" CornerRadius="4"
-                                                Background="#2A3550" HorizontalAlignment="Center"
-                                                IsVisible="{Binding IsGameCategory}">
-                                            <TextBlock Text="{Binding SourceName}" FontSize="9" Classes="muted" />
-                                        </Border>
                                     </Grid>
                                 </Border>
 

@@ -10,6 +10,16 @@ namespace GamingHub.App.ViewModels;
 
 public sealed record CategoryFilterOption(string Label, GameCategory? Category);
 
+/// <summary>Ein Laufwerks-Filter: <see cref="Label"/> wird angezeigt,
+/// <see cref="Root"/> (z. B. "C:\") wird zum Vergleichen mit Installationspfaden genutzt.
+/// Bei „Alle Laufwerke“ ist <see cref="Root"/> null.</summary>
+public sealed class DriveFilterOption
+{
+    public string Label { get; init; } = string.Empty;
+    public string? Root { get; init; }
+    public override string ToString() => Label;
+}
+
 public partial class GamesViewModel : ViewModelBase
 {
     private readonly List<GameItemViewModel> _all = new();
@@ -32,17 +42,17 @@ public partial class GamesViewModel : ViewModelBase
         new("Sonstige", GameCategory.Other)
     };
 
-    public ObservableCollection<string> DriveOptions { get; } = new();
+    public ObservableCollection<DriveFilterOption> DriveOptions { get; } = new();
 
     [ObservableProperty] private string _searchText = string.Empty;
     [ObservableProperty] private CategoryFilterOption _selectedCategory = null!;
-    [ObservableProperty] private string _selectedDrive = "Alle Laufwerke";
+    [ObservableProperty] private DriveFilterOption? _selectedDrive;
     [ObservableProperty] private bool _isLoading;
     [ObservableProperty] private string _statusText = "Bibliothek wird geladen…";
 
     partial void OnSearchTextChanged(string value) => ApplyFilter();
     partial void OnSelectedCategoryChanged(CategoryFilterOption value) => ApplyFilter();
-    partial void OnSelectedDriveChanged(string value) => ApplyFilter();
+    partial void OnSelectedDriveChanged(DriveFilterOption? value) => ApplyFilter();
 
     public GamesViewModel()
     {
@@ -73,14 +83,21 @@ public partial class GamesViewModel : ViewModelBase
     {
         Volumes.Clear();
         DriveOptions.Clear();
-        DriveOptions.Add("Alle Laufwerke");
+
+        var all = new DriveFilterOption { Label = "Alle Laufwerke", Root = null };
+        DriveOptions.Add(all);
         foreach (var v in AppServices.DiskUsage.GetVolumes())
         {
             Volumes.Add(new DriveItemViewModel(v));
-            DriveOptions.Add(string.IsNullOrWhiteSpace(v.Label) ? v.Root : $"{v.Root} ({v.Label})");
+            DriveOptions.Add(new DriveFilterOption
+            {
+                Label = string.IsNullOrWhiteSpace(v.Label) ? v.Root : $"{v.Root} ({v.Label})",
+                Root = v.Root
+            });
         }
-        if (!DriveOptions.Contains(SelectedDrive))
-            SelectedDrive = "Alle Laufwerke";
+
+        if (SelectedDrive is null || !DriveOptions.Contains(SelectedDrive))
+            SelectedDrive = all;
     }
 
     [RelayCommand]
@@ -177,7 +194,7 @@ public partial class GamesViewModel : ViewModelBase
         Games.Clear();
         string q = SearchText?.Trim() ?? string.Empty;
         GameCategory? category = SelectedCategory?.Category;
-        string? drive = SelectedDrive;
+        string? driveRoot = SelectedDrive?.Root;
 
         foreach (var g in _all)
         {
@@ -185,8 +202,8 @@ public partial class GamesViewModel : ViewModelBase
                 continue;
             if (category is { } cat && g.Model.Category != cat)
                 continue;
-            if (drive != "Alle Laufwerke" && drive is not null &&
-                !(g.Model.InstallPath?.StartsWith(drive, StringComparison.OrdinalIgnoreCase) ?? false))
+            if (!string.IsNullOrWhiteSpace(driveRoot) &&
+                !(g.Model.InstallPath?.StartsWith(driveRoot, StringComparison.OrdinalIgnoreCase) ?? false))
                 continue;
             Games.Add(g);
         }

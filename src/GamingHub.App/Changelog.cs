@@ -8,6 +8,13 @@ public static class Changelog
 {
     public static readonly ChangelogEntry[] Entries =
     {
+        new("0.5.13", "Oktober 2026", new[]
+        {
+            "Spiele lassen sich wieder starten und stoppen: Jede Karte zeigt direkt „Starten“/„Abbrechen“, ein Klick auf das Bild öffnet die Detailansicht.",
+            "Der Beleuchtungs-Tab (RGB) ist wieder im Menü vorhanden.",
+            "Laufwerksfilter repariert: Wählt man ein einzelnes Laufwerk, werden die Spiele wieder angezeigt.",
+            "Spiele-Logos jetzt in deutlich höherer Auflösung (bis 256×256 statt 32×32)."
+        }),
         new("0.5.12", "Oktober 2026", new[]
         {
             "Passwortschutz pro App: Im Spiele-Tab lässt sich je Eintrag ein Passwortschutz per Regler aktivieren; zum Starten wird das Konto-Passwort verlangt.",

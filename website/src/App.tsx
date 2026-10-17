@@ -22,6 +22,16 @@ const FEATURES = [
 
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   {
+    version: "0.5.13",
+    date: "Oktober 2026",
+    items: [
+      "Spiele lassen sich wieder starten/stoppen – jede Karte zeigt direkt Starten/Abbrechen, Klick auf das Bild öffnet die Details.",
+      "Beleuchtungs-Tab (RGB) wieder im Menü verfügbar.",
+      "Laufwerksfilter repariert – ein einzelnes Laufwerk zeigt die Spiele wieder an.",
+      "Spiele-Logos in hoher Auflösung (bis 256×256 statt 32×32)."
+    ]
+  },
+  {
     version: "0.5.12",
     date: "Oktober 2026",
     items: [

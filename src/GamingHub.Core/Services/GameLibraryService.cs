@@ -62,7 +62,11 @@ public sealed class GameLibraryService
                 && TryLoadCache(out var cached))
             {
                 foreach (var game in cached)
+                {
+                    // Icons ggf. auf höhere Auflösung nachrüsten (alte 32×32-Caches).
+                    ExtractIconForGame(game);
                     MergePlaytime(game);
+                }
                 Games = cached;
                 UpdateRunningStates();
                 return cached;
@@ -117,19 +121,20 @@ public sealed class GameLibraryService
                 return;
 
             string cacheFile = Path.Combine(_iconCacheDir, $"{game.Id}.png");
-            if (File.Exists(cacheFile))
+
+            // Vorhandenes, ausreichend hochauflösendes Icon wiederverwenden.
+            if (AppIconExtractor.IsHighResolution(cacheFile))
             {
                 game.IconPath = cacheFile;
+                game.ThumbnailPath = cacheFile;
                 return;
             }
 
-            using var icon = System.Drawing.Icon.ExtractAssociatedIcon(exe);
-            if (icon is null)
-                return;
-
-            using var bitmap = icon.ToBitmap();
-            bitmap.Save(cacheFile, System.Drawing.Imaging.ImageFormat.Png);
-            game.IconPath = cacheFile;
+            if (AppIconExtractor.TryExtract(exe, cacheFile))
+            {
+                game.IconPath = cacheFile;
+                game.ThumbnailPath = cacheFile;
+            }
         }
         catch
         {
