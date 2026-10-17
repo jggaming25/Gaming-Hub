@@ -22,6 +22,15 @@ const FEATURES = [
 
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   {
+    version: "0.5.18",
+    date: "Oktober 2026",
+    items: [
+      "Bugfix: Das Installieren von Updates bricht nicht mehr ab und die App startet nicht mehr endlos mit „Neustart erforderlich“ neu.",
+      "Ursache war OpenRGB: Es lief im App-Installationsordner und blockierte so das Update. OpenRGB startet jetzt in seinem eigenen Ordner und wird vor dem Update automatisch beendet.",
+      "Beleuchtung: OpenRGB wird weiterhin automatisch mit der App gestartet und beim Update sauber neu geladen."
+    ]
+  },
+  {
     version: "0.5.17",
     date: "Oktober 2026",
     items: [

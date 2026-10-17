@@ -1,3 +1,4 @@
+using GamingHub.Core.Services;
 using Velopack;
 using Velopack.Sources;
 
@@ -150,6 +151,8 @@ public sealed class UpdateService
         var mgr = Manager ?? throw new InvalidOperationException("Kein Velopack-Build verfügbar.");
         var update = _pendingUpdate ?? throw new InvalidOperationException("Kein vorbereitetes Update vorhanden.");
         LogService.Info("Neustart zum Aktivieren von Updates…");
+        // OpenRGB beenden, damit es das Installationsverzeichnis nicht blockiert.
+        RgbService.KillOpenRgbProcesses();
         mgr.ApplyUpdatesAndRestart(update.TargetFullRelease, BuildRestartArgs());
     }
 
@@ -179,6 +182,8 @@ public sealed class UpdateService
             LogService.Info($"Update wird heruntergeladen (Version {update.TargetFullRelease.Version}).");
             await mgr.DownloadUpdatesAsync(update, p => { progress?.Invoke(p); });
             LogService.Info("Download abgeschlossen – Starte Neustart zum Installieren.");
+            // OpenRGB beenden, damit es das Installationsverzeichnis nicht blockiert.
+            RgbService.KillOpenRgbProcesses();
             mgr.ApplyUpdatesAndRestart(update.TargetFullRelease, BuildRestartArgs());
             return true;
         }

@@ -8,6 +8,12 @@ public static class Changelog
 {
     public static readonly ChangelogEntry[] Entries =
     {
+        new("0.5.18", "Oktober 2026", new[]
+        {
+            "Bugfix: Das Installieren von Updates bricht nicht mehr ab und die App startet nicht mehr endlos mit „Neustart erforderlich“ neu.",
+            "Ursache war OpenRGB: Es lief im App-Installationsordner und blockierte so das Update. OpenRGB startet jetzt in seinem eigenen Ordner und wird vor dem Update automatisch beendet.",
+            "Beleuchtung: OpenRGB wird weiterhin automatisch mit der App gestartet und beim Update sauber neu geladen."
+        }),
         new("0.5.17", "Oktober 2026", new[]
         {
             "Bugfix: Nach dem Akzeptieren der Nutzungsbedingungen startet die App jetzt zuverlässig weiter – Splash- und Hauptfenster werden wieder angezeigt.",

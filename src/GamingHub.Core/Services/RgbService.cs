@@ -143,6 +143,11 @@ public sealed class RgbService : IDisposable
                     Process.Start(new ProcessStartInfo(path)
                     {
                         UseShellExecute = true,
+                        // Wichtig: Arbeitsverzeichnis explizit auf den OpenRGB-Ordner setzen.
+                        // Sonst erbt OpenRGB das Arbeitsverzeichnis der App (…\current) und
+                        // hält dieses Verzeichnis offen. Beim Auto-Update scheitert dann der
+                        // Verzeichnis-Rename von Velopack (App startet endlos neu).
+                        WorkingDirectory = Path.GetDirectoryName(path) ?? AppContext.BaseDirectory,
                         // Wichtig: ohne --server startet OpenRGB den SDK-Server (Port 6742)
                         // NICHT. --startminimized zeigt die GUI nur minimiert in der Taskleiste.
                         Arguments = "--server --startminimized"
@@ -182,10 +187,11 @@ public sealed class RgbService : IDisposable
     }
 
     /// <summary>
-    /// Beendet laufende OpenRGB-Prozesse und startet OpenRGB mit aktiviertem
-    /// SDK-Server neu. Nötig, wenn OpenRGB bereits ohne <c>--server</c> läuft.
+    /// Beendet alle laufenden OpenRGB-Prozesse. Wird u. a. vor einem App-Update
+    /// aufgerufen, damit OpenRGB das Installationsverzeichnis nicht offen hält
+    /// (sonst schlägt der Verzeichnis-Rename von Velopack fehl).
     /// </summary>
-    public bool RestartOpenRgb()
+    public static void KillOpenRgbProcesses()
     {
         try
         {
@@ -204,8 +210,17 @@ public sealed class RgbService : IDisposable
         }
         catch
         {
-            // ignorieren – Start wird trotzdem versucht
+            // ignorieren
         }
+    }
+
+    /// <summary>
+    /// Beendet laufende OpenRGB-Prozesse und startet OpenRGB mit aktiviertem
+    /// SDK-Server neu. Nötig, wenn OpenRGB bereits ohne <c>--server</c> läuft.
+    /// </summary>
+    public bool RestartOpenRgb()
+    {
+        KillOpenRgbProcesses();
 
         // Kurz warten, damit Port/Geräte freigegeben werden.
         Thread.Sleep(1200);

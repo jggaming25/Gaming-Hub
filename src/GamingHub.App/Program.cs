@@ -1,5 +1,6 @@
 ﻿using Avalonia;
 using System;
+using GamingHub.Core.Services;
 using Velopack;
 
 namespace GamingHub.App;
@@ -14,7 +15,13 @@ sealed class Program
     {
         // Marker for Velopack packaging (Setup-Installer). Der Auto-Update-Check
         // läuft beim Start (siehe SplashWindow + App.ShowSplashThenMain).
-        VelopackApp.Build().Run();
+        // Wichtig: Vor dem Anwenden eines Updates alle OpenRGB-Prozesse beenden.
+        // OpenRGB würde sonst – durch das geerbte Arbeitsverzeichnis (…\current) –
+        // das Installationsverzeichnis offen halten und der Verzeichnis-Rename von
+        // Velopack beim Update schlägt fehl (App startet endlos neu).
+        VelopackApp.Build()
+            .OnBeforeUpdateFastCallback(_ => RgbService.KillOpenRgbProcesses())
+            .Run();
 
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }
