@@ -49,4 +49,26 @@ foreach (var g in groups)
     Console.WriteLine($"   Hash {g.Hash[..8]}… · {g.Files.Count}× · freigebbar {DiskUsageService.FormatBytes(g.WastedBytes)}");
 
 Directory.Delete(temp, true);
+
+// 5) OpenRGB SDK (nur wenn der SDK-Server läuft)
+Console.WriteLine("\n[OpenRGB]");
+if (RgbService.IsServerRunning())
+{
+    var rgbDir = Path.Combine(Path.GetTempPath(), "gh_rgb_" + Guid.NewGuid().ToString("N"));
+    Directory.CreateDirectory(rgbDir);
+    var rgb = new RgbService(rgbDir);
+    var connected = await rgb.ConnectAsync(launchIfMissing: false);
+    Console.WriteLine($"   Verbunden: {connected} · Protokoll v{rgb.ProtocolVersion}");
+    foreach (var d in rgb.Devices.Values)
+        Console.WriteLine($"   - {d.Name} [{d.Vendor}] · LEDs={d.LedCount} · Zonen={d.Zones.Count} · Modi={d.Modes.Count} · aktiv={d.CurrentEffect}");
+    if (rgb.Devices.Count == 0)
+        Console.WriteLine("   (keine Geräte gemeldet)");
+    rgb.Disconnect();
+    try { Directory.Delete(rgbDir, true); } catch { }
+}
+else
+{
+    Console.WriteLine("   SDK-Server (127.0.0.1:6742) nicht erreichbar – übersprungen.");
+}
+
 Console.WriteLine("\n=== Fertig ===");

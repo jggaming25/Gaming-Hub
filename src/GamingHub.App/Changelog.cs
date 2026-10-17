@@ -8,6 +8,12 @@ public static class Changelog
 {
     public static readonly ChangelogEntry[] Entries =
     {
+        new("0.5.16", "Oktober 2026", new[]
+        {
+            "Beleuchtung: OpenRGB wird jetzt mit aktiviertem SDK-Server gestartet – Geräte (z. B. Corsair-Tastatur) werden erkannt und sind steuerbar.",
+            "Läuft OpenRGB bereits ohne SDK-Server, wird es automatisch mit Server neu gestartet.",
+            "Deutlich flüssigere App: System-/Prozess-Messungen und die Spielerkennung laufen jetzt im Hintergrund statt im UI-Thread (behebt das Ruckeln)."
+        }),
         new("0.5.15", "Oktober 2026", new[]
         {
             "OpenRGB wird jetzt automatisch mit der App installiert – kein manueller Download mehr nötig.",

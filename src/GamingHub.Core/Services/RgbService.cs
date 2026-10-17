@@ -78,10 +78,14 @@ public sealed class RgbService : IDisposable
 
             if (ok) return true;
 
-            if (launchIfMissing && TryLaunchOpenRgb())
+            if (launchIfMissing)
             {
+                // Läuft OpenRGB bereits (z. B. manuell gestartet) aber ohne SDK-Server,
+                // muss es mit --server neu gestartet werden, sonst ist Port 6742 dicht.
+                StartOrRestartOpenRgb();
+
                 // OpenRGB braucht einen Moment zum Starten und Erkennen der Geräte.
-                for (var attempt = 0; attempt < 8; attempt++)
+                for (var attempt = 0; attempt < 12; attempt++)
                 {
                     await Task.Delay(1500).ConfigureAwait(false);
                     var retry = await Task.Run(() =>
@@ -139,7 +143,9 @@ public sealed class RgbService : IDisposable
                     Process.Start(new ProcessStartInfo(path)
                     {
                         UseShellExecute = true,
-                        Arguments = "--startminimized"
+                        // Wichtig: ohne --server startet OpenRGB den SDK-Server (Port 6742)
+                        // NICHT. --startminimized zeigt die GUI nur minimiert in der Taskleiste.
+                        Arguments = "--server --startminimized"
                     });
                     return true;
                 }
@@ -150,6 +156,60 @@ public sealed class RgbService : IDisposable
             }
         }
         return false;
+    }
+
+    /// <summary>Prüft, ob ein OpenRGB-Prozess läuft (unabhängig vom SDK-Server).</summary>
+    public static bool IsOpenRgbProcessRunning()
+    {
+        try
+        {
+            return Process.GetProcessesByName("OpenRGB").Length > 0;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Startet OpenRGB mit SDK-Server. Läuft bereits ein OpenRGB-Prozess,
+    /// wird dieser beendet und mit aktiviertem Server neu gestartet.
+    /// </summary>
+    public bool StartOrRestartOpenRgb()
+    {
+        if (IsServerRunning()) return true;
+        return IsOpenRgbProcessRunning() ? RestartOpenRgb() : TryLaunchOpenRgb();
+    }
+
+    /// <summary>
+    /// Beendet laufende OpenRGB-Prozesse und startet OpenRGB mit aktiviertem
+    /// SDK-Server neu. Nötig, wenn OpenRGB bereits ohne <c>--server</c> läuft.
+    /// </summary>
+    public bool RestartOpenRgb()
+    {
+        try
+        {
+            foreach (var proc in Process.GetProcessesByName("OpenRGB"))
+            {
+                try
+                {
+                    proc.Kill();
+                    proc.WaitForExit(3000);
+                }
+                catch
+                {
+                    // nächsten Prozess versuchen
+                }
+            }
+        }
+        catch
+        {
+            // ignorieren – Start wird trotzdem versucht
+        }
+
+        // Kurz warten, damit Port/Geräte freigegeben werden.
+        Thread.Sleep(1200);
+        return TryLaunchOpenRgb();
     }
 
     private IEnumerable<string> EnumerateLaunchCandidates()

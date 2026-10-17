@@ -24,6 +24,10 @@ public sealed class SystemMonitorService
     /// <summary>Zähler für die Drosselung der (teuren) Prozess-Abfrage.</summary>
     private int _processTick;
 
+    /// <summary>Serialisiert parallele Sample()-Aufrufe (WMI + Prozess-Enumeration),
+    /// damit der veränderliche Messzustand nicht durcheinanderkommt.</summary>
+    private readonly object _sampleLock = new();
+
     public string CpuName { get; private set; } = "Unbekannte CPU";
     public string GpuName { get; private set; } = "Unbekannte GPU";
     public ulong GpuVramBytes { get; private set; }
@@ -47,6 +51,8 @@ public sealed class SystemMonitorService
 
     public SystemSnapshot Sample()
     {
+        lock (_sampleLock)
+        {
         double cpu = GetCpuUsage();
         GetMemory(out ulong total, out ulong used);
         GetDiskThroughput(out double diskRead, out double diskWrite);
@@ -75,6 +81,7 @@ public sealed class SystemMonitorService
             ProcessCount = LastProcessCount > 0 ? LastProcessCount : Process.GetProcesses().Length,
             TimestampUtc = DateTime.UtcNow
         };
+        }
     }
 
     /// <summary>Listet die lokalen Windows-Benutzerkonten (für die Premium-Ansicht).</summary>

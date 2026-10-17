@@ -219,9 +219,32 @@ public partial class ResourcesViewModel : ViewModelBase
         }
     }
 
-    private void Update()
+    private bool _sampling;
+
+    private async void Update()
     {
-        var s = AppServices.SystemMonitor.Sample();
+        // Sample() macht WMI-Abfragen und eine Prozess-Enumeration – das darf nicht
+        // im UI-Thread laufen, sonst ruckelt die App spürbar. Daher im Hintergrund
+        // messen und das Ergebnis anschließend auf den UI-Thread anwenden.
+        if (_sampling) return;
+        _sampling = true;
+        try
+        {
+            var s = await Task.Run(AppServices.SystemMonitor.Sample);
+            ApplySample(s);
+        }
+        catch
+        {
+            // Messung fehlgeschlagen – beim nächsten Tick erneut versuchen.
+        }
+        finally
+        {
+            _sampling = false;
+        }
+    }
+
+    private void ApplySample(SystemSnapshot s)
+    {
         CpuUsage = s.CpuUsagePercent;
         RamUsage = s.RamUsagePercent;
         GpuUsage = s.GpuUsagePercent;

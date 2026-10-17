@@ -22,6 +22,15 @@ const FEATURES = [
 
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   {
+    version: "0.5.16",
+    date: "Oktober 2026",
+    items: [
+      "Beleuchtung: OpenRGB wird jetzt mit aktiviertem SDK-Server gestartet – Geräte (z. B. Corsair-Tastatur) werden erkannt und sind steuerbar.",
+      "Läuft OpenRGB bereits ohne SDK-Server, wird es automatisch mit Server neu gestartet.",
+      "Deutlich flüssigere App: Messungen und Spielerkennung laufen jetzt im Hintergrund statt im UI-Thread (behebt das Ruckeln)."
+    ]
+  },
+  {
     version: "0.5.15",
     date: "Oktober 2026",
     items: [

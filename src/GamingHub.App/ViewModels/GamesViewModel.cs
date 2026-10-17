@@ -72,11 +72,28 @@ public partial class GamesViewModel : ViewModelBase
         _timer.Start();
     }
 
-    private void RefreshStates()
+    private bool _refreshingStates;
+
+    private async void RefreshStates()
     {
-        AppServices.Games.UpdateRunningStates();
-        foreach (var g in _all)
-            g.Refresh();
+        // UpdateRunningStates() liest für jeden Prozess den Pfad (MainModule) aus –
+        // teuer, deshalb im Hintergrund; die UI-Aktualisierung erfolgt danach.
+        if (_refreshingStates) return;
+        _refreshingStates = true;
+        try
+        {
+            await Task.Run(AppServices.Games.UpdateRunningStates);
+            foreach (var g in _all)
+                g.Refresh();
+        }
+        catch
+        {
+            // beim nächsten Tick erneut versuchen
+        }
+        finally
+        {
+            _refreshingStates = false;
+        }
     }
 
     public void LoadVolumes()

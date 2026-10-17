@@ -83,18 +83,30 @@ public partial class LightingViewModel : ViewModelBase
             Profiles.Add(p);
     });
 
-    private void Refresh()
+    private bool _refreshing;
+
+    private async void Refresh()
     {
-        if (_busy) return;
+        if (_busy || _refreshing) return;
+        _refreshing = true;
+        try
+        {
+            IsConnected = AppServices.Rgb.IsConnected;
+            HasDevices = Devices.Count > 0;
 
-        IsConnected = AppServices.Rgb.IsConnected;
-        HasDevices = Devices.Count > 0;
-        OpenRgbNotRunning = !IsConnected && !RgbService.IsServerRunning();
+            // IsServerRunning() ist eine blockierende TCP-Prüfung → im Hintergrund.
+            bool serverRunning = IsConnected || await Task.Run(() => RgbService.IsServerRunning());
+            OpenRgbNotRunning = !IsConnected && !serverRunning;
 
-        if (IsConnected)
-            StatusText = HasDevices
-                ? $"Verbunden mit OpenRGB · {Devices.Count} Gerät(e)"
-                : "Verbunden mit OpenRGB – es wurden keine RGB-Geräte gefunden.";
+            if (IsConnected)
+                StatusText = HasDevices
+                    ? $"Verbunden mit OpenRGB · {Devices.Count} Gerät(e)"
+                    : "Verbunden mit OpenRGB – es wurden keine RGB-Geräte gefunden.";
+        }
+        finally
+        {
+            _refreshing = false;
+        }
     }
 
     /// <summary>Prüft im Hintergrund auf eine neuere OpenRGB-Version (nur wenn bereits installiert).</summary>
@@ -114,7 +126,7 @@ public partial class LightingViewModel : ViewModelBase
         var ok = await AppServices.Rgb.ConnectAsync(launchIfMissing: false);
         IsConnected = ok;
         HasDevices = Devices.Count > 0;
-        OpenRgbNotRunning = !ok && !RgbService.IsServerRunning();
+        OpenRgbNotRunning = !ok && !await Task.Run(() => RgbService.IsServerRunning());
 
         if (ok)
             StatusText = $"Verbunden mit OpenRGB · {Devices.Count} Gerät(e)";
@@ -132,7 +144,7 @@ public partial class LightingViewModel : ViewModelBase
         _busy = true;
         try
         {
-            if (!RgbService.IsServerRunning())
+            if (!await Task.Run(() => RgbService.IsServerRunning()))
             {
                 StatusText = "OpenRGB wird vorbereitet…";
                 var progress = new Progress<string>(s => StatusText = s);
@@ -249,7 +261,7 @@ public partial class LightingViewModel : ViewModelBase
             var ok = await AppServices.Rgb.ConnectAsync();
             IsConnected = ok;
             HasDevices = Devices.Count > 0;
-            OpenRgbNotRunning = !ok && !RgbService.IsServerRunning();
+            OpenRgbNotRunning = !ok && !await Task.Run(() => RgbService.IsServerRunning());
             StatusText = ok
                 ? $"Verbunden mit OpenRGB · {Devices.Count} Gerät(e)"
                 : "OpenRGB nicht erreichbar. Bitte OpenRGB starten (SDK-Server auf Port 6742).";
@@ -267,13 +279,13 @@ public partial class LightingViewModel : ViewModelBase
         try
         {
             StatusText = "Starte OpenRGB…";
-            var started = AppServices.Rgb.TryLaunchOpenRgb();
+            var started = AppServices.Rgb.StartOrRestartOpenRgb();
             if (!started)
             {
                 // Noch keine Installation vorhanden – automatisch herunterladen.
                 var progress = new Progress<string>(s => StatusText = s);
                 var installed = await AppServices.Rgb.EnsureOpenRgbInstalledAsync(progress);
-                if (installed) started = AppServices.Rgb.TryLaunchOpenRgb();
+                if (installed) started = AppServices.Rgb.StartOrRestartOpenRgb();
             }
 
             if (!started)
@@ -285,7 +297,7 @@ public partial class LightingViewModel : ViewModelBase
             for (var i = 0; i < 12; i++)
             {
                 await Task.Delay(1500);
-                if (RgbService.IsServerRunning()) break;
+                if (await Task.Run(() => RgbService.IsServerRunning())) break;
             }
         }
         finally

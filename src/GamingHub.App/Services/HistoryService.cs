@@ -76,7 +76,7 @@ public sealed class HistoryService
 
             try
             {
-                var snapshot = AppServices.SystemMonitor.Sample();
+                var snapshot = await Task.Run(AppServices.SystemMonitor.Sample);
                 if (!IsCollectable(snapshot))
                     continue;
 
