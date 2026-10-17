@@ -537,6 +537,8 @@ declare
     v_duration int;
     v_valid_until timestamptz;
     v_new_until timestamptz;
+    v_base timestamptz;
+    v_days_added int;
 begin
     if v_uid is null then
         return jsonb_build_object('ok', false, 'error', 'login_required');
@@ -575,6 +577,8 @@ begin
     select greatest(coalesce(premium_until, now()), now()) into v_new_until
       from public.profiles where id = v_uid;
 
+    v_base := v_new_until;
+
     if v_duration is not null then
         v_new_until := v_new_until + make_interval(days => v_duration);
     end if;
@@ -591,7 +595,15 @@ begin
 
     perform public.ensure_premium_and_badge(v_uid);
 
-    return jsonb_build_object('ok', true, 'premium_until', v_new_until);
+    -- Tatsächlich gutgeschriebene Tage (Differenz zum vorherigen Ablauf).
+    -- null = unendlich.
+    if v_new_until = 'infinity'::timestamptz then
+        v_days_added := null;
+    else
+        v_days_added := greatest(0, ceil(extract(epoch from (v_new_until - v_base)) / 86400.0))::int;
+    end if;
+
+    return jsonb_build_object('ok', true, 'premium_until', v_new_until, 'days_added', v_days_added);
 end;
 $$;
 

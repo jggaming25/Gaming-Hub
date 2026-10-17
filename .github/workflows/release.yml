@@ -29,6 +29,10 @@ jobs:
           $content = Get-Content Directory.Build.props -Raw
           if ($content -match '<Version>([^<]+)</Version>') { $v = $Matches[1] } else { $v = '0.0.0' }
           "value=$v" >> $env:GITHUB_OUTPUT
+          # Bei einem Tag-Push exakt diesen Tag verwenden, sonst v<Version>.
+          if ($env:GITHUB_REF -like 'refs/tags/*') { $tag = $env:GITHUB_REF_NAME } else { $tag = "v$v" }
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+          Write-Host "Version: $v | Tag: $tag"
 
       - name: Install vpk (Velopack CLI)
         run: dotnet tool install --global vpk
@@ -77,39 +81,25 @@ jobs:
           Get-Content checksums.txt
 
       - name: List files for debugging
+        shell: pwsh
         run: |
-          echo "=== Releases directory ==="
-          ls -la Releases/
-          echo "=== Portable directory ==="
-          ls -la portable/
-          echo "=== Checksums ==="
-          ls -la checksums.txt
-          echo "=== Current dir ==="
-          pwd
-          ls -la
+          Write-Host "=== Releases directory ==="
+          Get-ChildItem Releases -ErrorAction SilentlyContinue | Format-Table Name, Length
+          Write-Host "=== Portable directory ==="
+          Get-ChildItem portable -ErrorAction SilentlyContinue | Format-Table Name, Length
+          Write-Host "=== Workspace root ==="
+          Get-ChildItem | Format-Table Name, Length
 
-- name: List files for debugging
-        run: |
-          echo "=== Releases directory ==="
-          ls -la Releases/
-          echo "=== Portable directory ==="
-          ls -la portable/
-          echo "=== Checksums ==="
-          ls -la checksums.txt
-          echo "=== Current dir ==="
-          pwd
-          ls -la
-
-- name: Create Release & Upload Assets
+      - name: Create Release & Upload Assets
         uses: softprops/action-gh-release@v2
         if: success()
         env:
           GITHUB_TOKEN: ${{ github.token }}
         with:
-          tag_name: v${{ steps.version.outputs.value }}
-          name: Gaming Hub v${{ steps.version.outputs.value }}
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Gaming Hub ${{ steps.version.outputs.tag }}
           body: |
-            Full Changelog: https://github.com/jggaming25/Gaming-Hub/compare/v0.5.6...v${{ steps.version.outputs.value }}
+            Gaming Hub ${{ steps.version.outputs.tag }}
           draft: false
           prerelease: false
           generate_release_notes: true
@@ -121,5 +111,4 @@ jobs:
             ./Releases/RELEASES
             ./Releases/releases.win.json
             ./Releases/assets.win.json
-            ./Releases/checksums.txt
           fail_on_unmatched_files: false

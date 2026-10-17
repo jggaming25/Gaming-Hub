@@ -154,8 +154,10 @@ public sealed class FirstCharConverter : IValueConverter
         => throw new NotSupportedException();
 }
 
-/// <summary>Wandelt eine Reihe von Prozentwerten (0–100) in die Points eines
-/// Polyline-Diagramms um (x = Index, y = 100 − Wert).</summary>
+/// <summary>Wandelt eine Reihe von Werten in die Points eines Polyline-Diagramms um.
+/// Ohne Parameter: x = Index, y = 100 − Wert (0–100 %, für Stretch="Fill").
+/// Mit Parameter "AbstandxHöhexMaxWert" (z. B. "8x80x200"): feste Pixel-Koordinaten
+/// für ein nicht gestrecktes, horizontal scrollbares Diagramm.</summary>
 public sealed class SeriesToPointsConverter : IValueConverter
 {
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
@@ -168,10 +170,34 @@ public sealed class SeriesToPointsConverter : IValueConverter
         if (values.Count == 0)
             return points;
 
+        double spacing = 8, height = 80, maxY = 100;
+        bool explicitMode = false;
+        if (parameter is string p && !string.IsNullOrWhiteSpace(p))
+        {
+            var parts = p.Split('x');
+            if (parts.Length >= 1 && double.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var sp)) spacing = sp;
+            if (parts.Length >= 2 && double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var h)) height = h;
+            if (parts.Length >= 3 && double.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out var m) && m > 0) maxY = m;
+            explicitMode = true;
+        }
+
+        if (!explicitMode)
+        {
+            for (int i = 0; i < values.Count; i++)
+            {
+                double y = Math.Clamp(values[i], 0, 100);
+                points.Add(new Point(i, 100 - y));
+            }
+            return points;
+        }
+
+        double lastKnown = 0;
         for (int i = 0; i < values.Count; i++)
         {
-            double y = Math.Clamp(values[i], 0, 100);
-            points.Add(new Point(i, 100 - y));
+            double raw = double.IsNaN(values[i]) ? lastKnown : values[i];
+            lastKnown = raw;
+            double v = Math.Clamp(raw, 0, maxY);
+            points.Add(new Point(i * spacing, height - (v / maxY) * height));
         }
         return points;
     }

@@ -22,6 +22,19 @@ const FEATURES = [
 
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   {
+    version: "0.5.12",
+    date: "Oktober 2026",
+    items: [
+      "Premium-Codes: Anzeige „um 0 Tage verlängert“ korrigiert – die tatsächlich gutgeschriebene Laufzeit wird jetzt korrekt angezeigt.",
+      "Internet-Checker: Verlauf ist jetzt scrollbar – 1 Woche frei, mit Premium 4 Wochen, inkl. Datums-Anzeige im Diagramm.",
+      "Passwortschutz pro App: im Spiele-Tab je Eintrag per Regler aktivierbar, Start nur mit Konto-Passwort.",
+      "Spiele-Tab neu: Logo/Vorschaubild, aufklappbare Karten, Start- (grün) und Abbrechen-Knopf (blau).",
+      "Premium-Status im Profil mit Countdown und Fortschrittsbalken.",
+      "RGB-Beleuchtung, Spiel-Icons, GPU-Fix, Disk-Cleanup-Restzeit, Download-Sperre – alles in dieser Version.",
+      "Die Neuigkeiten werden ab jetzt mit jedem Update aktuell gehalten."
+    ]
+  },
+  {
     version: "0.5.6",
     date: "Oktober 2026",
     items: [

@@ -8,6 +8,34 @@ public static class Changelog
 {
     public static readonly ChangelogEntry[] Entries =
     {
+        new("0.5.12", "Oktober 2026", new[]
+        {
+            "Passwortschutz pro App: Im Spiele-Tab lässt sich je Eintrag ein Passwortschutz per Regler aktivieren; zum Starten wird das Konto-Passwort verlangt.",
+            "Spiele-Tab neu: Logo/Vorschaubild, Klick zum Aufklappen mit Details, Start- (grün) und „Abbrechen“-Knopf (blau).",
+            "Premium-Status im Profil: Countdown mit verbleibender Zeit und Fortschrittsbalken.",
+            "Premium-Codes: Laufzeit/Gültig-bis beim Erstellen, stapelt auf bestehendes Premium, pro Nutzer einmal einlösbar – die Anzeige „um 0 Tage“ wurde korrigiert.",
+            "Internet-Checker (Premium/Admin): visueller Pfad-Test, Ausfall-Einschätzung (Router vs. ISP) und scrollbarer Verlauf – 1 Woche frei, mit Premium 4 Wochen inkl. Datums-Anzeige.",
+            "Neuer „Beleuchtung“-Tab: RGB-Steuerung für Maus, Tastatur, Lüfter, GPU und Mainboard (OpenRGB).",
+            "Spiel-Icons in der Bibliothek (automatische Extraktion).",
+            "GPU-Auslastung korrekt erfasst, Disk-Cleanup-Restzeit immer sichtbar (10-Sekunden-Takt).",
+            "Downloads: neueste Version für alle, ältere 5 per Admin-Schalter sperrbar.",
+            "Chat/Voice/Video wurden entfernt – schlanker und stabiler.",
+            "Diese Neuerungen („Neuigkeiten“) werden ab jetzt mit jedem Update aktuell gehalten."
+        }),
+        new("0.5.6", "Oktober 2026", new[]
+        {
+            "Internet-Checker als neue Funktion (Premium/Admin).",
+            "Beleuchtung (RGB) für Maus, Tastatur, Lüfter, GPU und Mainboard.",
+            "Spiel-Icons in der Spielebibliothek.",
+            "Premium-Codes mit Laufzeit und Gültig-bis; Downloads per Admin-Flag sperrbar."
+        }),
+        new("0.5.0", "Oktober 2026", new[]
+        {
+            "Premium ohne Kauf: Freischalt-Codes sind pro Nutzer nur einmal einlösbar; Admins können Premium sperren.",
+            "Neues Abzeichen „Premium-Veteran“ nach 3 Monaten Premium.",
+            "Frühere Versionen sind auf der Website dauerhaft herunterladbar.",
+            "Web-Recherche berücksichtigt die Spielversion korrekt (z. B. OMSI 2 statt OMSI 1)."
+        }),
         new("0.4.2", "Oktober 2026", new[]
         {
             "Beim Start werden verfügbare Updates automatisch installiert – danach zeigt ein Popup, dass ein Neustart zum Aktivieren nötig ist.",

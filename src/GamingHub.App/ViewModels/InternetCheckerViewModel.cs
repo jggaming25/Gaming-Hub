@@ -36,6 +36,13 @@ public sealed partial class InternetStep : ObservableObject
     }
 }
 
+/// <summary>Eine Datums-Beschriftung an einer festen X-Position im Verlaufs-Diagramm.</summary>
+public sealed class HistoryDateLabel
+{
+    public double X { get; init; }
+    public string Text { get; init; } = string.Empty;
+}
+
 public partial class InternetCheckerViewModel : ViewModelBase
 {
     private readonly DispatcherTimer _refreshTimer;
@@ -66,6 +73,17 @@ public partial class InternetCheckerViewModel : ViewModelBase
     public ObservableCollection<double> OnlineHistory { get; } = new(); // 1=online, 0=offline
     public ObservableCollection<double> GatewayLatencyHistory { get; } = new();
     public ObservableCollection<double> DnsLatencyHistory { get; } = new();
+
+    /// <summary>Datums-Beschriftungen unter dem Diagramm (scrollbar).</summary>
+    public ObservableCollection<HistoryDateLabel> DateLabels { get; } = new();
+
+    /// <summary>Breite des Diagramms in Pixeln – wächst mit der Datenmenge und
+    /// macht das Diagramm horizontal scrollbar (1 Woche frei, 4 Wochen Premium).</summary>
+    [ObservableProperty] private double _chartWidth = 600;
+
+    // Feste Abstände (Pixel) für die nicht gestreckten Diagramme.
+    private const double ChartSpacing = 8;
+    private const int MaxChartPoints = 300;
 
     [ObservableProperty] private bool _hasHistory;
     [ObservableProperty] private string _historyRetentionText = "Aufbewahrung: 1 Woche (Premium: 4 Wochen)";
@@ -287,11 +305,14 @@ public partial class InternetCheckerViewModel : ViewModelBase
 
     private void ReloadHistory()
     {
-        var points = AppServices.Internet.LoadChartData();
+        var all = AppServices.Internet.LoadChartData();
+        var points = Downsample(all, MaxChartPoints);
+
         LatencyHistory.Clear();
         OnlineHistory.Clear();
         GatewayLatencyHistory.Clear();
         DnsLatencyHistory.Clear();
+        DateLabels.Clear();
 
         foreach (var p in points)
         {
@@ -301,13 +322,69 @@ public partial class InternetCheckerViewModel : ViewModelBase
             DnsLatencyHistory.Add(p.DnsLatencyMs >= 0 ? p.DnsLatencyMs : double.NaN);
         }
 
-        HasHistory = points.Count > 0;
+        ChartWidth = points.Count > 0
+            ? Math.Max(600, (points.Count - 1) * ChartSpacing + ChartSpacing)
+            : 600;
+
+        // Datums-Beschriftungen gleichmäßig über die Breite verteilen.
+        if (points.Count > 1)
+        {
+            int labelCount = Math.Clamp((int)(ChartWidth / 110), 2, 20);
+            int step = Math.Max(1, points.Count / labelCount);
+            for (int i = 0; i < points.Count; i += step)
+            {
+                DateLabels.Add(new HistoryDateLabel
+                {
+                    X = i * ChartSpacing,
+                    Text = points[i].TimestampUtc.ToLocalTime().ToString("dd.MM HH:mm")
+                });
+            }
+        }
+
+        HasHistory = all.Count > 0;
         bool isPremium = AppServices.Profile.IsPremium;
-        int retention = isPremium ? 28 : 7;
         HistoryRetentionText = isPremium ? "Premium: 4 Wochen" : "Aufbewahrung: 1 Woche (Premium: 4 Wochen)";
-        HistoryStatusText = points.Count == 0
+        HistoryStatusText = all.Count == 0
             ? "Noch keine Internet-Daten aufgezeichnet (alle 15 Sekunden ein Check)."
-            : $"{points.Count} Messpunkte · letzte {points[^1].TimestampUtc:HH:mm:ss} · " +
-              (points.Count(p => !p.IsOnline) > 0 ? $"{points.Count(p => !p.IsOnline)} Ausfälle" : "keine Ausfälle");
+            : $"{all.Count} Messpunkte · letzte {all[^1].TimestampUtc.ToLocalTime():HH:mm:ss} · " +
+              (all.Count(p => !p.IsOnline) > 0 ? $"{all.Count(p => !p.IsOnline)} Ausfälle" : "keine Ausfälle") +
+              $" · Diagramm mit {points.Count} Punkten";
+    }
+
+    /// <summary>Fasst sehr viele Messpunkte zu gleich großen Zeitfenstern zusammen,
+    /// damit das Diagramm flüssig bleibt und trotzdem den ganzen Zeitraum zeigt.</summary>
+    private static List<InternetHistoryPoint> Downsample(List<InternetHistoryPoint> points, int maxPoints)
+    {
+        if (points.Count <= maxPoints) return points;
+
+        int bucket = (int)Math.Ceiling(points.Count / (double)maxPoints);
+        var result = new List<InternetHistoryPoint>(maxPoints + 1);
+
+        for (int i = 0; i < points.Count; i += bucket)
+        {
+            int end = Math.Min(i + bucket, points.Count);
+            var slice = points.GetRange(i, end - i);
+
+            result.Add(new InternetHistoryPoint
+            {
+                TimestampUtc = slice[0].TimestampUtc,
+                GatewayOk = slice.Any(p => p.GatewayOk),
+                GatewayLatencyMs = Average(slice, p => p.GatewayLatencyMs),
+                DnsOk = slice.Any(p => p.DnsOk),
+                DnsLatencyMs = Average(slice, p => p.DnsLatencyMs),
+                InternetOk = slice.Any(p => p.InternetOk),
+                InternetLatencyMs = Average(slice, p => p.InternetLatencyMs),
+                HttpOk = slice.Any(p => p.HttpOk),
+                HttpLatencyMs = Average(slice, p => p.HttpLatencyMs),
+            });
+        }
+
+        return result;
+    }
+
+    private static int Average(List<InternetHistoryPoint> slice, Func<InternetHistoryPoint, int> selector)
+    {
+        var valid = slice.Select(selector).Where(v => v >= 0).ToList();
+        return valid.Count == 0 ? -1 : (int)Math.Round(valid.Average());
     }
 }

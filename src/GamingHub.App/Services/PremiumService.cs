@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 
 namespace GamingHub.App.Services;
@@ -40,6 +41,7 @@ public sealed class PremiumService
 
         try
         {
+            var before = AppServices.Profile.PremiumUntil;
             var res = await client.RpcAsync("redeem_premium_code", new { p_code = code.Trim() });
             if (res.Ok)
             {
@@ -47,9 +49,12 @@ public sealed class PremiumService
                 if (parsed.TryGetValue("ok", out var ok) && ok.ValueKind == JsonValueKind.True)
                 {
                     await AppServices.Profile.RefreshAsync();
-                    int days = parsed.TryGetValue("bonus_days", out var d) ? d.GetInt32() : 0;
+                    var (days, infinite) = ExtractGrant(parsed, before);
                     Changed?.Invoke();
-                    return (true, $"Premium um {days} Tage verlängert. Danke!", days);
+                    string message = infinite
+                        ? "Premium dauerhaft aktiviert. Danke!"
+                        : $"Premium um {days} {(days == 1 ? "Tag" : "Tage")} verlängert. Danke!";
+                    return (true, message, days);
                 }
                 string key = parsed.TryGetValue("error", out var e) ? e.GetString() ?? "" : "";
                 return (false, TranslateError(key), 0);
@@ -109,6 +114,41 @@ public sealed class PremiumService
         "bugreporter" => "Bugreporter",
         _ => id
     };
+
+    /// <summary>Ermittelt, wie viele Tage ein Code gutgeschrieben hat.
+    /// Bevorzugt den Server-Wert (<c>days_added</c>), sonst die Differenz des
+    /// Premium-Endes vor/nach dem Einlösen, sonst <c>premium_until</c>.</summary>
+    private static (int days, bool infinite) ExtractGrant(
+        Dictionary<string, JsonElement> parsed, DateTimeOffset? before)
+    {
+        foreach (var key in new[] { "days_added", "bonus_days" })
+        {
+            if (parsed.TryGetValue(key, out var d) && d.ValueKind == JsonValueKind.Number)
+                return (Math.Max(0, d.GetInt32()), false);
+        }
+
+        if (parsed.TryGetValue("premium_until", out var pu) && pu.ValueKind == JsonValueKind.String)
+        {
+            string? raw = pu.GetString();
+            if (raw is not null && raw.Equals("infinity", StringComparison.OrdinalIgnoreCase))
+                return (0, true);
+
+            if (raw is not null &&
+                DateTimeOffset.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var until))
+            {
+                DateTimeOffset basis = before ?? DateTimeOffset.UtcNow;
+                int days = (int)Math.Ceiling((until - basis).TotalDays);
+                return (Math.Max(0, days), false);
+            }
+        }
+
+        // Kein verwertbarer Server-Wert: aus dem aktualisierten Profil ableiten.
+        var after = AppServices.Profile.PremiumUntil;
+        if (after is null) return (0, false);
+        DateTimeOffset start = before ?? DateTimeOffset.UtcNow;
+        int delta = (int)Math.Ceiling((after.Value - start).TotalDays);
+        return (Math.Max(0, delta), false);
+    }
 
     private static Dictionary<string, JsonElement> TryParse(string body)
     {

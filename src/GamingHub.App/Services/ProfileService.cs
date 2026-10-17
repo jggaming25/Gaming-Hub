@@ -72,11 +72,20 @@ public sealed class ProfileService
 
                     IsPremium = false;
                     PremiumUntil = null;
-                    if (list[0].TryGetValue("premium_until", out var pu) && pu.ValueKind == JsonValueKind.String &&
-                        DateTimeOffset.TryParse(pu.GetString(), out var until))
+                    if (list[0].TryGetValue("premium_until", out var pu) && pu.ValueKind == JsonValueKind.String)
                     {
-                        PremiumUntil = until;
-                        IsPremium = until > DateTimeOffset.UtcNow;
+                        string? raw = pu.GetString();
+                        if (raw is not null && raw.Equals("infinity", StringComparison.OrdinalIgnoreCase))
+                        {
+                            // Unendlich gültiges Premium (Code ohne Laufzeit/Gültig-bis).
+                            PremiumUntil = DateTimeOffset.MaxValue;
+                            IsPremium = true;
+                        }
+                        else if (raw is not null && DateTimeOffset.TryParse(raw, out var until))
+                        {
+                            PremiumUntil = until;
+                            IsPremium = until > DateTimeOffset.UtcNow;
+                        }
                     }
 
                     PremiumSince = null;
