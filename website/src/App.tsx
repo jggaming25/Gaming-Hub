@@ -7,7 +7,8 @@ import {
   DOWNLOAD_SETUP_URL,
   DOWNLOAD_PORTABLE_URL,
   RELEASES_PAGE_URL,
-  releaseAssetUrl,
+  fetchReleases,
+  type ReleaseInfo,
   isSupabaseConfigured
 } from "./config";
 
@@ -15,7 +16,6 @@ const FEATURES = [
   { icon: "🎮", title: "Spielbibliothek", text: "Steam, Epic und installierte Programme automatisch erkennen, starten, stoppen und Spielzeiten verfolgen." },
   { icon: "🧹", title: "Disk Cleanup", text: "Doppelte Dateien finden und mit einem Klick aufräumen – sicher über den Papierkorb." },
   { icon: "📊", title: "System-Check", text: "Live CPU-, RAM-, Netzwerk- und Festplatten-Auslastung plus Einschätzung, welche Spiele auf deinem PC laufen." },
-  { icon: "💬", title: "Chat, Voice & Video", text: "Direkt in der App mit Freunden schreiben und reden – inkl. Direktnachrichten, Antworten und Dateiversand." },
   { icon: "🏆", title: "Abzeichen", text: "Sammle Erfolge, z. B. das Early-Bird-Abzeichen für frühe Nutzer 2026." },
   { icon: "🐞", title: "Bugtracker", text: "Probleme direkt melden und den Bearbeitungsstatus im Blick behalten." }
 ];
@@ -144,7 +144,8 @@ function parseHash(): Page {
   const h = window.location.hash.replace(/^#\/?/, "");
   if (h.startsWith("admin")) return "admin";
   if (h.startsWith("bugs") || h.startsWith("bugtracker")) return "bugtracker";
-  if (h.startsWith("changelog") || h.startsWith("versionen")) return "changelog";
+  if (h.startsWith("versionen")) return "versionen";
+  if (h.startsWith("changelog")) return "changelog";
   return "start";
 }
 
@@ -153,6 +154,7 @@ export function App() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [page, setPage] = useState<Page>(parseHash());
   const [downloadsEnabled, setDownloadsEnabled] = useState(true);
+  const [releases, setReleases] = useState<ReleaseInfo[]>([]);
 
   useEffect(() => {
     const onHash = () => setPage(parseHash());
@@ -175,6 +177,10 @@ export function App() {
 
   useEffect(() => {
     void isDownloadsEnabled().then(setDownloadsEnabled);
+  }, []);
+
+  useEffect(() => {
+    void fetchReleases().then(setReleases);
   }, []);
 
   const userEmail = session?.user?.email;
@@ -203,6 +209,9 @@ export function App() {
           </button>
           <button className={"navlink" + (page === "changelog" ? " active" : "")} onClick={() => go("changelog")}>
             Änderungsverlauf
+          </button>
+          <button className={"navlink" + (page === "versionen" ? " active" : "")} onClick={() => go("versionen")}>
+            Frühere Versionen
           </button>
           <button className={"navlink" + (page === "bugtracker" ? " active" : "")} onClick={() => go("bugtracker")}>
             Bugtracker
@@ -235,8 +244,8 @@ export function App() {
             <div className="hero-glow" />
             <h1>Dein Gaming-Dashboard für Windows</h1>
             <p>
-              Spiele verwalten, Speicher aufräumen, System im Blick behalten – und mit Freunden reden.
-              Von Gamern für Gamer. Kostenlos für Windows.
+              Spiele verwalten, Speicher aufräumen, System im Blick behalten – und deine Spiele
+              komfortabel starten. Von Gamern für Gamer. Kostenlos für Windows.
             </p>
             <div className="hero-actions">
               {(downloadsEnabled || isAdmin) && (
@@ -356,42 +365,65 @@ export function App() {
         <section id="versionen" style={{ marginTop: "24px" }}>
           <h2 className="section-title">Frühere Versionen</h2>
           <p className="muted small">
-            Die neueste Version ist für alle kostenlos. Die letzten 5 Versionen stehen zum
-            Download bereit. Ältere Versionen finden Sie auf der
-            <a href={RELEASES_PAGE_URL} target="_blank" rel="noreferrer">GitHub Releases-Seite</a>.
+            Die neueste Version ist für alle kostenlos. Ältere Versionen sind hier und auf der{" "}
+            <a href={RELEASES_PAGE_URL} target="_blank" rel="noreferrer">GitHub Releases-Seite</a>{" "}
+            verfügbar.
           </p>
-          <div className="changelog">
-            {CHANGELOG.slice(0, 6).map((c, i) => (
-              <div className="card changelog-item" key={c.version}>
-                <span className="changelog-check">⬇</span>
-                <div style={{ flex: 1 }}>
-                  <h4>
-                    Version {c.version}{" "}
-                    {i === 0 ? (
-                      <span className="badge-you">aktuell</span>
-                    ) : (
-                      <span className="muted small">· {c.date}</span>
-                    )}
-                  </h4>
-                  <div className="row" style={{ marginTop: 8 }}>
-                    {(downloadsEnabled || isAdmin) && (
-                      <>
-                        <a className="btn tiny" href={releaseAssetUrl(c.version, "setup")}>
-                          Setup (.exe)
-                        </a>
-                        <a className="btn tiny ghost" href={releaseAssetUrl(c.version, "portable")}>
-                          Portable (.zip)
-                        </a>
-                      </>
-                    )}
-                    {(!downloadsEnabled && !isAdmin) && (
-                      <span className="muted small">Downloads deaktiviert</span>
-                    )}
+          {releases.length === 0 ? (
+            <div className="card">
+              <p className="muted small">
+                Die Versionsliste konnte nicht geladen werden. Alle Downloads findest du auf der{" "}
+                <a href={RELEASES_PAGE_URL} target="_blank" rel="noreferrer">Releases-Seite</a>.
+              </p>
+            </div>
+          ) : (
+            <div className="changelog">
+              {releases.map((r, i) => {
+                const isLatest = i === 0;
+                const canDownload = isLatest || downloadsEnabled || isAdmin;
+                return (
+                  <div className="card changelog-item" key={r.version}>
+                    <span className="changelog-check">⬇</span>
+                    <div style={{ flex: 1 }}>
+                      <h4>
+                        Version {r.version}{" "}
+                        {isLatest ? (
+                          <span className="badge-you">aktuell</span>
+                        ) : (
+                          <span className="muted small">
+                            · {new Date(r.publishedAt).toLocaleDateString("de-DE")}
+                          </span>
+                        )}
+                      </h4>
+                      <div className="row" style={{ marginTop: 8 }}>
+                        {canDownload ? (
+                          <>
+                            {r.setupUrl && (
+                              <a className="btn tiny" href={r.setupUrl}>
+                                Setup (.exe)
+                              </a>
+                            )}
+                            {r.portableUrl && (
+                              <a className="btn tiny ghost" href={r.portableUrl}>
+                                Portable (.zip)
+                              </a>
+                            )}
+                            {!r.setupUrl && !r.portableUrl && (
+                              <a className="btn tiny ghost" href={r.htmlUrl} target="_blank" rel="noreferrer">
+                                Auf GitHub ansehen
+                              </a>
+                            )}
+                          </>
+                        ) : (
+                          <span className="muted small">Downloads deaktiviert</span>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-            ))}
-          </div>
+                );
+              })}
+            </div>
+          )}
           <p className="muted small" style={{ marginTop: 12 }}>
             Ältere Releases, Prüfsummen und alle Dateien findest du auch auf der{" "}
             <a href={RELEASES_PAGE_URL} target="_blank" rel="noreferrer">
