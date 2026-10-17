@@ -19,6 +19,7 @@ public sealed class RgbService : IDisposable
     public const int DefaultPort = 6742;
 
     private readonly OpenRgbClient _client = new();
+    private readonly OpenRgbInstaller _installer;
     private readonly ConcurrentDictionary<string, RgbDevice> _devices = new();
     private readonly ObservableCollection<RgbProfile> _profiles = new();
     private readonly string _profilesPath;
@@ -33,12 +34,26 @@ public sealed class RgbService : IDisposable
     public bool IsConnected => _client.IsConnected;
     public int ProtocolVersion => _client.ProtocolVersion;
 
+    /// <summary>Verwaltet die automatische Installation/Aktualisierung von OpenRGB.</summary>
+    public OpenRgbInstaller Installer { get; }
+    public bool IsOpenRgbInstalled => Installer.IsInstalled;
+
     public RgbService(string dataDirectory)
     {
+        _installer = new OpenRgbInstaller(dataDirectory);
+        Installer = _installer;
         _profilesPath = Path.Combine(dataDirectory, "rgb-profiles.json");
         Profiles = new ReadOnlyObservableCollection<RgbProfile>(_profiles);
         LoadProfiles();
     }
+
+    /// <summary>Stellt sicher, dass OpenRGB installiert und aktuell ist (lädt es bei Bedarf herunter).</summary>
+    public Task<bool> EnsureOpenRgbInstalledAsync(IProgress<string>? progress = null)
+        => _installer.EnsureInstalledAsync(progress);
+
+    /// <summary>Aktualisiert OpenRGB im Hintergrund, falls bereits installiert.</summary>
+    public Task UpdateOpenRgbIfNeededAsync(IProgress<string>? progress = null)
+        => _installer.UpdateIfInstalledAsync(progress);
 
     /// <summary>Verbindet zu OpenRGB und lädt die Geräteliste.</summary>
     public async Task<bool> ConnectAsync(string host = DefaultHost, int port = DefaultPort, bool launchIfMissing = true)
@@ -112,10 +127,10 @@ public sealed class RgbService : IDisposable
         }
     }
 
-    /// <summary>Versucht eine lokale OpenRGB-Installation zu starten.</summary>
-    public static bool TryLaunchOpenRgb()
+    /// <summary>Versucht eine lokale oder verwaltete OpenRGB-Installation zu starten.</summary>
+    public bool TryLaunchOpenRgb()
     {
-        foreach (var path in EnumerateOpenRgbPaths())
+        foreach (var path in EnumerateLaunchCandidates())
         {
             try
             {
@@ -135,6 +150,15 @@ public sealed class RgbService : IDisposable
             }
         }
         return false;
+    }
+
+    private IEnumerable<string> EnumerateLaunchCandidates()
+    {
+        if (_installer.ExecutablePath is { } managed)
+            yield return managed;
+
+        foreach (var path in EnumerateOpenRgbPaths())
+            yield return path;
     }
 
     private static IEnumerable<string> EnumerateOpenRgbPaths()

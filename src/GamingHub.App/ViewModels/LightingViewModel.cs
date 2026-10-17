@@ -12,6 +12,9 @@ public partial class LightingViewModel : ViewModelBase
     private static readonly string[] FallbackEffects =
         { "static", "direct", "breathing", "wave", "rainbow", "color_cycle", "strobe", "pulse" };
 
+    private bool _activated;
+    private bool _busy;
+
     public ObservableCollection<RgbDevice> Devices { get; } = new();
     public ObservableCollection<RgbProfile> Profiles { get; } = new();
     public ObservableCollection<string> AvailableEffects { get; } = new();
@@ -21,7 +24,7 @@ public partial class LightingViewModel : ViewModelBase
     [ObservableProperty] private string _selectedEffect = "static";
     [ObservableProperty] private int _effectSpeed = 50;
     [ObservableProperty] private string _newProfileName = "";
-    [ObservableProperty] private string _statusText = "Verbinde mit OpenRGB…";
+    [ObservableProperty] private string _statusText = "OpenRGB wird gesucht…";
     [ObservableProperty] private bool _isConnected;
     [ObservableProperty] private bool _hasDevices;
     [ObservableProperty] private bool _openRgbNotRunning;
@@ -40,7 +43,22 @@ public partial class LightingViewModel : ViewModelBase
         timer.Tick += (_, _) => Refresh();
         timer.Start();
 
-        _ = ConnectAsync();
+        _ = UpdateOpenRgbAsync();
+
+        // OpenRGB automatisch mit der App einrichten (einmal pro Sitzung).
+        Activate();
+    }
+
+    /// <summary>Wird aufgerufen, sobald der Beleuchtungs-Tab geöffnet wird.</summary>
+    public void Activate()
+    {
+        if (_activated)
+        {
+            Refresh();
+            return;
+        }
+        _activated = true;
+        _ = EnsureAndLaunchAsync();
     }
 
     private void OnDevicesChanged() => Dispatcher.UIThread.Post(() =>
@@ -67,6 +85,8 @@ public partial class LightingViewModel : ViewModelBase
 
     private void Refresh()
     {
+        if (_busy) return;
+
         IsConnected = AppServices.Rgb.IsConnected;
         HasDevices = Devices.Count > 0;
         OpenRgbNotRunning = !IsConnected && !RgbService.IsServerRunning();
@@ -75,6 +95,62 @@ public partial class LightingViewModel : ViewModelBase
             StatusText = HasDevices
                 ? $"Verbunden mit OpenRGB · {Devices.Count} Gerät(e)"
                 : "Verbunden mit OpenRGB – es wurden keine RGB-Geräte gefunden.";
+    }
+
+    /// <summary>Prüft im Hintergrund auf eine neuere OpenRGB-Version (nur wenn bereits installiert).</summary>
+    private async Task UpdateOpenRgbAsync()
+    {
+        try
+        {
+            var progress = new Progress<string>(s => { if (!_busy) StatusText = s; });
+            await AppServices.Rgb.UpdateOpenRgbIfNeededAsync(progress);
+            await RefreshConnectionAsync();
+        }
+        catch { }
+    }
+
+    private async Task RefreshConnectionAsync()
+    {
+        var ok = await AppServices.Rgb.ConnectAsync(launchIfMissing: false);
+        IsConnected = ok;
+        HasDevices = Devices.Count > 0;
+        OpenRgbNotRunning = !ok && !RgbService.IsServerRunning();
+
+        if (ok)
+            StatusText = $"Verbunden mit OpenRGB · {Devices.Count} Gerät(e)";
+        else if (!AppServices.Rgb.IsOpenRgbInstalled)
+            StatusText = "OpenRGB ist noch nicht installiert – wird beim Öffnen dieses Tabs automatisch eingerichtet.";
+        else
+            StatusText = "OpenRGB ist installiert, läuft aber nicht.";
+    }
+
+    /// <summary>Installiert OpenRGB bei Bedarf automatisch und startet es.</summary>
+    private async Task EnsureAndLaunchAsync()
+    {
+        if (AppServices.Rgb.IsConnected) { Refresh(); return; }
+
+        _busy = true;
+        try
+        {
+            if (!RgbService.IsServerRunning())
+            {
+                StatusText = "OpenRGB wird vorbereitet…";
+                var progress = new Progress<string>(s => StatusText = s);
+                var installed = await AppServices.Rgb.EnsureOpenRgbInstalledAsync(progress);
+
+                if (!installed)
+                {
+                    StatusText = "OpenRGB konnte nicht automatisch installiert werden. Bitte manuell installieren: openrgb.org";
+                    return;
+                }
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+
+        await StartOpenRgbAsync();
     }
 
     partial void OnSelectedDeviceChanged(RgbDevice? value)
@@ -166,37 +242,58 @@ public partial class LightingViewModel : ViewModelBase
     [RelayCommand]
     private async Task ConnectAsync()
     {
-        StatusText = "Verbinde mit OpenRGB…";
-        var ok = await AppServices.Rgb.ConnectAsync();
-        IsConnected = ok;
-        HasDevices = Devices.Count > 0;
-        OpenRgbNotRunning = !ok && !RgbService.IsServerRunning();
-        StatusText = ok
-            ? $"Verbunden mit OpenRGB · {Devices.Count} Gerät(e)"
-            : "OpenRGB nicht erreichbar. Bitte OpenRGB starten (SDK-Server auf Port 6742).";
+        _busy = true;
+        try
+        {
+            StatusText = "Verbinde mit OpenRGB…";
+            var ok = await AppServices.Rgb.ConnectAsync();
+            IsConnected = ok;
+            HasDevices = Devices.Count > 0;
+            OpenRgbNotRunning = !ok && !RgbService.IsServerRunning();
+            StatusText = ok
+                ? $"Verbunden mit OpenRGB · {Devices.Count} Gerät(e)"
+                : "OpenRGB nicht erreichbar. Bitte OpenRGB starten (SDK-Server auf Port 6742).";
+        }
+        finally
+        {
+            _busy = false;
+        }
     }
 
     [RelayCommand]
     private async Task StartOpenRgbAsync()
     {
-        StatusText = "Starte OpenRGB…";
-        var started = RgbService.TryLaunchOpenRgb();
-        if (!started)
+        _busy = true;
+        try
         {
-            StatusText = "OpenRGB wurde nicht gefunden. Bitte installieren: openrgb.org";
-            return;
-        }
-
-        for (var i = 0; i < 10; i++)
-        {
-            await Task.Delay(1500);
-            if (RgbService.IsServerRunning())
+            StatusText = "Starte OpenRGB…";
+            var started = AppServices.Rgb.TryLaunchOpenRgb();
+            if (!started)
             {
-                await ConnectAsync();
+                // Noch keine Installation vorhanden – automatisch herunterladen.
+                var progress = new Progress<string>(s => StatusText = s);
+                var installed = await AppServices.Rgb.EnsureOpenRgbInstalledAsync(progress);
+                if (installed) started = AppServices.Rgb.TryLaunchOpenRgb();
+            }
+
+            if (!started)
+            {
+                StatusText = "OpenRGB wurde nicht gefunden und konnte nicht installiert werden. Bitte manuell installieren: openrgb.org";
                 return;
             }
+
+            for (var i = 0; i < 12; i++)
+            {
+                await Task.Delay(1500);
+                if (RgbService.IsServerRunning()) break;
+            }
         }
-        StatusText = "OpenRGB läuft, SDK-Server aber noch nicht erreichbar.";
+        finally
+        {
+            _busy = false;
+        }
+
+        await ConnectAsync();
     }
 
     [RelayCommand]

@@ -211,6 +211,9 @@ public partial class MainViewModel : ViewModelBase
 
         if (value?.ViewModel is ResourcesViewModel res)
             res.ReloadGameNames();
+
+        if (value?.ViewModel is LightingViewModel lighting)
+            lighting.Activate();
     }
 
     [RelayCommand]

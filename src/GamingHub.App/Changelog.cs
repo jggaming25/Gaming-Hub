@@ -8,6 +8,12 @@ public static class Changelog
 {
     public static readonly ChangelogEntry[] Entries =
     {
+        new("0.5.15", "Oktober 2026", new[]
+        {
+            "OpenRGB wird jetzt automatisch mit der App installiert – kein manueller Download mehr nötig.",
+            "Gaming Hub prüft beim Start, ob OpenRGB vorhanden und aktuell ist, lädt es bei Bedarf von openrgb.org und hält es mit Updates aktuell.",
+            "Der Beleuchtungs-Tab zeigt den Installations- und Update-Fortschritt."
+        }),
         new("0.5.14", "Oktober 2026", new[]
         {
             "Beleuchtung (RGB) komplett neu: Gaming Hub spricht jetzt direkt mit dem OpenRGB-SDK. Maus, Tastatur, Lüfter, GPU und Mainboard werden zuverlässig erkannt und lassen sich steuern.",

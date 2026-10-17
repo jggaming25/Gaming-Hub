@@ -22,6 +22,15 @@ const FEATURES = [
 
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   {
+    version: "0.5.15",
+    date: "Oktober 2026",
+    items: [
+      "OpenRGB wird jetzt automatisch mit der App installiert und aktuell gehalten – kein manueller Download mehr nötig.",
+      "Beim Start wird geprüft, ob OpenRGB vorhanden und aktuell ist; bei Bedarf wird es von openrgb.org geladen und gestartet.",
+      "Der Beleuchtungs-Tab zeigt Installations- und Update-Fortschritt."
+    ]
+  },
+  {
     version: "0.5.14",
     date: "Oktober 2026",
     items: [

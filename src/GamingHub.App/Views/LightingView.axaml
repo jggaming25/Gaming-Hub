@@ -37,7 +37,7 @@
                         </StackPanel>
                         <TextBlock Text="{Binding StatusText}" FontSize="11" Classes="muted" TextWrapping="Wrap" />
                         <TextBlock IsVisible="{Binding OpenRgbNotRunning}"
-                                   Text="OpenRGB ist nicht installiert oder der SDK-Server ist deaktiviert. Installiere OpenRGB (openrgb.org) und aktiviere dort den SDK-Server auf Port 6742."
+                                   Text="OpenRGB wird bei Bedarf automatisch installiert und gestartet (separates Open-Source-Projekt, GPL-2.0, geladen von openrgb.org). Der SDK-Server läuft auf Port 6742."
                                    FontSize="11" Foreground="#F59E0B" TextWrapping="Wrap" />
                     </StackPanel>
                 </Border>
