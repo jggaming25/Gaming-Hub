@@ -45,7 +45,10 @@ public partial class SplashWindow : Window
             SetStatus("Suche nach Updates…");
             try
             {
-                result = await AppServices.Updater.CheckForUpdatesAsync();
+                // Timeout, damit der Splash bei einer hängenden Netzwerk-/GitHub-
+                // Anfrage nicht unbegrenzt bei „Suche nach Updates…“ stehen bleibt.
+                result = await AppServices.Updater.CheckForUpdatesAsync()
+                    .WaitAsync(TimeSpan.FromSeconds(15));
                 if (result.HasUpdate)
                 {
                     if (settings.AutoInstallUpdates)

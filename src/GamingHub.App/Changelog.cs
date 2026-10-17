@@ -8,6 +8,12 @@ public static class Changelog
 {
     public static readonly ChangelogEntry[] Entries =
     {
+        new("0.5.19", "Oktober 2026", new[]
+        {
+            "Bugfix: Der Start hängt nicht mehr bei „Initialisiere…“ – das Startfenster blieb gelegentlich stehen und das Hauptfenster öffnete sich nicht.",
+            "Ursache war der Splash-Ablauf: Er wurde erst nach dem Anzeigen des Fensters registriert und konnte dadurch übersprungen werden. Er wird jetzt zuverlässig gestartet.",
+            "Zusätzlich hat die Update-Prüfung beim Start ein Zeitlimit, damit der Start nie hängen bleibt."
+        }),
         new("0.5.18", "Oktober 2026", new[]
         {
             "Bugfix: Das Installieren von Updates bricht nicht mehr ab und die App startet nicht mehr endlos mit „Neustart erforderlich“ neu.",

@@ -120,58 +120,83 @@ public partial class App : Application
         if (!splash.IsVisible)
             splash.Show();
 
-        splash.Opened += async (_, _) =>
+        // Die Startsequenz NICHT an das Opened-Event hängen: je nach Timing kann
+        // Opened bereits während Show() feuern – ein danach abonnierter Handler
+        // würde nie aufgerufen und der Splash bliebe ewig bei „Initialisiere…“.
+        // Deshalb direkt starten; das Fenster wird während der awaits gerendert.
+        _ = ShowSplashThenMainAsync(splash, desktop, startHidden);
+    }
+
+    private static async Task ShowSplashThenMainAsync(SplashWindow splash, IClassicDesktopStyleApplicationLifetime desktop, bool startHidden)
+    {
+        try
         {
-            try
+            var update = await RunStartupSafeAsync(splash);
+
+            var main = new MainWindow { DataContext = new MainViewModel() };
+            desktop.MainWindow = main;
+            main.Show();
+            desktop.Exit += (_, _) =>
             {
-                var update = await splash.RunStartupAsync();
+                AppServices.Games.SavePlaytime();
+                AppServices.Shutdown();
+            };
 
-                var main = new MainWindow { DataContext = new MainViewModel() };
-                desktop.MainWindow = main;
-                main.Show();
-                desktop.Exit += (_, _) =>
+            main.Closing += (_, e) =>
+            {
+                // Fenster schließen beendet die App nicht – sie läuft im Hintergrund
+                // (Tray) weiter, damit z. B. die System-Ressourcen-Erfassung aktiv bleibt.
+                if (MainWindow.AllowClose)
                 {
-                    AppServices.Games.SavePlaytime();
-                    AppServices.Shutdown();
-                };
-
-                main.Closing += (_, e) =>
-                {
-                    // Fenster schließen beendet die App nicht – sie läuft im Hintergrund
-                    // (Tray) weiter, damit z. B. die System-Ressourcen-Erfassung aktiv bleibt.
-                    if (MainWindow.AllowClose)
-                    {
-                        e.Cancel = false;
-                    }
-                    else
-                    {
-                        e.Cancel = true;
-                        main.HideToTray();
-                    }
-                };
-
-                splash.Close();
-
-                // Ein im Splash vorbereitetes Update ist bereits installiert – jetzt nur
-                // noch den Neustart erforderlichen aktivieren: Popup im Fenster anzeigen.
-                if (update.HasUpdate && AppServices.Updater.RestartRequired && main.DataContext is MainViewModel mainVm)
-                {
-                    mainVm.RestartPending = true;
-                    Dispatcher.UIThread.Post(() => mainVm.ShowRestartPopup = true);
+                    e.Cancel = false;
                 }
-
-                if (startHidden)
+                else
                 {
+                    e.Cancel = true;
                     main.HideToTray();
                 }
-            }
-            catch (Exception ex)
+            };
+
+            splash.Close();
+
+            // Ein im Splash vorbereitetes Update ist bereits installiert – jetzt nur
+            // noch den Neustart erforderlichen aktivieren: Popup im Fenster anzeigen.
+            if (update.HasUpdate && AppServices.Updater.RestartRequired && main.DataContext is MainViewModel mainVm)
             {
-                CrashLog.Write("splash-to-main", ex);
-                ShowFatal(desktop, ex);
-                splash.Close();
+                mainVm.RestartPending = true;
+                Dispatcher.UIThread.Post(() => mainVm.ShowRestartPopup = true);
             }
-        };
+
+            if (startHidden)
+            {
+                main.HideToTray();
+            }
+        }
+        catch (Exception ex)
+        {
+            CrashLog.Write("splash-to-main", ex);
+            ShowFatal(desktop, ex);
+            splash.Close();
+        }
+    }
+
+    /// <summary>
+    /// Führt die Splash-Startsequenz aus, ohne dass ein hängender Update-Check den
+    /// UI-Thread blockieren kann (läuft im Hintergrund-Thread), und mit Zeitlimit,
+    /// damit das Hauptfenster garantiert geöffnet wird.
+    /// </summary>
+    private static async Task<UpdateCheckResult> RunStartupSafeAsync(SplashWindow splash)
+    {
+        try
+        {
+            return await Task.Run(() => splash.RunStartupAsync())
+                .WaitAsync(TimeSpan.FromSeconds(30));
+        }
+        catch (Exception ex)
+        {
+            LogService.Info($"Startsequenz abgebrochen oder zu langsam – Hauptfenster wird trotzdem geöffnet ({ex.GetType().Name}).");
+            return new UpdateCheckResult(false, null, null, null);
+        }
     }
 
     private static void ShowFatal(IClassicDesktopStyleApplicationLifetime desktop, Exception ex)

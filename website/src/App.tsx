@@ -22,6 +22,15 @@ const FEATURES = [
 
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   {
+    version: "0.5.19",
+    date: "Oktober 2026",
+    items: [
+      "Bugfix: Der Start hängt nicht mehr bei „Initialisiere…“ – das Startfenster blieb gelegentlich stehen und das Hauptfenster öffnete sich nicht.",
+      "Ursache war der Splash-Ablauf: Er wurde erst nach dem Anzeigen des Fensters registriert und konnte dadurch übersprungen werden. Er wird jetzt zuverlässig gestartet.",
+      "Zusätzlich hat die Update-Prüfung beim Start ein Zeitlimit, damit der Start nie hängen bleibt."
+    ]
+  },
+  {
     version: "0.5.18",
     date: "Oktober 2026",
     items: [
