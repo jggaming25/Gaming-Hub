@@ -1,8 +1,7 @@
 using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
-using System.Net.WebSockets;
-using System.Text;
+using System.Net.Sockets;
 using System.Text.Json;
 using GamingHub.Core.Models;
 
@@ -10,15 +9,20 @@ namespace GamingHub.Core.Services;
 
 /// <summary>
 /// RGB-Service zur Steuerung von Maus, Tastatur, Lüftern, GPU, Mainboard etc.
-/// Nutzt OpenRGB (WebSocket API) als primäres Backend, fallback auf WMI/Windows APIs.
+/// Spricht direkt mit dem binären OpenRGB-SDK (TCP, Standardport 6742) und
+/// erkennt darüber alle von OpenRGB unterstützten Geräte. Läuft OpenRGB nicht,
+/// kann es über <see cref="TryLaunchOpenRgb"/> gestartet werden.
 /// </summary>
-public sealed class RgbService
+public sealed class RgbService : IDisposable
 {
-    private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(5) };
-    private ClientWebSocket? _ws;
+    public const string DefaultHost = "127.0.0.1";
+    public const int DefaultPort = 6742;
+
+    private readonly OpenRgbClient _client = new();
     private readonly ConcurrentDictionary<string, RgbDevice> _devices = new();
     private readonly ObservableCollection<RgbProfile> _profiles = new();
     private readonly string _profilesPath;
+    private readonly SemaphoreSlim _connectLock = new(1, 1);
 
     public event Action? DevicesChanged;
     public event Action? ProfilesChanged;
@@ -26,7 +30,8 @@ public sealed class RgbService
     public IReadOnlyDictionary<string, RgbDevice> Devices => _devices;
     public ReadOnlyObservableCollection<RgbProfile> Profiles { get; }
 
-    public bool IsConnected => _ws?.State == WebSocketState.Open;
+    public bool IsConnected => _client.IsConnected;
+    public int ProtocolVersion => _client.ProtocolVersion;
 
     public RgbService(string dataDirectory)
     {
@@ -35,16 +40,71 @@ public sealed class RgbService
         LoadProfiles();
     }
 
-    /// <summary>Startet Verbindung zu OpenRGB (läuft auf localhost:6742).</summary>
-    public async Task<bool> ConnectAsync(string host = "127.0.0.1", int port = 6742)
+    /// <summary>Verbindet zu OpenRGB und lädt die Geräteliste.</summary>
+    public async Task<bool> ConnectAsync(string host = DefaultHost, int port = DefaultPort, bool launchIfMissing = true)
+    {
+        await _connectLock.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            var ok = await Task.Run(() =>
+            {
+                try
+                {
+                    _client.Connect(host, port, "GamingHub");
+                    var controllers = _client.GetControllers();
+                    ApplyControllers(controllers);
+                    return true;
+                }
+                catch
+                {
+                    return false;
+                }
+            }).ConfigureAwait(false);
+
+            if (ok) return true;
+
+            if (launchIfMissing && TryLaunchOpenRgb())
+            {
+                // OpenRGB braucht einen Moment zum Starten und Erkennen der Geräte.
+                for (var attempt = 0; attempt < 8; attempt++)
+                {
+                    await Task.Delay(1500).ConfigureAwait(false);
+                    var retry = await Task.Run(() =>
+                    {
+                        try
+                        {
+                            _client.Connect(host, port, "GamingHub");
+                            var controllers = _client.GetControllers();
+                            ApplyControllers(controllers);
+                            return true;
+                        }
+                        catch { return false; }
+                    }).ConfigureAwait(false);
+                    if (retry) return true;
+                }
+            }
+            return false;
+        }
+        finally
+        {
+            _connectLock.Release();
+        }
+    }
+
+    public void Disconnect()
+    {
+        _client.Disconnect();
+        _devices.Clear();
+        DevicesChanged?.Invoke();
+    }
+
+    /// <summary>Prüft, ob der OpenRGB-SDK-Server erreichbar ist.</summary>
+    public static bool IsServerRunning(string host = DefaultHost, int port = DefaultPort)
     {
         try
         {
-            _ws = new ClientWebSocket();
-            await _ws.ConnectAsync(new Uri($"ws://{host}:{port}"), CancellationToken.None);
-            _ = ReceiveLoopAsync();
-            await RequestDevicesAsync();
-            return true;
+            using var tcp = new TcpClient();
+            return tcp.ConnectAsync(host, port).Wait(800) && tcp.Connected;
         }
         catch
         {
@@ -52,58 +112,204 @@ public sealed class RgbService
         }
     }
 
-    public void Disconnect()
+    /// <summary>Versucht eine lokale OpenRGB-Installation zu starten.</summary>
+    public static bool TryLaunchOpenRgb()
     {
-        _ws?.Dispose();
-        _ws = null;
+        foreach (var path in EnumerateOpenRgbPaths())
+        {
+            try
+            {
+                if (File.Exists(path))
+                {
+                    Process.Start(new ProcessStartInfo(path)
+                    {
+                        UseShellExecute = true,
+                        Arguments = "--startminimized"
+                    });
+                    return true;
+                }
+            }
+            catch
+            {
+                // nächsten Kandidaten versuchen
+            }
+        }
+        return false;
     }
 
-    /// <summary>Farbe für ein Gerät setzen (alle Zonen).</summary>
+    private static IEnumerable<string> EnumerateOpenRgbPaths()
+    {
+        var candidates = new[]
+        {
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "OpenRGB", "OpenRGB.exe"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "OpenRGB", "OpenRGB.exe"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "OpenRGB", "OpenRGB.exe"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "OpenRGB", "OpenRGB.exe"),
+            Path.Combine(AppContext.BaseDirectory, "OpenRGB", "OpenRGB.exe"),
+            Path.Combine(AppContext.BaseDirectory, "OpenRGB.exe")
+        };
+        return candidates;
+    }
+
+    /// <summary>Farbe für ein Gerät setzen (alle LEDs).</summary>
     public async Task<bool> SetColorAsync(string deviceId, RgbColor color)
     {
-        if (_ws?.State != WebSocketState.Open) return false;
+        if (!_client.IsConnected) return false;
+        if (!_devices.TryGetValue(deviceId, out var device)) return false;
 
-        var msg = new
+        var ok = await Task.Run(() =>
         {
-            command = "set_color",
-            device_id = deviceId,
-            color = new { r = color.R, g = color.G, b = color.B }
-        };
-        return await SendAsync(msg);
+            try
+            {
+                _client.SetColor((uint)device.ControllerIndex, device.LedCount, color);
+                return true;
+            }
+            catch { return false; }
+        }).ConfigureAwait(false);
+
+        if (ok)
+        {
+            device.CurrentColor = color;
+            DevicesChanged?.Invoke();
+        }
+        return ok;
     }
 
-    /// <summary>Effekt setzen (Static, Breathing, Wave, Rainbow, etc.).</summary>
+    /// <summary>Effekt (Modus) setzen.</summary>
     public async Task<bool> SetEffectAsync(string deviceId, string effectName, RgbColor? color = null, int speed = 50)
     {
-        if (_ws?.State != WebSocketState.Open) return false;
+        if (!_client.IsConnected) return false;
+        if (!_devices.TryGetValue(deviceId, out var device)) return false;
 
-        var msg = new
+        var ok = await Task.Run(() =>
         {
-            command = "set_mode",
-            device_id = deviceId,
-            mode = effectName,
-            color = color != null ? new { r = color.R, g = color.G, b = color.B } : null,
-            speed
-        };
-        return await SendAsync(msg);
+            try
+            {
+                if (string.Equals(effectName, "static", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(effectName, "direct", StringComparison.OrdinalIgnoreCase))
+                {
+                    _client.SetCustomMode((uint)device.ControllerIndex);
+                    if (color is { } c) _client.SetColor((uint)device.ControllerIndex, device.LedCount, c);
+                    return true;
+                }
+
+                var mode = device.ModeDescriptions
+                    .FirstOrDefault(m => string.Equals(m.Name, effectName, StringComparison.OrdinalIgnoreCase));
+                if (mode == null) return false;
+
+                mode.Speed = (uint)Math.Clamp(speed, 0, 100);
+                if (color is { } chosen)
+                {
+                    if (mode.Colors.Count > 0)
+                        for (var i = 0; i < mode.Colors.Count; i++) mode.Colors[i] = chosen;
+                    else if (mode.ColorsMax >= 1 || mode.ColorsMin >= 1)
+                        mode.Colors.Add(chosen);
+                }
+
+                _client.SetMode((uint)device.ControllerIndex, mode);
+                return true;
+            }
+            catch { return false; }
+        }).ConfigureAwait(false);
+
+        if (ok)
+        {
+            device.CurrentEffect = effectName;
+            if (color is { } cc) device.CurrentColor = cc;
+            DevicesChanged?.Invoke();
+        }
+        return ok;
     }
 
     /// <summary>Zone-spezifische Farbe setzen.</summary>
     public async Task<bool> SetZoneColorAsync(string deviceId, int zoneIndex, RgbColor color)
     {
-        if (_ws?.State != WebSocketState.Open) return false;
+        if (!_client.IsConnected) return false;
+        if (!_devices.TryGetValue(deviceId, out var device)) return false;
 
-        var msg = new
+        var zone = device.Zones.FirstOrDefault(z => z.Index == zoneIndex);
+        if (zone == null) return false;
+
+        return await Task.Run(() =>
         {
-            command = "set_zone_color",
-            device_id = deviceId,
-            zone = zoneIndex,
-            color = new { r = color.R, g = color.G, b = color.B }
-        };
-        return await SendAsync(msg);
+            try
+            {
+                _client.SetZoneColor((uint)device.ControllerIndex, (uint)zoneIndex, zone.LedCount, color);
+                return true;
+            }
+            catch { return false; }
+        }).ConfigureAwait(false);
     }
 
-    /// <summary>Profil speichern.</summary>
+    /// <summary>Direkt auf Custom/Direct-Modus umschalten (für freie Farbwahl).</summary>
+    public async Task<bool> SetCustomModeAsync(string deviceId)
+    {
+        if (!_client.IsConnected) return false;
+        if (!_devices.TryGetValue(deviceId, out var device)) return false;
+        return await Task.Run(() =>
+        {
+            try { _client.SetCustomMode((uint)device.ControllerIndex); return true; }
+            catch { return false; }
+        }).ConfigureAwait(false);
+    }
+
+    // ---------------------------------------------------------------
+    // Geräte-Mapping
+    // ---------------------------------------------------------------
+
+    private void ApplyControllers(List<OpenRgbController> controllers)
+    {
+        _devices.Clear();
+        foreach (var c in controllers)
+        {
+            var device = new RgbDevice
+            {
+                Id = c.Index.ToString(),
+                ControllerIndex = (int)c.Index,
+                Name = string.IsNullOrWhiteSpace(c.Name) ? $"Gerät {c.Index}" : c.Name,
+                Vendor = c.Vendor,
+                Type = MapType(c.Type),
+                LedCount = c.LedCount,
+                ModeDescriptions = c.Modes,
+                Modes = c.Modes.Select(m => m.Name).ToList(),
+                Zones = c.Zones.Select((z, i) => new RgbZone
+                {
+                    Index = i,
+                    Name = string.IsNullOrWhiteSpace(z.Name) ? $"Zone {i + 1}" : z.Name,
+                    LedCount = z.LedCount
+                }).ToList()
+            };
+
+            if (c.ActiveMode >= 0 && c.ActiveMode < c.Modes.Count)
+            {
+                var active = c.Modes[c.ActiveMode];
+                device.CurrentEffect = active.Name;
+                if (active.Colors.Count > 0) device.CurrentColor = active.Colors[0];
+            }
+
+            _devices[device.Id] = device;
+        }
+        DevicesChanged?.Invoke();
+    }
+
+    private static RgbDeviceType MapType(int type) => type switch
+    {
+        0 => RgbDeviceType.Motherboard,
+        1 => RgbDeviceType.Ram,
+        2 => RgbDeviceType.Gpu,
+        3 => RgbDeviceType.Fan,
+        4 => RgbDeviceType.LedStrip,
+        5 => RgbDeviceType.Keyboard,
+        6 => RgbDeviceType.Mouse,
+        7 => RgbDeviceType.Mouse, // Mauspad
+        15 => RgbDeviceType.Fan,  // Gehäuse
+        _ => RgbDeviceType.Other
+    };
+
+    // ---------------------------------------------------------------
+    // Profile
+    // ---------------------------------------------------------------
+
     public void SaveProfile(RgbProfile profile)
     {
         var existing = _profiles.FirstOrDefault(p => p.Id == profile.Id);
@@ -120,7 +326,6 @@ public sealed class RgbService
         ProfilesChanged?.Invoke();
     }
 
-    /// <summary>Profil laden & anwenden.</summary>
     public async Task<bool> ApplyProfileAsync(string profileId)
     {
         var profile = _profiles.FirstOrDefault(p => p.Id == profileId);
@@ -128,13 +333,12 @@ public sealed class RgbService
 
         foreach (var (deviceId, state) in profile.DeviceStates)
         {
-            if (state.Color is { } c) await SetColorAsync(deviceId, c);
-            if (state.Effect is { } e) await SetEffectAsync(deviceId, e, state.Color, state.Speed);
+            if (state.Effect is { } e) await SetEffectAsync(deviceId, e, state.Color ?? state.EffectColor, state.Speed).ConfigureAwait(false);
+            else if (state.Color is { } c) await SetColorAsync(deviceId, c).ConfigureAwait(false);
         }
         return true;
     }
 
-    /// <summary>Profil löschen.</summary>
     public void DeleteProfile(string profileId)
     {
         var p = _profiles.FirstOrDefault(x => x.Id == profileId);
@@ -146,103 +350,13 @@ public sealed class RgbService
         }
     }
 
-    // --- Internals ---
-
-    private async Task RequestDevicesAsync()
-    {
-        await SendAsync(new { command = "get_devices" });
-    }
-
-    private async Task ReceiveLoopAsync()
-    {
-        var buffer = new byte[8192];
-        try
-        {
-            while (_ws?.State == WebSocketState.Open)
-            {
-                var result = await _ws.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
-                if (result.MessageType == WebSocketMessageType.Close) break;
-
-                var json = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                HandleMessage(json);
-            }
-        }
-        catch { }
-    }
-
-    private void HandleMessage(string json)
-    {
-        try
-        {
-            using var doc = JsonDocument.Parse(json);
-            var root = doc.RootElement;
-
-            if (root.TryGetProperty("command", out var cmd) && cmd.GetString() == "devices_list")
-            {
-                if (root.TryGetProperty("devices", out var devices))
-                {
-                    foreach (var dev in devices.EnumerateArray())
-                    {
-                        var device = ParseDevice(dev);
-                        _devices[device.Id] = device;
-                    }
-                    DevicesChanged?.Invoke();
-                }
-            }
-        }
-        catch { }
-    }
-
-    private static RgbDevice ParseDevice(JsonElement dev)
-    {
-        var id = dev.GetProperty("id").GetString() ?? "";
-        var name = dev.GetProperty("name").GetString() ?? "";
-        var type = Enum.TryParse<RgbDeviceType>(dev.GetProperty("type").GetString(), true, out var t) ? t : RgbDeviceType.Other;
-
-        var zones = new List<RgbZone>();
-        if (dev.TryGetProperty("zones", out var zonesEl))
-        {
-            foreach (var z in zonesEl.EnumerateArray())
-            {
-                zones.Add(new RgbZone
-                {
-                    Index = z.GetProperty("index").GetInt32(),
-                    Name = z.GetProperty("name").GetString() ?? "",
-                    LedCount = z.GetProperty("leds_count").GetInt32()
-                });
-            }
-        }
-
-        return new RgbDevice
-        {
-            Id = id,
-            Name = name,
-            Type = type,
-            Zones = zones
-        };
-    }
-
-    private async Task<bool> SendAsync(object msg)
-    {
-        if (_ws?.State != WebSocketState.Open) return false;
-        try
-        {
-            var json = JsonSerializer.Serialize(msg);
-            var bytes = Encoding.UTF8.GetBytes(json);
-            await _ws.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, CancellationToken.None);
-            return true;
-        }
-        catch { return false; }
-    }
-
     private void LoadProfiles()
     {
         try
         {
             if (File.Exists(_profilesPath))
             {
-                var json = File.ReadAllText(_profilesPath);
-                var list = JsonSerializer.Deserialize<List<RgbProfile>>(json) ?? new();
+                var list = JsonSerializer.Deserialize<List<RgbProfile>>(File.ReadAllText(_profilesPath)) ?? new();
                 foreach (var p in list) _profiles.Add(p);
             }
         }
@@ -253,11 +367,13 @@ public sealed class RgbService
     {
         try
         {
-            var json = JsonSerializer.Serialize(_profiles.ToList(), new JsonSerializerOptions { WriteIndented = true });
-            File.WriteAllText(_profilesPath, json);
+            File.WriteAllText(_profilesPath,
+                JsonSerializer.Serialize(_profiles.ToList(), new JsonSerializerOptions { WriteIndented = true }));
         }
         catch { }
     }
+
+    public void Dispose() => _client.Dispose();
 }
 
 public enum RgbDeviceType
@@ -275,12 +391,19 @@ public enum RgbDeviceType
 public sealed class RgbDevice
 {
     public string Id { get; set; } = "";
+    public int ControllerIndex { get; set; }
     public string Name { get; set; } = "";
+    public string Vendor { get; set; } = "";
     public RgbDeviceType Type { get; set; }
+    public int LedCount { get; set; }
     public List<RgbZone> Zones { get; set; } = new();
+    public List<string> Modes { get; set; } = new();
     public RgbColor CurrentColor { get; set; } = new(255, 255, 255);
     public string CurrentEffect { get; set; } = "static";
     public int EffectSpeed { get; set; } = 50;
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    internal List<OpenRgbMode> ModeDescriptions { get; set; } = new();
 }
 
 public sealed class RgbZone

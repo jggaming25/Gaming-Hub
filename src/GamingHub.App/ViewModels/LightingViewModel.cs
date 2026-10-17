@@ -1,21 +1,20 @@
 using System.Collections.ObjectModel;
-using System.ComponentModel;
-using Avalonia.Media;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using GamingHub.App.Services;
-using GamingHub.Core.Models;
 using GamingHub.Core.Services;
 
 namespace GamingHub.App.ViewModels;
 
 public partial class LightingViewModel : ViewModelBase
 {
-    private readonly DispatcherTimer _refreshTimer;
+    private static readonly string[] FallbackEffects =
+        { "static", "direct", "breathing", "wave", "rainbow", "color_cycle", "strobe", "pulse" };
 
     public ObservableCollection<RgbDevice> Devices { get; } = new();
     public ObservableCollection<RgbProfile> Profiles { get; } = new();
+    public ObservableCollection<string> AvailableEffects { get; } = new();
 
     [ObservableProperty] private RgbDevice? _selectedDevice;
     [ObservableProperty] private RgbColor _selectedColor = new(255, 0, 0);
@@ -24,22 +23,24 @@ public partial class LightingViewModel : ViewModelBase
     [ObservableProperty] private string _newProfileName = "";
     [ObservableProperty] private string _statusText = "Verbinde mit OpenRGB…";
     [ObservableProperty] private bool _isConnected;
+    [ObservableProperty] private bool _hasDevices;
+    [ObservableProperty] private bool _openRgbNotRunning;
 
     public bool CanControl => SelectedDevice != null && IsConnected;
-
-    public string[] AvailableEffects { get; } = { "static", "breathing", "wave", "rainbow", "color_cycle", "strobe", "pulse" };
 
     public LightingViewModel()
     {
         AppServices.Rgb.DevicesChanged += OnDevicesChanged;
         AppServices.Rgb.ProfilesChanged += OnProfilesChanged;
 
-        // Timer für Verbindungs-Status & Geräte-Refresh
+        foreach (var e in FallbackEffects) AvailableEffects.Add(e);
+        OnProfilesChanged();
+
         var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
-        timer.Tick += async (_, _) => await RefreshAsync();
+        timer.Tick += (_, _) => Refresh();
         timer.Start();
 
-        _ = RefreshAsync();
+        _ = ConnectAsync();
     }
 
     private void OnDevicesChanged() => Dispatcher.UIThread.Post(() =>
@@ -47,6 +48,14 @@ public partial class LightingViewModel : ViewModelBase
         Devices.Clear();
         foreach (var d in AppServices.Rgb.Devices.Values)
             Devices.Add(d);
+
+        HasDevices = Devices.Count > 0;
+
+        if (SelectedDevice != null)
+        {
+            var match = Devices.FirstOrDefault(d => d.Id == SelectedDevice.Id);
+            SelectedDevice = match ?? Devices.FirstOrDefault();
+        }
     });
 
     private void OnProfilesChanged() => Dispatcher.UIThread.Post(() =>
@@ -56,38 +65,35 @@ public partial class LightingViewModel : ViewModelBase
             Profiles.Add(p);
     });
 
-    private async Task RefreshAsync()
+    private void Refresh()
     {
-        var wasConnected = IsConnected;
-        var nowConnected = AppServices.Rgb.IsConnected;
-        IsConnected = nowConnected;
+        IsConnected = AppServices.Rgb.IsConnected;
+        HasDevices = Devices.Count > 0;
+        OpenRgbNotRunning = !IsConnected && !RgbService.IsServerRunning();
 
-        if (nowConnected && !wasConnected)
-        {
-            StatusText = "Verbunden mit OpenRGB";
-        }
-        else if (!nowConnected && wasConnected)
-        {
-            StatusText = "Verbindung verloren – versuche Neuverbindung…";
-            await AppServices.Rgb.ConnectAsync();
-        }
-
-        if (IsConnected && Devices.Count == 0)
-        {
-            // Geräte neu laden
-            var devices = AppServices.Rgb.Devices.Values.ToList();
-            Devices.Clear();
-            foreach (var d in devices) Devices.Add(d);
-        }
+        if (IsConnected)
+            StatusText = HasDevices
+                ? $"Verbunden mit OpenRGB · {Devices.Count} Gerät(e)"
+                : "Verbunden mit OpenRGB – es wurden keine RGB-Geräte gefunden.";
     }
 
     partial void OnSelectedDeviceChanged(RgbDevice? value)
     {
         OnPropertyChanged(nameof(CanControl));
+        AvailableEffects.Clear();
+
         if (value != null)
         {
+            var effects = value.Modes.Count > 0 ? value.Modes : FallbackEffects.ToList();
+            foreach (var e in effects) AvailableEffects.Add(e);
             SelectedColor = value.CurrentColor;
-            SelectedEffect = value.CurrentEffect;
+            SelectedEffect = AvailableEffects.FirstOrDefault(e =>
+                string.Equals(e, value.CurrentEffect, StringComparison.OrdinalIgnoreCase))
+                ?? AvailableEffects.FirstOrDefault() ?? "static";
+        }
+        else
+        {
+            foreach (var e in FallbackEffects) AvailableEffects.Add(e);
         }
     }
 
@@ -97,12 +103,8 @@ public partial class LightingViewModel : ViewModelBase
         if (SelectedDevice == null) return;
         StatusText = "Setze Farbe…";
         var ok = await AppServices.Rgb.SetColorAsync(SelectedDevice.Id, SelectedColor);
-        StatusText = ok ? "Farbe gesetzt" : "Fehler beim Setzen";
-        if (ok && SelectedDevice != null)
-        {
-            SelectedDevice.CurrentColor = SelectedColor;
-            OnPropertyChanged(nameof(SelectedDevice));
-        }
+        StatusText = ok ? "Farbe gesetzt" : "Fehler beim Setzen der Farbe – ist OpenRGB im Direct-Modus?";
+        if (ok) OnPropertyChanged(nameof(SelectedDevice));
     }
 
     [RelayCommand]
@@ -111,12 +113,8 @@ public partial class LightingViewModel : ViewModelBase
         if (SelectedDevice == null) return;
         StatusText = "Setze Effekt…";
         var ok = await AppServices.Rgb.SetEffectAsync(SelectedDevice.Id, SelectedEffect, SelectedColor, EffectSpeed);
-        StatusText = ok ? "Effekt gesetzt" : "Fehler beim Setzen";
-        if (ok && SelectedDevice != null)
-        {
-            SelectedDevice.CurrentEffect = SelectedEffect;
-            OnPropertyChanged(nameof(SelectedDevice));
-        }
+        StatusText = ok ? "Effekt gesetzt" : "Dieser Effekt wird vom Gerät nicht unterstützt.";
+        if (ok) OnPropertyChanged(nameof(SelectedDevice));
     }
 
     [RelayCommand]
@@ -124,7 +122,7 @@ public partial class LightingViewModel : ViewModelBase
     {
         if (SelectedDevice == null) return;
         var ok = await AppServices.Rgb.SetZoneColorAsync(SelectedDevice.Id, zoneIndex, SelectedColor);
-        StatusText = ok ? $"Zone {zoneIndex} gesetzt" : "Fehler";
+        StatusText = ok ? $"Zone {zoneIndex} gesetzt" : "Fehler beim Setzen der Zone";
     }
 
     [RelayCommand]
@@ -132,12 +130,7 @@ public partial class LightingViewModel : ViewModelBase
     {
         if (string.IsNullOrWhiteSpace(NewProfileName)) return;
 
-        var profile = new RgbProfile
-        {
-            Name = NewProfileName,
-            CreatedAt = DateTime.Now
-        };
-
+        var profile = new RgbProfile { Name = NewProfileName, CreatedAt = DateTime.Now };
         foreach (var dev in AppServices.Rgb.Devices.Values)
         {
             profile.DeviceStates[dev.Id] = new DeviceProfileState
@@ -176,7 +169,34 @@ public partial class LightingViewModel : ViewModelBase
         StatusText = "Verbinde mit OpenRGB…";
         var ok = await AppServices.Rgb.ConnectAsync();
         IsConnected = ok;
-        StatusText = ok ? "Verbunden mit OpenRGB" : "Verbindung fehlgeschlagen – läuft OpenRGB?";
+        HasDevices = Devices.Count > 0;
+        OpenRgbNotRunning = !ok && !RgbService.IsServerRunning();
+        StatusText = ok
+            ? $"Verbunden mit OpenRGB · {Devices.Count} Gerät(e)"
+            : "OpenRGB nicht erreichbar. Bitte OpenRGB starten (SDK-Server auf Port 6742).";
+    }
+
+    [RelayCommand]
+    private async Task StartOpenRgbAsync()
+    {
+        StatusText = "Starte OpenRGB…";
+        var started = RgbService.TryLaunchOpenRgb();
+        if (!started)
+        {
+            StatusText = "OpenRGB wurde nicht gefunden. Bitte installieren: openrgb.org";
+            return;
+        }
+
+        for (var i = 0; i < 10; i++)
+        {
+            await Task.Delay(1500);
+            if (RgbService.IsServerRunning())
+            {
+                await ConnectAsync();
+                return;
+            }
+        }
+        StatusText = "OpenRGB läuft, SDK-Server aber noch nicht erreichbar.";
     }
 
     [RelayCommand]
@@ -184,6 +204,7 @@ public partial class LightingViewModel : ViewModelBase
     {
         AppServices.Rgb.Disconnect();
         IsConnected = false;
+        HasDevices = false;
         StatusText = "Getrennt";
     }
 }

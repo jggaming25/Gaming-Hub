@@ -33,8 +33,12 @@
                             <Button Content="Verbinden" Command="{Binding ConnectCommand}" IsVisible="{Binding !IsConnected}" Classes="accent" />
                             <Button Content="Trennen" Command="{Binding DisconnectCommand}" IsVisible="{Binding IsConnected}" Classes="ghost" />
                             <Button Content="Neu verbinden" Command="{Binding ConnectCommand}" IsVisible="{Binding IsConnected}" />
+                            <Button Content="OpenRGB starten" Command="{Binding StartOpenRgbCommand}" IsVisible="{Binding OpenRgbNotRunning}" />
                         </StackPanel>
                         <TextBlock Text="{Binding StatusText}" FontSize="11" Classes="muted" TextWrapping="Wrap" />
+                        <TextBlock IsVisible="{Binding OpenRgbNotRunning}"
+                                   Text="OpenRGB ist nicht installiert oder der SDK-Server ist deaktiviert. Installiere OpenRGB (openrgb.org) und aktiviere dort den SDK-Server auf Port 6742."
+                                   FontSize="11" Foreground="#F59E0B" TextWrapping="Wrap" />
                     </StackPanel>
                 </Border>
 

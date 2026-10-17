@@ -8,6 +8,13 @@ public static class Changelog
 {
     public static readonly ChangelogEntry[] Entries =
     {
+        new("0.5.14", "Oktober 2026", new[]
+        {
+            "Beleuchtung (RGB) komplett neu: Gaming Hub spricht jetzt direkt mit dem OpenRGB-SDK. Maus, Tastatur, Lüfter, GPU und Mainboard werden zuverlässig erkannt und lassen sich steuern.",
+            "Farbe und Effekt pro Gerät: es werden genau die Modi angezeigt, die das jeweilige Gerät wirklich unterstützt.",
+            "Läuft OpenRGB nicht, kann es direkt aus der App gestartet werden – mit Hinweis zur Einrichtung des SDK-Servers (Port 6742).",
+            "Website: Downloads früherer Versionen sind wieder verfügbar."
+        }),
         new("0.5.13", "Oktober 2026", new[]
         {
             "Spiele lassen sich wieder starten und stoppen: Jede Karte zeigt direkt „Starten“/„Abbrechen“, ein Klick auf das Bild öffnet die Detailansicht.",

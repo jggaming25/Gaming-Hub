@@ -22,6 +22,15 @@ const FEATURES = [
 
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   {
+    version: "0.5.14",
+    date: "Oktober 2026",
+    items: [
+      "Beleuchtung (RGB) komplett neu: Gaming Hub spricht jetzt direkt mit dem OpenRGB-SDK – Maus, Tastatur, Lüfter, GPU und Mainboard werden zuverlässig erkannt.",
+      "Farbe und Effekt pro Gerät mit den tatsächlich unterstützten Modi.",
+      "OpenRGB kann direkt aus der App gestartet werden, inkl. Hinweis zum SDK-Server."
+    ]
+  },
+  {
     version: "0.5.13",
     date: "Oktober 2026",
     items: [
