@@ -122,19 +122,30 @@
                                 <Grid Grid.Column="1" ColumnDefinitions="*,*,*" Margin="12,0" VerticalAlignment="Center">
                                     <StackPanel Grid.Column="0" Spacing="4">
                                         <TextBlock Text="R" FontSize="11" Classes="muted" />
-                                        <TextBox Text="{Binding SelectedColor.R, Mode=TwoWay}" Width="60" />
+                                        <TextBox Text="{Binding ColorR, Mode=TwoWay}" Width="60" />
                                     </StackPanel>
                                     <StackPanel Grid.Column="1" Spacing="4" Margin="8,0">
                                         <TextBlock Text="G" FontSize="11" Classes="muted" />
-                                        <TextBox Text="{Binding SelectedColor.G, Mode=TwoWay}" Width="60" />
+                                        <TextBox Text="{Binding ColorG, Mode=TwoWay}" Width="60" />
                                     </StackPanel>
                                     <StackPanel Grid.Column="2" Spacing="4" Margin="8,0">
                                         <TextBlock Text="B" FontSize="11" Classes="muted" />
-                                        <TextBox Text="{Binding SelectedColor.B, Mode=TwoWay}" Width="60" />
+                                        <TextBox Text="{Binding ColorB, Mode=TwoWay}" Width="60" />
                                     </StackPanel>
                                 </Grid>
-                                <TextBlock Grid.Column="2" Text="{Binding SelectedColor.ToHex}" FontSize="13" FontFamily="Consolas" VerticalAlignment="Center" Margin="12,0,0,0" />
+                                <TextBlock Grid.Column="2" Text="{Binding ColorHex}" FontSize="13" FontFamily="Consolas" VerticalAlignment="Center" Margin="12,0,0,0" />
                             </Grid>
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Button Width="26" Height="26" Padding="0" CornerRadius="13" Background="#FF3B3B" BorderThickness="0" Command="{Binding ApplyPresetCommand}" CommandParameter="#FF3B3B" ToolTip.Tip="Rot" />
+                                <Button Width="26" Height="26" Padding="0" CornerRadius="13" Background="#FF8A00" BorderThickness="0" Command="{Binding ApplyPresetCommand}" CommandParameter="#FF8A00" ToolTip.Tip="Orange" />
+                                <Button Width="26" Height="26" Padding="0" CornerRadius="13" Background="#FFD400" BorderThickness="0" Command="{Binding ApplyPresetCommand}" CommandParameter="#FFD400" ToolTip.Tip="Gelb" />
+                                <Button Width="26" Height="26" Padding="0" CornerRadius="13" Background="#3DFF7A" BorderThickness="0" Command="{Binding ApplyPresetCommand}" CommandParameter="#3DFF7A" ToolTip.Tip="Grün" />
+                                <Button Width="26" Height="26" Padding="0" CornerRadius="13" Background="#00E5FF" BorderThickness="0" Command="{Binding ApplyPresetCommand}" CommandParameter="#00E5FF" ToolTip.Tip="Cyan" />
+                                <Button Width="26" Height="26" Padding="0" CornerRadius="13" Background="#3D7BFF" BorderThickness="0" Command="{Binding ApplyPresetCommand}" CommandParameter="#3D7BFF" ToolTip.Tip="Blau" />
+                                <Button Width="26" Height="26" Padding="0" CornerRadius="13" Background="#A855F7" BorderThickness="0" Command="{Binding ApplyPresetCommand}" CommandParameter="#A855F7" ToolTip.Tip="Violett" />
+                                <Button Width="26" Height="26" Padding="0" CornerRadius="13" Background="#FF3DAE" BorderThickness="0" Command="{Binding ApplyPresetCommand}" CommandParameter="#FF3DAE" ToolTip.Tip="Pink" />
+                                <Button Width="26" Height="26" Padding="0" CornerRadius="13" Background="#FFFFFF" BorderThickness="0" Command="{Binding ApplyPresetCommand}" CommandParameter="#FFFFFF" ToolTip.Tip="Weiß" />
+                            </StackPanel>
                             <Button Content="Farbe anwenden" Command="{Binding ApplyColorCommand}" Classes="accent" HorizontalAlignment="Left" Padding="16,8" />
                         </StackPanel>
 

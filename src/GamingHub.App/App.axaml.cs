@@ -8,11 +8,14 @@ using Avalonia.Threading;
 using GamingHub.App.Services;
 using GamingHub.App.ViewModels;
 using GamingHub.App.Views;
+using System.Threading;
 
 namespace GamingHub.App;
 
 public partial class App : Application
 {
+    private EventWaitHandle? _showWindowSignal;
+
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
@@ -22,6 +25,7 @@ public partial class App : Application
     {
         LogService.Info($"App startet – Version {AppInfo.Version} · {Environment.OSVersion}");
 
+        StartShowWindowListener();
         InstallCrashHandlers();
 
         // Autostart ist standardmäßig aktiv (einmalig beim ersten Start einrichten).
@@ -88,6 +92,42 @@ public partial class App : Application
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    /// <summary>Hebt ein bereits laufendes Fenster in den Vordergrund, wenn die App
+    /// ein zweites Mal gestartet wird (siehe Program.Main).</summary>
+    private void StartShowWindowListener()
+    {
+        try
+        {
+            _showWindowSignal = new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\GamingHub.ShowWindow");
+            var thread = new Thread(() =>
+            {
+                while (_showWindowSignal.WaitOne())
+                {
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop
+                            && desktop.MainWindow is { } window)
+                        {
+                            window.Show();
+                            if (window.WindowState == WindowState.Minimized)
+                                window.WindowState = WindowState.Normal;
+                            window.Activate();
+                        }
+                    });
+                }
+            })
+            {
+                IsBackground = true,
+                Name = "GamingHub-ShowWindow"
+            };
+            thread.Start();
+        }
+        catch (Exception ex)
+        {
+            LogService.Warn("Einzelinstanz-Listener konnte nicht gestartet werden.", ex);
+        }
     }
 
     /// <summary>Richtet den Autostart beim allerersten Start standardmäßig ein

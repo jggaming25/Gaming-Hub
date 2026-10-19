@@ -31,10 +31,13 @@ public partial class GamesViewModel : ViewModelBase
     public ObservableCollection<CategoryFilterOption> CategoryOptions { get; } = new()
     {
         new("Alle Kategorien", null),
-        new("Spiele (nur Games)", GameCategory.Game),
-        new("Zusätzliche Inhalte", GameCategory.GameContent),
+        new("Spiele", GameCategory.Game),
         new("Game-Tools", GameCategory.GameTool),
-        new("Office-Programme", GameCategory.Office),
+        new("Kommunikation", GameCategory.Communication),
+        new("Office", GameCategory.Office),
+        new("Entwicklung", GameCategory.Development),
+        new("Zusätzliche Inhalte", GameCategory.GameContent),
+        new("Browser", GameCategory.Browser),
         new("Kreativ & Streaming", GameCategory.Creator),
         new("Antivirus", GameCategory.Antivirus),
         new("KI-Tools", GameCategory.AiTool),
@@ -73,6 +76,7 @@ public partial class GamesViewModel : ViewModelBase
     }
 
     private bool _refreshingStates;
+    private bool _computingSizes;
 
     private async void RefreshStates()
     {
@@ -134,6 +138,7 @@ public partial class GamesViewModel : ViewModelBase
             StatusText = usedCache
                 ? $"Bibliothek aus dem Cache geladen: {games.Count} Einträge (nur Änderungen werden angewendet)."
                 : $"{games.Count} Einträge gefunden.";
+            _ = ComputeMissingSizesAsync();
             if (games.Any(g => g.Category == GameCategory.Game))
                 AppServices.Badges.Grant("bibliothekar");
         }
@@ -161,6 +166,7 @@ public partial class GamesViewModel : ViewModelBase
                 _all.Add(new GameItemViewModel(g, AppServices.Games, AppServices.Auth));
             ApplyFilter();
             StatusText = $"{games.Count} Einträge gefunden (vollständiger Scan).";
+            _ = ComputeMissingSizesAsync();
             if (games.Any(g => g.Category == GameCategory.Game))
                 AppServices.Badges.Grant("bibliothekar");
         }
@@ -205,6 +211,32 @@ public partial class GamesViewModel : ViewModelBase
 
     [RelayCommand]
     private void RefreshVolumes() => LoadVolumes();
+
+    /// <summary>Berechnet fehlende Ordnergrößen im Hintergrund, damit Karten
+    /// direkt Größe und Pfad anzeigen können.</summary>
+    private async Task ComputeMissingSizesAsync()
+    {
+        if (_computingSizes) return;
+        _computingSizes = true;
+        try
+        {
+            foreach (var g in _all.Where(x => x.SizeBytes == 0 && !string.IsNullOrWhiteSpace(x.Model.InstallPath)).ToList())
+            {
+                try
+                {
+                    g.SizeBytes = await Task.Run(() => AppServices.DiskUsage.GetDirectorySize(g.Model.InstallPath!));
+                }
+                catch
+                {
+                    // Einzelne Ordner dürfen den Rest nicht blockieren.
+                }
+            }
+        }
+        finally
+        {
+            _computingSizes = false;
+        }
+    }
 
     private void ApplyFilter()
     {

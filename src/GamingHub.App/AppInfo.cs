@@ -7,6 +7,7 @@ public static class AppInfo
     public const string Tagline = "Von Gamern für Gamer";
     public const string RepositoryUrl = "https://github.com/jggaming25/Gaming-Hub";
     public const string ReleasesUrl = "https://github.com/jggaming25/Gaming-Hub/releases";
+    public const string LicenseUrl = "https://github.com/jggaming25/Gaming-Hub/blob/main/LICENSE";
     public const string WebsiteUrl = "https://jggaming25.github.io/Gaming-Hub/";
 
     public static string Version =>

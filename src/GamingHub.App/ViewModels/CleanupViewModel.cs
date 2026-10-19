@@ -167,6 +167,37 @@ public partial class CleanupViewModel : ViewModelBase
     [RelayCommand]
     private void Cancel() => _cts?.Cancel();
 
+    /// <summary>Erzeugt einen lesbaren Text-Bericht über die aktuell gefundenen
+    /// Duplikate (inkl. Markierung, Größe und Löschmodus).</summary>
+    public string BuildReport()
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("Gaming Hub – Disk-Cleanup-Bericht");
+        sb.AppendLine($"Erstellt: {DateTime.Now:dd.MM.yyyy HH:mm:ss}");
+        sb.AppendLine($"Löschmodus: {(UseRecycleBin ? "Papierkorb (wiederherstellbar)" : "Endgültig löschen (nicht wiederherstellbar)")}");
+        sb.AppendLine($"Suchordner: {(ScanPaths.Count == 0 ? "–" : string.Join("; ", ScanPaths))}");
+        sb.AppendLine($"Gruppen: {GroupsCount} · Freigebbar: {WastedDisplay}");
+        sb.AppendLine();
+
+        int index = 1;
+        foreach (var g in Groups)
+        {
+            sb.AppendLine($"[{index++}] {g.Header}");
+            sb.AppendLine($"    Freigebbar: {g.WastedDisplay}");
+            foreach (var f in g.Files)
+            {
+                string mark = f.IsSelected ? "[LÖSCHEN]" : "[BEHALTEN]";
+                sb.AppendLine($"    {mark} {f.SizeDisplay,10}  {f.Path}");
+            }
+            sb.AppendLine();
+        }
+
+        if (Groups.Count == 0)
+            sb.AppendLine("Keine doppelten Dateien gefunden.");
+
+        return sb.ToString();
+    }
+
     [RelayCommand]
     private async Task ScanAsync()
     {

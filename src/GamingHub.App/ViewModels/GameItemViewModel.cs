@@ -60,8 +60,18 @@ public partial class GameItemViewModel : ViewModelBase
     private Avalonia.Media.Imaging.Bitmap? _thumbnail;
 
     public string Name => Model.Name;
-    public string SourceName => Model.Source.ToString();
+    public string SourceName => Model.Source switch
+    {
+        GameSource.Steam => "Steam",
+        GameSource.Epic => "Epic Games",
+        GameSource.Registry => "Installiert",
+        GameSource.Manual => "Manuell",
+        _ => Model.Source.ToString()
+    };
     public string InstallPath => Model.InstallPath ?? "—";
+    public string PathDisplay => !string.IsNullOrWhiteSpace(Model.ExecutablePath)
+        ? Model.ExecutablePath!
+        : Model.InstallPath ?? "—";
     public string SizeDisplay => SizeBytes > 0 ? Format.Bytes(SizeBytes) : "—";
     public string PlaytimeDisplay => Format.Playtime(Playtime);
     public string LastPlayedDisplay => Format.Date(Model.LastPlayedUtc);

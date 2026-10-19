@@ -260,6 +260,9 @@ public sealed class RgbService : IDisposable
         {
             try
             {
+                // SetColor wirkt nur im Direct-/Custom-Modus – sonst bleibt die
+                // bisherige Effektfarbe aktiv und der Knopf scheinbar wirkungslos.
+                _client.SetCustomMode((uint)device.ControllerIndex);
                 _client.SetColor((uint)device.ControllerIndex, device.LedCount, color);
                 return true;
             }
@@ -269,6 +272,7 @@ public sealed class RgbService : IDisposable
         if (ok)
         {
             device.CurrentColor = color;
+            device.CurrentEffect = "direct";
             DevicesChanged?.Invoke();
         }
         return ok;
@@ -333,6 +337,7 @@ public sealed class RgbService : IDisposable
         {
             try
             {
+                _client.SetCustomMode((uint)device.ControllerIndex);
                 _client.SetZoneColor((uint)device.ControllerIndex, (uint)zoneIndex, zone.LedCount, color);
                 return true;
             }

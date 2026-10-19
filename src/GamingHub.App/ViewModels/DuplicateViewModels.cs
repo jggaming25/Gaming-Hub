@@ -42,7 +42,9 @@ public partial class DuplicateGroupViewModel : ViewModelBase
     public long FileSize => _group.FileSize;
     public string SizeDisplay => Format.Bytes(_group.FileSize);
     public string WastedDisplay => Format.Bytes(_group.WastedBytes);
-    public string Header => $"{Files.Count}× · {Files[0].FileName} · {SizeDisplay} je Datei";
+    public string Header => Files.Count == 0
+        ? "Leere Gruppe"
+        : $"{Files.Count}× · {Files[0].FileName} · {SizeDisplay} je Datei";
     public string ReclaimText => $"Freigebbar: {WastedDisplay}";
 
     public IEnumerable<string> SelectedPaths => Files.Where(f => f.IsSelected).Select(f => f.Path);

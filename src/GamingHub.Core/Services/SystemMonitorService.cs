@@ -143,7 +143,9 @@ public sealed class SystemMonitorService
             double max = -1;
             foreach (var obj in searcher.Get())
             {
-                double v = Math.Max(0, Convert.ToDouble(obj["UtilizationPercentage"] ?? 0.0));
+                double v = Convert.ToDouble(obj["UtilizationPercentage"] ?? 0.0);
+                if (!double.IsFinite(v)) continue;
+                v = Math.Max(0, v);
                 if (v > max) max = v;
             }
             if (max < 0)
@@ -153,7 +155,9 @@ public sealed class SystemMonitorService
                     "SELECT UtilizationPercentage FROM Win32_PerfFormattedData_GPUPerformanceCounters_GPUEngine");
                 foreach (var obj in any.Get())
                 {
-                    double v = Math.Max(0, Convert.ToDouble(obj["UtilizationPercentage"] ?? 0.0));
+                    double v = Convert.ToDouble(obj["UtilizationPercentage"] ?? 0.0);
+                    if (!double.IsFinite(v)) continue;
+                    v = Math.Max(0, v);
                     if (v > max) max = v;
                 }
             }
@@ -286,7 +290,6 @@ public sealed class SystemMonitorService
         _lastProcessSamples = samples
             .OrderByDescending(x => x.CpuPercent)
             .ThenByDescending(x => x.WorkingSetBytes)
-            .Take(12)
             .ToList();
         return _lastProcessSamples;
     }

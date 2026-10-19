@@ -1,0 +1,111 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:GamingHub.App.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="940" d:DesignHeight="700"
+             x:Class="GamingHub.App.Views.AdminStatsView"
+             x:DataType="vm:AdminStatsViewModel">
+
+    <ScrollViewer Margin="12">
+        <StackPanel Spacing="14" MaxWidth="980" HorizontalAlignment="Stretch">
+            <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,2">
+                <StackPanel Grid.Column="0" Spacing="2">
+                    <TextBlock Text="Admin-Statistik" Classes="h1" />
+                    <TextBlock Text="{Binding StatusText}" Classes="muted" FontSize="12" />
+                </StackPanel>
+                <Button Grid.Column="1" Content="Aktualisieren" Command="{Binding LoadCommand}"
+                        Classes="accent" VerticalAlignment="Center" />
+            </Grid>
+
+            <ProgressBar IsIndeterminate="True" Height="4" IsVisible="{Binding IsLoading}" />
+
+            <!-- Kennzahlen -->
+            <Grid ColumnDefinitions="*,*,*" ColumnSpacing="12">
+                <Border Grid.Column="0" Classes="card">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Downloads gesamt" FontSize="12" Classes="muted" />
+                        <TextBlock Text="{Binding TotalDownloadsDisplay}" FontSize="30" FontWeight="Bold"
+                                   Foreground="{DynamicResource AccentGradient}" />
+                        <TextBlock Text="Alle Versionen zusammen" FontSize="11" Classes="muted" />
+                        <TextBlock Text="{Binding DownloadsError}" FontSize="11" Foreground="#F87171"
+                                   TextWrapping="Wrap" IsVisible="{Binding HasDownloadsError}" />
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="1" Classes="card">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Registrierte Nutzer" FontSize="12" Classes="muted" />
+                        <TextBlock Text="{Binding RegisteredUsersDisplay}" FontSize="30" FontWeight="Bold"
+                                   Foreground="#38BDF8" />
+                        <TextBlock Text="Profile in Supabase" FontSize="11" Classes="muted" />
+                        <TextBlock Text="{Binding UsersError}" FontSize="11" Foreground="#F87171"
+                                   TextWrapping="Wrap" IsVisible="{Binding HasUsersError}" />
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="2" Classes="card">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Laufzeit der App" FontSize="12" Classes="muted" />
+                        <TextBlock Text="{Binding AppAgeDisplay}" FontSize="24" FontWeight="Bold"
+                                   FontFamily="Consolas,Menlo,monospace" Foreground="#4ADE80" />
+                        <TextBlock Text="Jahre:Monate:Wochen:Tage:Std:Min:Sek" FontSize="10" Classes="muted" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- Existenz & Laufzeit -->
+            <Border Classes="card">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Seit wann existiert Gaming Hub?" FontWeight="SemiBold" FontSize="16" />
+                    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="14" RowSpacing="6">
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Erstellt am" FontSize="12" Classes="muted" />
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding AppCreatedDisplay}"
+                                   FontSize="12" FontWeight="SemiBold" />
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Laufzeit" FontSize="12" Classes="muted" />
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding AppAgeLongDisplay}"
+                                   FontSize="12" TextWrapping="Wrap" />
+                    </Grid>
+                    <TextBlock Text="Die Laufzeit zählt ab dem Erstellungsdatum des Projekts und wird jede Sekunde aktualisiert."
+                               FontSize="11" Classes="muted" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+
+            <!-- Downloads pro Version -->
+            <Border Classes="card">
+                <StackPanel Spacing="10">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Grid.Column="0" Spacing="2">
+                            <TextBlock Text="Downloads pro Version" FontWeight="SemiBold" FontSize="16" />
+                            <TextBlock Text="{Binding VersionsSummary}" FontSize="11" Classes="muted" />
+                        </StackPanel>
+                        <TextBlock Grid.Column="1" Text="unabhängig von der Version" FontSize="11"
+                                   Classes="muted" VerticalAlignment="Center" />
+                    </Grid>
+
+                    <ItemsControl ItemsSource="{Binding Versions}" IsVisible="{Binding HasVersions}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:VersionDownloadRow">
+                                <Grid ColumnDefinitions="90,90,*,Auto" Margin="0,5" VerticalAlignment="Center">
+                                    <TextBlock Grid.Column="0" Text="{Binding Version}" FontSize="12"
+                                               FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="{Binding DateDisplay}" FontSize="11"
+                                               Classes="muted" VerticalAlignment="Center" />
+                                    <ProgressBar Grid.Column="2" Minimum="0" Maximum="100"
+                                                 Value="{Binding SharePercent}" Height="6"
+                                                 VerticalAlignment="Center" Margin="10,0" />
+                                    <TextBlock Grid.Column="3" Text="{Binding DownloadsDisplay}" FontSize="12"
+                                               FontWeight="SemiBold" HorizontalAlignment="Right"
+                                               VerticalAlignment="Center" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <TextBlock Text="Keine Download-Daten verfügbar." FontSize="12" Classes="muted"
+                               IsVisible="{Binding !HasVersions}" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

@@ -118,10 +118,12 @@ alter table public.badges       enable row level security;
 alter table public.bugs         enable row level security;
 alter table public.bug_comments enable row level security;
 
--- profiles: jeder Angemeldete darf lesen (für Namen/Avatare), nur eigenes Profil ändern
+-- profiles: eigenes Profil lesen; Admins dürfen alle Profile sehen
+-- (z. B. für die Admin-Nutzerverwaltung im Web). Normale Nutzer können die
+-- E-Mail-Adressen anderer Nutzer damit nicht mehr auslesen.
 drop policy if exists "profiles_select" on public.profiles;
 create policy "profiles_select" on public.profiles
-    for select using (true);
+    for select using (auth.uid() = id or public.is_admin());
 
 drop policy if exists "profiles_update_own" on public.profiles;
 create policy "profiles_update_own" on public.profiles
@@ -142,14 +144,13 @@ create policy "bugs_insert" on public.bugs
         end
     );
 
--- badges: für alle lesbar, eigene Abzeichen eintragen
+-- badges: für alle lesbar. Abzeichen werden ausschließlich serverseitig
+-- (security definer) vergeben – Nutzer dürfen keine eigenen Abzeichen eintragen.
 drop policy if exists "badges_select" on public.badges;
 create policy "badges_select" on public.badges
     for select using (true);
 
 drop policy if exists "badges_insert_own" on public.badges;
-create policy "badges_insert_own" on public.badges
-    for insert with check (auth.uid() = user_id);
 
 -- bugs: eigene + (Admin: alle) lesen; Insert-Regel siehe oben (Gesperrte dürfen nicht melden)
 drop policy if exists "bugs_select" on public.bugs;
@@ -621,6 +622,14 @@ begin
     if v_uid is null then
         return jsonb_build_object('ok', false, 'error', 'login_required');
     end if;
+
+    -- Nur die vier echten Aktivitäts-Meilensteine sind erlaubt. Ohne diese
+    -- Prüfung könnten beliebige (erfundene) Meilensteine eingereicht und so
+    -- unbegrenzt Premium-Tage erschlichen werden.
+    if p_milestone not in ('bibliothekar', 'systemprofi', 'aufraeumer', 'bugreporter') then
+        return jsonb_build_object('ok', false, 'error', 'invalid_milestone');
+    end if;
+
     if not public.premium_allowed(v_uid) then
         return jsonb_build_object('ok', false, 'error', 'premium_banned');
     end if;
@@ -689,4 +698,36 @@ begin
 end;
 $$;
 
+grant execute on function public.fetch_premium_codes() to authenticated;
+
+-- ============================================================
+-- Admin-Statistik (nur aggregiert, keine personenbezogenen Daten)
+-- ============================================================
+create or replace function public.admin_user_count()
+returns bigint
+language plpgsql
+stable
+security definer set search_path = public
+as $$
+begin
+    if auth.uid() is null or not public.is_admin() then
+        raise exception 'admin_required' using errcode = '42501';
+    end if;
+    return (select count(*) from public.profiles);
+end;
+$$;
+
+revoke all on function public.admin_user_count() from public, anon;
+grant execute on function public.admin_user_count() to authenticated;
+
+-- ============================================================
+-- Härtung: interne Hilfsfunktionen nicht direkt für Clients aufrufbar
+-- ============================================================
+revoke all on function public.ensure_premium_and_badge(uuid) from public, anon, authenticated;
+revoke all on function public.premium_allowed(uuid) from public, anon, authenticated;
+revoke all on function public.redeem_premium_code(text) from public, anon;
+revoke all on function public.claim_activity_premium(text) from public, anon;
+revoke all on function public.fetch_premium_codes() from public, anon;
+grant execute on function public.redeem_premium_code(text) to authenticated;
+grant execute on function public.claim_activity_premium(text) to authenticated;
 grant execute on function public.fetch_premium_codes() to authenticated;

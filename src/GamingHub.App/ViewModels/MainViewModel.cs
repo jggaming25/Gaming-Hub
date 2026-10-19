@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using GamingHub.App.Services;
@@ -10,6 +11,7 @@ public sealed class NavItem
     public string Title { get; init; } = string.Empty;
     public string Glyph { get; init; } = string.Empty;
     public string? FlagKey { get; init; }
+    public bool AdminOnly { get; init; }
     public ViewModelBase ViewModel { get; init; } = null!;
 }
 
@@ -17,6 +19,15 @@ public partial class MainViewModel : ViewModelBase
 {
     private readonly List<NavItem> _allNav = new();
     private NavItem? _lastSelected;
+
+    private readonly Dictionary<string, bool> _flags = new()
+    {
+        { "games_enabled", true },
+        { "cleanup_enabled", true },
+        { "bugreport_enabled", true },
+        { "internet_checker_enabled", true },
+        { "lighting_enabled", true }
+    };
 
     public ObservableCollection<NavItem> NavItems { get; } = new();
 
@@ -140,23 +151,27 @@ public partial class MainViewModel : ViewModelBase
         var internetChecker = new InternetCheckerViewModel();
         InternetCheckerViewModel = internetChecker;
         var lighting = new LightingViewModel();
+        var adminStats = new AdminStatsViewModel();
 
         _allNav.Add(new NavItem { Title = "Spiele", Glyph = "\uE7FC", FlagKey = "games_enabled", ViewModel = games });
         _allNav.Add(new NavItem { Title = "Disk Cleanup", Glyph = "\uE74D", FlagKey = "cleanup_enabled", ViewModel = cleanup });
         _allNav.Add(new NavItem { Title = "System-Ressourcen", Glyph = "\uE9D9", ViewModel = resources });
-        _allNav.Add(new NavItem { Title = "Bugreport", Glyph = "\uE7BA", FlagKey = "bugreport_enabled", ViewModel = bug });
         _allNav.Add(new NavItem { Title = "Internet-Checker", Glyph = "\uE727", FlagKey = "internet_checker_enabled", ViewModel = internetChecker });
         _allNav.Add(new NavItem { Title = "Beleuchtung", Glyph = "\uE7F4", FlagKey = "lighting_enabled", ViewModel = lighting });
         _allNav.Add(new NavItem { Title = "Profil", Glyph = "\uE77B", ViewModel = profile });
+        _allNav.Add(new NavItem { Title = "Bugreport", Glyph = "\uE7BA", FlagKey = "bugreport_enabled", ViewModel = bug });
         _allNav.Add(new NavItem { Title = "Einstellungen", Glyph = "\uE713", ViewModel = settings });
+        _allNav.Add(new NavItem { Title = "Statistik", Glyph = "\uE9D2", AdminOnly = true, ViewModel = adminStats });
 
-        RebuildNav(new Dictionary<string, bool>());
+        RebuildNav(_flags);
         SelectedNav = NavItems.FirstOrDefault();
 
         AppServices.Notifications.Activated += _ =>
         {
             // No chat tab anymore
         };
+
+        AppServices.Profile.Changed += () => Dispatcher.UIThread.Post(() => RebuildNav(_flags));
 
         _ = LoadFlagsAsync();
     }
@@ -166,15 +181,7 @@ public partial class MainViewModel : ViewModelBase
         try
         {
             // For now, use default flags (all enabled)
-            var flags = new Dictionary<string, bool>
-            {
-                { "games_enabled", true },
-                { "cleanup_enabled", true },
-                { "bugreport_enabled", true },
-                { "internet_checker_enabled", true },
-                { "lighting_enabled", true }
-            };
-            RebuildNav(flags);
+            RebuildNav(_flags);
         }
         catch
         {
@@ -191,6 +198,9 @@ public partial class MainViewModel : ViewModelBase
         NavItems.Clear();
         foreach (var item in _allNav)
         {
+            if (item.AdminOnly && !isAdmin)
+                continue;
+
             bool enabled = item.FlagKey is null
                            || isAdmin
                            || (item.FlagKey == "internet_checker_enabled" && isPremium)
@@ -214,6 +224,9 @@ public partial class MainViewModel : ViewModelBase
 
         if (value?.ViewModel is LightingViewModel lighting)
             lighting.Activate();
+
+        if (value?.ViewModel is AdminStatsViewModel stats)
+            stats.EnsureLoaded();
     }
 
     [RelayCommand]

@@ -9,16 +9,24 @@
              x:DataType="vm:GamesViewModel">
 
     <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" Margin="12">
-        <!-- Header / toolbar -->
+        <!-- Kopfzeile mit Suche, Laufwerken und Aktionen -->
         <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
-            <StackPanel Grid.Column="0" Spacing="2">
+            <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center">
                 <TextBlock Text="Spielebibliothek" Classes="h1" />
-                <TextBlock Text="{Binding StatusText}" Classes="muted" FontSize="12" />
+                <TextBlock Text="{Binding StatusText}" Classes="muted" FontSize="12"
+                           TextTrimming="CharacterEllipsis" MaxWidth="460" />
             </StackPanel>
-            <WrapPanel Grid.Column="1" VerticalAlignment="Center" MaxWidth="680">
-                <TextBox Width="130" Margin="0,0,8,0" PlaceholderText="Suchen..." Text="{Binding SearchText, Mode=TwoWay}" />
-                <ComboBox Width="150" Margin="0,0,8,0" ItemsSource="{Binding DriveOptions}"
+
+            <WrapPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Right">
+                <TextBox Width="150" Margin="0,0,8,0" PlaceholderText="Suchen…"
+                         Text="{Binding SearchText, Mode=TwoWay}" />
+                <ComboBox Width="160" Margin="0,0,8,0" ItemsSource="{Binding DriveOptions}"
                           SelectedItem="{Binding SelectedDrive, Mode=TwoWay}" />
+                <Button Content="Bibliothek scannen" Command="{Binding ScanCommand}"
+                        Classes="accent" Margin="0,0,6,0" />
+                <Button Content="Vollständig scannen" Command="{Binding FullRescanCommand}"
+                        Margin="0,0,6,0" />
+                <Button Content="Scan löschen" Command="{Binding ClearScanCommand}" />
             </WrapPanel>
         </Grid>
 
@@ -40,8 +48,8 @@
             </ListBox>
         </Border>
 
-        <!-- Drives -->
-        <ItemsControl Grid.Row="2" ItemsSource="{Binding Volumes}" Margin="0,0,0,12">
+        <!-- Laufwerke (kompakt) -->
+        <ItemsControl Grid.Row="2" ItemsSource="{Binding Volumes}" Margin="0,0,0,10">
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
                     <WrapPanel />
@@ -49,30 +57,22 @@
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="vm:DriveItemViewModel">
-                    <Border Classes="card" Width="240" Margin="0,0,12,12">
-                        <StackPanel Spacing="6">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <TextBlock Text="{Binding Root}" FontWeight="SemiBold" />
-                                <TextBlock Text="{Binding Label}" Classes="muted" FontSize="12" />
-                            </StackPanel>
-                            <ProgressBar Minimum="0" Maximum="100" Value="{Binding UsedPercent}" Height="8" />
-                            <StackPanel Orientation="Horizontal" Spacing="2">
-                                <TextBlock FontSize="12" Classes="muted" Text="Frei: " VerticalAlignment="Center" />
-                                <TextBlock FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center">
-                                    <TextBlock.Text>
-                                        <MultiBinding StringFormat="{}{0} {1}">
-                                            <Binding Path="FreeValue" />
-                                            <Binding Path="UnitLabel" />
-                                        </MultiBinding>
-                                    </TextBlock.Text>
-                                </TextBlock>
-                            </StackPanel>
-                            <TextBlock FontSize="11" Classes="muted">
+                    <Border Classes="card" Width="230" Margin="0,0,10,10" Padding="12">
+                        <StackPanel Spacing="5">
+                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                <TextBlock Grid.Column="0" Text="{Binding Root}" FontWeight="SemiBold" FontSize="12" />
+                                <TextBlock Grid.Column="1" Text="{Binding Label}" Classes="muted" FontSize="11"
+                                           Margin="6,0,0,0" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="2" Text="{Binding UsedPercent, StringFormat={}{0:0}%}"
+                                           FontSize="11" Classes="muted" VerticalAlignment="Center" />
+                            </Grid>
+                            <ProgressBar Minimum="0" Maximum="100" Value="{Binding UsedPercent}" Height="6" />
+                            <TextBlock FontSize="10" Classes="muted">
                                 <TextBlock.Text>
-                                    <MultiBinding StringFormat="{}{0} {2} gesamt · {1} {2} benutzt">
-                                        <Binding Path="TotalValue" />
-                                        <Binding Path="UsedValue" />
+                                    <MultiBinding StringFormat="{}{0} {1} frei von {2} {1}">
+                                        <Binding Path="FreeValue" />
                                         <Binding Path="UnitLabel" />
+                                        <Binding Path="TotalValue" />
                                     </MultiBinding>
                                 </TextBlock.Text>
                             </TextBlock>
@@ -82,88 +82,101 @@
             </ItemsControl.ItemTemplate>
         </ItemsControl>
 
-        <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="10" Margin="0,0,0,8">
-            <ProgressBar IsIndeterminate="True" Width="120" Height="6" IsVisible="{Binding IsLoading}" />
+        <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="10" Margin="0,0,0,4">
+            <ProgressBar IsIndeterminate="True" Width="140" Height="5" IsVisible="{Binding IsLoading}" />
         </StackPanel>
 
-        <!-- Games list - Modern Card Grid -->
+        <!-- Karten-Grid -->
         <ScrollViewer Grid.Row="4">
             <ItemsControl ItemsSource="{Binding Games}">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
-                        <WrapPanel Orientation="Horizontal" ItemWidth="320" />
+                        <WrapPanel Orientation="Horizontal" ItemWidth="336" />
                     </ItemsPanelTemplate>
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="vm:GameItemViewModel">
-                        <Border Classes="game-card" Margin="8" Width="300">
+                        <Border Classes="game-card" Margin="8" Width="320">
                             <Grid>
-                                <!-- Collapsed View - Logo/Thumbnail Card -->
-                                <Border Classes="game-card-collapsed" Background="#1A1D2E" CornerRadius="12" ClipToBounds="True"
+                                <!-- Kompakte Karte -->
+                                <Border Classes="game-card-collapsed" CornerRadius="12" ClipToBounds="True"
                                         IsVisible="{Binding !IsExpanded}">
-                                    <Grid RowDefinitions="Auto,Auto,Auto" Margin="12" RowSpacing="8">
-                                        <!-- Clickable area: opens the detail view -->
+                                    <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto" Margin="12" RowSpacing="8">
                                         <Button Grid.Row="0" Command="{Binding ToggleExpandedCommand}"
                                                 Padding="0" Background="Transparent" BorderThickness="0"
                                                 HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                                                 Cursor="Hand" ToolTip.Tip="Details anzeigen">
-                                            <Grid Height="160">
-                                                <Border Height="160" CornerRadius="8" ClipToBounds="True"
+                                            <Grid Height="150">
+                                                <Border Height="150" CornerRadius="8" ClipToBounds="True"
                                                         Background="#0F1122"
                                                         IsVisible="{Binding HasThumbnail}">
                                                     <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" />
                                                 </Border>
-                                                <Border Height="160" CornerRadius="8" ClipToBounds="True"
+                                                <Border Height="150" CornerRadius="8" ClipToBounds="True"
                                                         Background="#0F1122"
                                                         IsVisible="{Binding !HasThumbnail}">
                                                     <TextBlock Text="{Binding Name, Converter={x:Static vm:CommonConverters.FirstChar}}"
-                                                               FontSize="48" FontWeight="Bold" Foreground="#3A3F5E"
+                                                               FontSize="44" FontWeight="Bold" Foreground="#3A3F5E"
                                                                HorizontalAlignment="Center" VerticalAlignment="Center" />
                                                 </Border>
 
-                                                <!-- Overlay: Play indicator when running -->
                                                 <Border Background="#80000000" CornerRadius="8"
                                                         IsVisible="{Binding IsRunning}"
                                                         HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
-                                                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
-                                                        <Border Width="48" Height="48" CornerRadius="24" Background="#4ADE80">
-                                                            <TextBlock Text="▶" FontSize="20" Foreground="White"
+                                                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6">
+                                                        <Border Width="44" Height="44" CornerRadius="22" Background="#4ADE80">
+                                                            <TextBlock Text="▶" FontSize="18" Foreground="White"
                                                                        HorizontalAlignment="Center" VerticalAlignment="Center" />
                                                         </Border>
-                                                        <TextBlock Text="Läuft" FontSize="14" FontWeight="Bold" Foreground="White" />
+                                                        <TextBlock Text="Läuft" FontSize="13" FontWeight="Bold" Foreground="White" />
                                                     </StackPanel>
                                                 </Border>
                                             </Grid>
                                         </Button>
 
-                                        <!-- Game Name + Source -->
-                                        <StackPanel Grid.Row="1" Spacing="4">
+                                        <StackPanel Grid.Row="1" Spacing="3">
                                             <TextBlock Text="{Binding Name}" FontSize="14" FontWeight="Bold"
-                                                       TextTrimming="CharacterEllipsis"
-                                                       HorizontalAlignment="Center" Foreground="#E5E7EB" />
-                                            <Border Padding="4,2" CornerRadius="4" Background="#2A3550" HorizontalAlignment="Center">
-                                                <TextBlock Text="{Binding SourceName}" FontSize="9" Classes="muted" />
-                                            </Border>
+                                                       TextTrimming="CharacterEllipsis" HorizontalAlignment="Center"
+                                                       Foreground="#E5E7EB" />
+                                            <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
+                                                <Border Padding="5,2" CornerRadius="4" Background="#2A3550">
+                                                    <TextBlock Text="{Binding SourceName}" FontSize="9" Classes="muted" />
+                                                </Border>
+                                                <Border Padding="5,2" CornerRadius="4" Background="#2A3550">
+                                                    <TextBlock Text="{Binding CategoryDisplay}" FontSize="9" Classes="muted" />
+                                                </Border>
+                                            </StackPanel>
                                         </StackPanel>
 
-                                        <!-- Actions: Start / Stop -->
-                                        <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="8">
+                                        <Grid Grid.Row="2" ColumnDefinitions="Auto,*" ColumnSpacing="6">
+                                            <TextBlock Grid.Column="0" Text="💾" FontSize="11" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="1" Text="{Binding SizeDisplay}" FontSize="11"
+                                                       FontWeight="SemiBold" Foreground="#A855F7"
+                                                       VerticalAlignment="Center" />
+                                        </Grid>
+
+                                        <TextBlock Grid.Row="3" Text="{Binding PathDisplay}" FontSize="10"
+                                                   Classes="muted" TextTrimming="CharacterEllipsis"
+                                                   ToolTip.Tip="{Binding PathDisplay}" />
+
+                                        <Grid Grid.Row="4" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
                                             <Button Grid.Column="0" Content="Starten" Command="{Binding LaunchCommand}"
                                                     IsEnabled="{Binding CanLaunch}" Classes="game-btn-start"
-                                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
-                                            <Button Grid.Column="1" Content="Abbrechen" Command="{Binding StopCommand}"
+                                                    Padding="10,7" HorizontalAlignment="Stretch"
+                                                    HorizontalContentAlignment="Center" />
+                                            <Button Grid.Column="1" Content="Details" Command="{Binding ToggleExpandedCommand}"
+                                                    Padding="10,7" />
+                                            <Button Grid.Column="2" Content="Stop" Command="{Binding StopCommand}"
                                                     IsEnabled="{Binding IsRunning}" Classes="game-btn-stop"
-                                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+                                                    Padding="10,7" />
                                         </Grid>
                                     </Grid>
                                 </Border>
 
-                                <!-- Expanded View - Detail Frame -->
-                                <Border Classes="game-card-expanded" Background="#1A1D2E" CornerRadius="12" ClipToBounds="True"
-                                        IsVisible="{Binding IsExpanded}"
-                                        Margin="0,0,0,8">
+                                <!-- Detailansicht -->
+                                <Border Classes="game-card-expanded" CornerRadius="12" ClipToBounds="True"
+                                        IsVisible="{Binding IsExpanded}" Margin="0,0,0,8">
                                     <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto" Margin="16" RowSpacing="12">
-                                        <!-- Header: Thumbnail + Name + Source -->
                                         <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
                                             <Border Grid.Column="0" Width="96" Height="96" CornerRadius="8" ClipToBounds="True"
                                                     Background="#0F1122"
@@ -178,83 +191,75 @@
                                                            HorizontalAlignment="Center" VerticalAlignment="Center" />
                                             </Border>
 
-                                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="4">
-                                                <TextBlock Text="{Binding Name}" FontSize="20" FontWeight="Bold" Foreground="#E5E7EB"
-                                                           TextTrimming="CharacterEllipsis" />
-                                                <Border Background="#2A3550" CornerRadius="4" Padding="4,2" HorizontalAlignment="Left">
-                                                    <TextBlock Text="{Binding SourceName}" FontSize="10" Classes="muted" />
-                                                </Border>
-                                                <Border Background="#2A3550" CornerRadius="4" Padding="4,2" HorizontalAlignment="Left"
-                                                        IsVisible="{Binding IsGameCategory}">
-                                                    <TextBlock Text="Spiel" FontSize="10" Classes="muted" />
-                                                </Border>
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="5">
+                                                <TextBlock Text="{Binding Name}" FontSize="20" FontWeight="Bold"
+                                                           Foreground="#E5E7EB" TextTrimming="CharacterEllipsis" />
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <Border Background="#2A3550" CornerRadius="4" Padding="5,2">
+                                                        <TextBlock Text="{Binding SourceName}" FontSize="10" Classes="muted" />
+                                                    </Border>
+                                                    <Border Background="#2A3550" CornerRadius="4" Padding="5,2">
+                                                        <TextBlock Text="{Binding CategoryDisplay}" FontSize="10" Classes="muted" />
+                                                    </Border>
+                                                </StackPanel>
                                             </StackPanel>
 
                                             <Border Grid.Column="2" Width="32" Height="32" CornerRadius="6" VerticalAlignment="Center"
                                                     Background="{Binding IsRunning, Converter={x:Static vm:CommonConverters.BoolToColor}, ConverterParameter=#4ADE80:#F87171}"
                                                     IsVisible="{Binding IsRunning}">
-                                                <TextBlock Text="●" FontSize="16" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                <TextBlock Text="●" FontSize="16" Foreground="White"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
                                             </Border>
                                         </Grid>
 
-                                        <!-- Path Info -->
                                         <Border Grid.Row="1" Background="#0F1122" CornerRadius="8" Padding="12">
-                                            <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
-                                                <TextBlock Grid.Column="0" Text="📁" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0" />
-                                                <TextBlock Grid.Column="1" Text="{Binding InstallPath}"
-                                                           FontSize="12" Classes="muted" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                                                <TextBlock Grid.Column="2" Text="{Binding SizeDisplay}"
-                                                           FontSize="12" FontWeight="SemiBold" Foreground="#A855F7"
-                                                           VerticalAlignment="Center" />
-                                            </Grid>
+                                            <StackPanel Spacing="4">
+                                                <Grid ColumnDefinitions="Auto,*,Auto">
+                                                    <TextBlock Grid.Column="0" Text="📁" FontSize="12" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                                    <TextBlock Grid.Column="1" Text="{Binding PathDisplay}"
+                                                               FontSize="11" Classes="muted" TextTrimming="CharacterEllipsis"
+                                                               VerticalAlignment="Center" ToolTip.Tip="{Binding PathDisplay}" />
+                                                    <TextBlock Grid.Column="2" Text="{Binding SizeDisplay}"
+                                                               FontSize="11" FontWeight="SemiBold" Foreground="#A855F7"
+                                                               VerticalAlignment="Center" />
+                                                </Grid>
+                                                <TextBlock Text="{Binding InstallPath}" FontSize="10" Classes="muted"
+                                                           TextTrimming="CharacterEllipsis" IsVisible="{Binding !IsGameCategory}" />
+                                            </StackPanel>
                                         </Border>
 
-                                        <!-- Stats Row -->
-                                        <Grid Grid.Row="2" ColumnDefinitions="*,*,*" ColumnSpacing="16">
+                                        <Grid Grid.Row="2" ColumnDefinitions="*,*,*" ColumnSpacing="10">
                                             <Border Background="#0F1122" CornerRadius="8" Padding="12">
                                                 <StackPanel Spacing="4">
                                                     <TextBlock Text="⏱ Spielzeit" FontSize="10" Classes="muted" />
-                                                    <TextBlock Text="{Binding PlaytimeDisplay}" FontSize="16" FontWeight="Bold" Foreground="#4ADE80" />
+                                                    <TextBlock Text="{Binding PlaytimeDisplay}" FontSize="15" FontWeight="Bold" Foreground="#4ADE80" />
                                                 </StackPanel>
                                             </Border>
                                             <Border Background="#0F1122" CornerRadius="8" Padding="12">
                                                 <StackPanel Spacing="4">
                                                     <TextBlock Text="📅 Zuletzt gespielt" FontSize="10" Classes="muted" />
-                                                    <TextBlock Text="{Binding LastPlayedDisplay}" FontSize="14" FontWeight="Bold" Foreground="#FACC15" />
+                                                    <TextBlock Text="{Binding LastPlayedDisplay}" FontSize="13" FontWeight="Bold" Foreground="#FACC15" />
                                                 </StackPanel>
                                             </Border>
                                             <Border Background="#0F1122" CornerRadius="8" Padding="12">
                                                 <StackPanel Spacing="4">
                                                     <TextBlock Text="💾 Größe" FontSize="10" Classes="muted" />
-                                                    <TextBlock Text="{Binding SizeDisplay}" FontSize="14" FontWeight="Bold" Foreground="#A855F7" />
+                                                    <TextBlock Text="{Binding SizeDisplay}" FontSize="13" FontWeight="Bold" Foreground="#A855F7" />
                                                 </StackPanel>
                                             </Border>
                                         </Grid>
 
-                                        <!-- Action Buttons -->
-                                        <Grid Grid.Row="3" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12" Margin="0,4,0,0">
-                                            <!-- Expand/Collapse Toggle -->
+                                        <Grid Grid.Row="3" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10" Margin="0,4,0,0">
                                             <Button Grid.Column="0" HorizontalAlignment="Left" Padding="12,8"
                                                     Classes="ghost" Command="{Binding ToggleExpandedCommand}">
-                                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                                    <TextBlock Text="{Binding IsExpanded, Converter={x:Static vm:CommonConverters.BoolToText}, ConverterParameter=▲ Einklappen:▼ Ausklappen}"
-                                                               FontSize="12" VerticalAlignment="Center" />
-                                                </StackPanel>
+                                                <TextBlock Text="▲ Einklappen" FontSize="12" VerticalAlignment="Center" />
                                             </Button>
-
-                                            <!-- Start Button - Light Green -->
-                                            <Button Grid.Column="1" Content="Starten"
-                                                    Command="{Binding LaunchCommand}"
-                                                    IsEnabled="{Binding CanLaunch}"
-                                                    Classes="game-btn-start"
-                                                    Padding="24,10" HorizontalAlignment="Right" />
-
-                                            <!-- Stop/Abbrechen Button - Dark Blue -->
-                                            <Button Grid.Column="2" Content="Abbrechen"
-                                                    Command="{Binding StopCommand}"
-                                                    IsEnabled="{Binding IsRunning}"
-                                                    Classes="game-btn-stop"
-                                                    Padding="24,10" HorizontalAlignment="Right" />
+                                            <Button Grid.Column="1" Content="Starten" Command="{Binding LaunchCommand}"
+                                                    IsEnabled="{Binding CanLaunch}" Classes="game-btn-start"
+                                                    Padding="22,9" HorizontalAlignment="Right" />
+                                            <Button Grid.Column="2" Content="Stop" Command="{Binding StopCommand}"
+                                                    IsEnabled="{Binding IsRunning}" Classes="game-btn-stop"
+                                                    Padding="22,9" HorizontalAlignment="Right" />
                                         </Grid>
                                     </Grid>
                                 </Border>

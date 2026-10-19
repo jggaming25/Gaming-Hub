@@ -202,7 +202,10 @@ public sealed class AuthService
         try
         {
             if (Client?.Session is null) return;
-            File.WriteAllText(_sessionPath, JsonSerializer.Serialize(Client.Session));
+
+            byte[] json = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(Client.Session));
+            byte[]? encrypted = Dpapi.Protect(json);
+            File.WriteAllBytes(_sessionPath, encrypted ?? json);
         }
         catch { /* ignore */ }
     }
@@ -212,7 +215,11 @@ public sealed class AuthService
         try
         {
             if (!File.Exists(_sessionPath) || Client is null) return;
-            var session = JsonSerializer.Deserialize<SupabaseSession>(File.ReadAllText(_sessionPath));
+
+            byte[] raw = File.ReadAllBytes(_sessionPath);
+            byte[]? decrypted = Dpapi.Unprotect(raw);
+            string json = Encoding.UTF8.GetString(decrypted ?? raw);
+            var session = JsonSerializer.Deserialize<SupabaseSession>(json);
             Client.RestoreSession(session);
         }
         catch { /* ignore */ }

@@ -50,4 +50,46 @@ public static class Format
             return $"{(int)t.TotalMinutes}min, {t.Seconds}sek";
         return $"{t.Seconds}sek";
     }
+
+    /// <summary>Zerlegt die Zeit seit <paramref name="start"/> in Jahre, Monate,
+    /// Wochen, Tage, Stunden, Minuten und Sekunden.</summary>
+    public static (int Years, int Months, int Weeks, int Days, int Hours, int Minutes, int Seconds)
+        AgeParts(DateTimeOffset start, DateTimeOffset? now = null)
+    {
+        var end = now ?? DateTimeOffset.Now;
+        if (end < start) end = start;
+
+        int years = end.Year - start.Year;
+        var cursor = start.AddYears(Math.Max(0, years));
+        if (cursor > end)
+        {
+            years--;
+            cursor = start.AddYears(Math.Max(0, years));
+        }
+
+        int months = 0;
+        while (months < 11 && cursor.AddMonths(1) <= end)
+        {
+            cursor = cursor.AddMonths(1);
+            months++;
+        }
+
+        var rest = end - cursor;
+        return (years, months, rest.Days / 7, rest.Days % 7, rest.Hours, rest.Minutes, rest.Seconds);
+    }
+
+    /// <summary>Laufzeit im Format Jahre:Monate:Wochen:Tage:Stunden:Minuten:Sekunden.</summary>
+    public static string Age(DateTimeOffset start, DateTimeOffset? now = null)
+    {
+        var p = AgeParts(start, now);
+        return $"{p.Years}:{p.Months}:{p.Weeks}:{p.Days}:{p.Hours:00}:{p.Minutes:00}:{p.Seconds:00}";
+    }
+
+    /// <summary>Ausgeschriebene Laufzeit (Jahre, Monate, Wochen, …).</summary>
+    public static string AgeLong(DateTimeOffset start, DateTimeOffset? now = null)
+    {
+        var p = AgeParts(start, now);
+        return $"{p.Years} Jahre, {p.Months} Monate, {p.Weeks} Wochen, {p.Days} Tage, " +
+               $"{p.Hours} Stunden, {p.Minutes} Minuten, {p.Seconds} Sekunden";
+    }
 }

@@ -186,6 +186,39 @@ public sealed class SupabaseClient
         return new RestResult(resp.IsSuccessStatusCode, resp.IsSuccessStatusCode ? text : (ExtractError(text) ?? text));
     }
 
+    /// <summary>Zählt Zeilen einer Tabelle (PostgREST <c>count=exact</c>), ohne
+    /// alle Datensätze zu übertragen. Nutzt den <c>Content-Range</c>-Header.</summary>
+    public async Task<(bool ok, long count)> CountAsync(string table, string filters = "")
+    {
+        if (Session is not null && !IsLoggedIn)
+            await RefreshAsync();
+
+        string query = string.IsNullOrWhiteSpace(filters) ? string.Empty : "?" + filters.TrimStart('?');
+        using var req = new HttpRequestMessage(HttpMethod.Get, $"{Url}/rest/v1/{table}{query}");
+        AddApiKey(req); AddBearer(req);
+        req.Headers.TryAddWithoutValidation("Prefer", "count=exact");
+        req.Headers.TryAddWithoutValidation("Range-Unit", "items");
+        req.Headers.TryAddWithoutValidation("Range", "0-0");
+
+        var resp = await _http.SendAsync(req);
+        if (!resp.IsSuccessStatusCode)
+            return (false, 0);
+
+        string? range = null;
+        if (resp.Content.Headers.TryGetValues("Content-Range", out var values))
+            range = values.FirstOrDefault();
+        if (range is null && resp.Headers.TryGetValues("Content-Range", out var headerValues))
+            range = headerValues.FirstOrDefault();
+
+        if (range is null)
+            return (false, 0);
+
+        int slash = range.LastIndexOf('/');
+        return slash >= 0 && long.TryParse(range[(slash + 1)..], out long count)
+            ? (true, count)
+            : (false, 0);
+    }
+
     public async Task<RestResult> PatchAsync(string table, string query, object patch)
     {
         if (Session is not null && !IsLoggedIn)

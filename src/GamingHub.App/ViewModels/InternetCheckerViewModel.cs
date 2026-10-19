@@ -25,6 +25,7 @@ public sealed partial class InternetStep : ObservableObject
     [ObservableProperty] private string _latencyText = "–";
     [ObservableProperty] private string _statusText = "Wartet…";
     [ObservableProperty] private string _statusColor = "#8B91AC";
+    [ObservableProperty] private string _detailText = string.Empty;
 
     partial void OnIsFailedChanged(bool value)
     {
@@ -54,7 +55,7 @@ public partial class InternetCheckerViewModel : ViewModelBase
         new InternetStep { Name = "Gateway (Router)", Glyph = "🏠", Description = "Lokales Gateway / Router erreichen" },
         new InternetStep { Name = "DNS-Server", Glyph = "🔍", Description = "DNS-Auflösung (z. B. 1.1.1.1)" },
         new InternetStep { Name = "Internet (8.8.8.8)", Glyph = "🌐", Description = "Öffentliches Internet erreichbar" },
-        new InternetStep { Name = "HTTP (google.com)", Glyph = "🔒", Description = "HTTPS-Verbindung zu Webserver" }
+        new InternetStep { Name = "HTTPS-Websites", Glyph = "🔒", Description = "Google → YouTube → Cloudflare (Fallback)" }
     };
 
     [ObservableProperty] private bool _isTesting;
@@ -66,6 +67,8 @@ public partial class InternetCheckerViewModel : ViewModelBase
     [ObservableProperty] private string _currentLatencyText = "–";
     [ObservableProperty] private string _packetLossText = "–";
     [ObservableProperty] private string _gatewayIpText = "–";
+    [ObservableProperty] private string _downloadSpeedText = "–";
+    [ObservableProperty] private string _averageDownloadText = "–";
     public string GatewayIp => AppServices.Internet.GatewayIp ?? "–";
 
     // Verlauf (4 Wochen / Premium)
@@ -114,6 +117,8 @@ public partial class InternetCheckerViewModel : ViewModelBase
         CurrentLatencyText = AppServices.Internet.CurrentLatencyMs >= 0 ? $"{AppServices.Internet.CurrentLatencyMs} ms" : "–";
         PacketLossText = $"{AppServices.Internet.PacketLossPercent:0} %";
         GatewayIpText = AppServices.Internet.GatewayIp ?? "–";
+        DownloadSpeedText = AppServices.Internet.DownloadSpeedText;
+        AverageDownloadText = AppServices.Internet.AverageDownloadText;
         ShowOfflineHint = AppServices.Internet.OfflineMode;
 
         // Update step statuses based on live data (rough) - but not during manual test
@@ -147,6 +152,7 @@ public partial class InternetCheckerViewModel : ViewModelBase
             s.LatencyText = "–";
             s.StatusText = "Wartet…";
             s.StatusColor = "#8B91AC";
+            s.DetailText = string.Empty;
         }
 
         // Pause live updates during manual test
@@ -203,9 +209,10 @@ public partial class InternetCheckerViewModel : ViewModelBase
                     var (o2, l2) = await PingHostAsync("8.8.8.8", 3);
                     ok = o2; latency = l2 ?? -1;
                     break;
-                case 3: // HTTP
-                    var (o3, l3) = await HttpHeadAsync("https://www.google.com", TimeSpan.FromSeconds(5));
-                    ok = o3; latency = l3 ?? -1;
+                case 3: // HTTP (mit Fallback)
+                    var (o3, l3, url) = await AppServices.Internet.TestHttpAsync();
+                    ok = o3; latency = l3;
+                    step.DetailText = url is null ? "alle Testseiten nicht erreichbar" : new Uri(url).Host;
                     break;
             }
         }
@@ -266,21 +273,6 @@ public partial class InternetCheckerViewModel : ViewModelBase
                 catch { }
             }
             if (success > 0) return (true, (int)(totalLatency / success));
-            return (false, null);
-        }
-        catch { return (false, null); }
-    }
-
-    private static async Task<(bool Ok, int? LatencyMs)> HttpHeadAsync(string url, TimeSpan timeout)
-    {
-        try
-        {
-            using var http = new HttpClient { Timeout = timeout };
-            using var req = new HttpRequestMessage(HttpMethod.Head, url);
-            var sw = Stopwatch.StartNew();
-            var resp = await http.SendAsync(req);
-            sw.Stop();
-            if (resp.IsSuccessStatusCode) return (true, (int)sw.ElapsedMilliseconds);
             return (false, null);
         }
         catch { return (false, null); }

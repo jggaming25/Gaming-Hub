@@ -12,10 +12,15 @@ namespace GamingHub.App.ViewModels;
 public sealed partial class ProcessRow : ObservableObject
 {
     public string Name { get; init; } = string.Empty;
-    public string CpuText { get; init; } = string.Empty;
-    public string MemText { get; init; } = string.Empty;
     public int Pid { get; init; }
     public bool IsOurs { get; init; }
+
+    [ObservableProperty] private string _cpuText = string.Empty;
+    [ObservableProperty] private string _memText = string.Empty;
+    [ObservableProperty] private double _cpuPercent;
+    [ObservableProperty] private long _memoryBytes;
+
+    [ObservableProperty] private bool _isPinned;
 
     /// <summary>Erster Klick bewaffnet den Beenden-Knopf, der zweite führt aus.</summary>
     [ObservableProperty] private bool _confirmArmed;
@@ -23,11 +28,19 @@ public sealed partial class ProcessRow : ObservableObject
     public bool ShowConfirmButton => !IsOurs;
     public string ConfirmText => ConfirmArmed ? "Erneut klicken zum Beenden!" : "✕ Beenden";
     public string ConfirmTextColor => ConfirmArmed ? "#F87171" : "#8B91AC";
+    public string PinText => IsPinned ? "📌" : "📍";
+    public string PinTooltip => IsPinned ? "Anheftung lösen" : "Prozess anheften";
 
     partial void OnConfirmArmedChanged(bool value)
     {
         OnPropertyChanged(nameof(ConfirmText));
         OnPropertyChanged(nameof(ConfirmTextColor));
+    }
+
+    partial void OnIsPinnedChanged(bool value)
+    {
+        OnPropertyChanged(nameof(PinText));
+        OnPropertyChanged(nameof(PinTooltip));
     }
 }
 
@@ -69,6 +82,16 @@ public partial class ResourcesViewModel : ViewModelBase
     public ObservableCollection<ProcessRow> ProcessItems { get; } = new();
     public ObservableCollection<NetworkRow> NetworkItems { get; } = new();
 
+    public ObservableCollection<string> ProcessSortOptions { get; } = new() { "CPU", "Arbeitsspeicher", "Name" };
+    [ObservableProperty] private string _selectedProcessSort = "CPU";
+    [ObservableProperty] private int _processCount;
+    private readonly HashSet<string> _pinnedProcessNames = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<(int Pid, string Name), ProcessRow> _processRows = new();
+    private IReadOnlyList<ProcessSample> _lastProcesses = Array.Empty<ProcessSample>();
+    private DateTime _lastProcessReorder = DateTime.MinValue;
+
+    partial void OnSelectedProcessSortChanged(string value) => RebuildProcessItems(forceReorder: true);
+
     // Verlauf (Hintergrund-Aufzeichnung alle 5 Minuten, ca. 1 Woche / Premium 4 Wochen)
     private IReadOnlyList<double> _cpuSeries = Array.Empty<double>();
     private IReadOnlyList<double> _ramSeries = Array.Empty<double>();
@@ -81,13 +104,14 @@ public partial class ResourcesViewModel : ViewModelBase
     public IReadOnlyList<double> ProcSeries => _procSeries;
 
     [ObservableProperty] private string _historyStatusText = "Zeichnet alle 5 Minuten auf…";
+    [ObservableProperty] private string _historyRangeText = "—";
     [ObservableProperty] private bool _hasHistory;
     [ObservableProperty] private string _historyRetentionText = "Aufbewahrung: 1 Woche (Premium: 4 Wochen)";
     public bool IsPremium => AppServices.Profile.IsPremium;
 
     public string CpuUsageDisplay => $"{CpuUsage:0} %";
     public string RamUsageDisplay => $"{RamUsage:0} %";
-    public string GpuUsageDisplay => GpuUsage < 0 ? "n. v." : $"{GpuUsage:0} %";
+    public string GpuUsageDisplay => !double.IsFinite(GpuUsage) || GpuUsage < 0 ? "n. v." : $"{GpuUsage:0} %";
 
     public ObservableCollection<string> GameNames { get; } = new();
 
@@ -197,6 +221,9 @@ public partial class ResourcesViewModel : ViewModelBase
         _procSeries = points.Select(p => Math.Clamp(p.ProcessCount / maxProc * 100.0, 0, 100)).ToList();
 
         HasHistory = points.Count > 0;
+        HistoryRangeText = points.Count == 0
+            ? "—"
+            : $"{points[0].TimestampUtc.ToLocalTime():dd.MM. HH:mm}  →  {points[^1].TimestampUtc.ToLocalTime():dd.MM. HH:mm}";
         HistoryStatusText = points.Count == 0
             ? "Noch keine Aufzeichnung vorhanden – die ersten Messdaten entstehen automatisch im Hintergrund (alle 5 Minuten). Das Protokoll wird unter „Datenordner → history“ gespeichert."
             : $"Aufzeichnung aktiv: {points.Count} Messpunkte · letzter Punkt um {points[^1].TimestampUtc.ToLocalTime():HH:mm:ss} · max. {points.Max(p => p.ProcessCount)} Prozesse gleichzeitig.";
@@ -247,7 +274,7 @@ public partial class ResourcesViewModel : ViewModelBase
     {
         CpuUsage = s.CpuUsagePercent;
         RamUsage = s.RamUsagePercent;
-        GpuUsage = s.GpuUsagePercent;
+        GpuUsage = double.IsFinite(s.GpuUsagePercent) ? s.GpuUsagePercent : -1;
         RamUsedDisplay = Format.Bytes((long)s.RamUsedBytes);
         RamTotalDisplay = Format.Bytes((long)s.RamTotalBytes);
         UptimeDisplay = Format.Duration(s.Uptime);
@@ -276,16 +303,112 @@ public partial class ResourcesViewModel : ViewModelBase
                 Format.BytesPerSec(a.UploadBytesPerSec)));
         HasNetworkItems = NetworkItems.Count > 0;
 
-        ProcessItems.Clear();
-        foreach (var p in s.Processes)
-            ProcessItems.Add(new ProcessRow
+        _lastProcesses = s.Processes;
+        RebuildProcessItems();
+    }
+
+    /// <summary>Baut die Prozessliste anhand der gewählten Sortierung neu auf.
+    /// Angeheftete Prozesse stehen immer oben. Werte werden jede Sekunde
+    /// aktualisiert, die Reihenfolge aber nur alle 3 Sekunden neu bestimmt,
+    /// damit die Liste beim Scrollen nicht ständig springt.</summary>
+    private void RebuildProcessItems(bool forceReorder = false)
+    {
+        IEnumerable<ProcessSample> query = SelectedProcessSort switch
+        {
+            "Arbeitsspeicher" => _lastProcesses
+                .OrderByDescending(p => p.WorkingSetBytes)
+                .ThenByDescending(p => p.CpuPercent),
+            "Name" => _lastProcesses
+                .OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase),
+            _ => _lastProcesses
+                .OrderByDescending(p => p.CpuPercent)
+                .ThenByDescending(p => p.WorkingSetBytes)
+        };
+
+        var ordered = query.ToList();
+        if (_pinnedProcessNames.Count > 0)
+            ordered = ordered.OrderByDescending(p => _pinnedProcessNames.Contains(p.Name)).ToList();
+
+        ProcessCount = ordered.Count;
+
+        var samples = ordered.ToDictionary(p => (p.Pid, p.Name));
+        bool anyArmed = ProcessItems.Any(r => r.ConfirmArmed);
+        bool reorder = forceReorder || (!anyArmed && (DateTime.UtcNow - _lastProcessReorder).TotalSeconds >= 3);
+
+        if (!reorder)
+        {
+            foreach (var row in ProcessItems)
+                if (samples.TryGetValue((row.Pid, row.Name), out var sample))
+                    ApplyToRow(row, sample);
+            return;
+        }
+
+        var alive = samples.Keys.ToHashSet();
+        foreach (var key in _processRows.Keys.Where(k => !alive.Contains(k)).ToList())
+            _processRows.Remove(key);
+
+        if (ProcessItems.Count == ordered.Count)
+        {
+            for (int i = 0; i < ordered.Count; i++)
             {
-                Name = p.Name,
-                CpuText = $"{p.CpuPercent:0.0} %",
-                MemText = Format.Bytes(p.WorkingSetBytes),
-                Pid = p.Pid,
-                IsOurs = p.IsOurs
-            });
+                var row = GetOrCreateRow(ordered[i]);
+                ApplyToRow(row, ordered[i]);
+                int current = ProcessItems.IndexOf(row);
+                if (current < 0) ProcessItems.Insert(i, row);
+                else if (current != i) ProcessItems.Move(current, i);
+            }
+
+            var aliveSet = samples.Keys.ToHashSet();
+            for (int i = ProcessItems.Count - 1; i >= 0; i--)
+            {
+                var row = ProcessItems[i];
+                if (!aliveSet.Contains((row.Pid, row.Name)))
+                    ProcessItems.RemoveAt(i);
+            }
+        }
+        else
+        {
+            ProcessItems.Clear();
+            foreach (var sample in ordered)
+            {
+                var row = GetOrCreateRow(sample);
+                ApplyToRow(row, sample);
+                ProcessItems.Add(row);
+            }
+        }
+
+        _lastProcessReorder = DateTime.UtcNow;
+    }
+
+    private ProcessRow GetOrCreateRow(ProcessSample sample)
+    {
+        var key = (sample.Pid, sample.Name);
+        if (!_processRows.TryGetValue(key, out var row))
+        {
+            row = new ProcessRow { Name = sample.Name, Pid = sample.Pid, IsOurs = sample.IsOurs };
+            _processRows[key] = row;
+        }
+        return row;
+    }
+
+    private void ApplyToRow(ProcessRow row, ProcessSample sample)
+    {
+        row.CpuText = $"{sample.CpuPercent:0.0} %";
+        row.MemText = Format.Bytes(sample.WorkingSetBytes);
+        row.CpuPercent = sample.CpuPercent;
+        row.MemoryBytes = sample.WorkingSetBytes;
+        row.IsPinned = _pinnedProcessNames.Contains(sample.Name);
+    }
+
+    [RelayCommand]
+    private void TogglePinProcess(ProcessRow? row)
+    {
+        if (row is null || string.IsNullOrWhiteSpace(row.Name)) return;
+
+        if (!_pinnedProcessNames.Remove(row.Name))
+            _pinnedProcessNames.Add(row.Name);
+
+        RebuildProcessItems(forceReorder: true);
     }
 
     [RelayCommand]

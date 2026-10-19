@@ -22,8 +22,23 @@ const FEATURES = [
 
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   {
+    version: "0.5.20",
+    date: "19.10.2026 14:12",
+    items: [
+      "Spielebibliothek neu: übersichtliche Karten mit Logo, Quelle, Dateipfad und Größe; Kategorien für Kommunikation, Entwicklung und Browser; fehlende Ordnergrößen werden automatisch nachgetragen.",
+      "Neue Admin-Statistik: Downloads aller Versionen, registrierte Nutzer und Alter der App – nur für Admins sichtbar.",
+      "System-Ressourcen: alle Prozesse mit Sortierung nach CPU, Arbeitsspeicher oder Name und Anheft-Funktion; die Liste springt nicht mehr bei jeder Messung.",
+      "Internet-Checker: Testseiten mit Fallback (Google → YouTube → Cloudflare), Download-Messung mit 7-Tage-Durchschnitt und Hinweis bei auffällig langsamer Verbindung.",
+      "Beleuchtung: Farb-Presets, zuverlässige Farb-/Zonen-Buttons (automatischer Direct-Modus) und direkte RGB-Eingabe.",
+      "Disk Cleanup: Scan-Bericht als Textdatei exportierbar, klarer Hinweis zu endgültigem Löschen und stabilere Duplikat-Ansicht.",
+      "Sicherheit: gespeicherte Anmeldung jetzt mit Windows-DPAPI verschlüsselt, strengere Datenbankregeln und geschützte Admin-Funktionen.",
+      "Nur noch eine App-Instanz gleichzeitig – ein zweiter Start holt das laufende Fenster nach vorne.",
+      "Einstellungen mit Lizenz- und Datenschutz-Hinweisen; Änderungsliste jetzt mit Datum und Uhrzeit."
+    ]
+  },
+  {
     version: "0.5.19",
-    date: "Oktober 2026",
+    date: "17.10.2026 15:25",
     items: [
       "Bugfix: Der Start hängt nicht mehr bei „Initialisiere…“ – das Startfenster blieb gelegentlich stehen und das Hauptfenster öffnete sich nicht.",
       "Ursache war der Splash-Ablauf: Er wurde erst nach dem Anzeigen des Fensters registriert und konnte dadurch übersprungen werden. Er wird jetzt zuverlässig gestartet.",
@@ -32,7 +47,7 @@ const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   },
   {
     version: "0.5.18",
-    date: "Oktober 2026",
+    date: "17.10.2026 14:50",
     items: [
       "Bugfix: Das Installieren von Updates bricht nicht mehr ab und die App startet nicht mehr endlos mit „Neustart erforderlich“ neu.",
       "Ursache war OpenRGB: Es lief im App-Installationsordner und blockierte so das Update. OpenRGB startet jetzt in seinem eigenen Ordner und wird vor dem Update automatisch beendet.",
@@ -41,7 +56,7 @@ const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   },
   {
     version: "0.5.17",
-    date: "Oktober 2026",
+    date: "17.10.2026 14:23",
     items: [
       "Bugfix: Nach dem Akzeptieren der Nutzungsbedingungen startet die App jetzt zuverlässig weiter – Splash- und Hauptfenster werden wieder angezeigt.",
       "Beleuchtung: Geräte mit schwarzer Standardfarbe erhalten automatisch eine sichtbare Farbe, damit „Farbe anwenden“ die LEDs nicht ausschaltet."
@@ -49,7 +64,7 @@ const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   },
   {
     version: "0.5.16",
-    date: "Oktober 2026",
+    date: "17.10.2026 14:10",
     items: [
       "Beleuchtung: OpenRGB wird jetzt mit aktiviertem SDK-Server gestartet – Geräte (z. B. Corsair-Tastatur) werden erkannt und sind steuerbar.",
       "Läuft OpenRGB bereits ohne SDK-Server, wird es automatisch mit Server neu gestartet.",
@@ -58,7 +73,7 @@ const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   },
   {
     version: "0.5.15",
-    date: "Oktober 2026",
+    date: "17.10.2026 13:13",
     items: [
       "OpenRGB wird jetzt automatisch mit der App installiert und aktuell gehalten – kein manueller Download mehr nötig.",
       "Beim Start wird geprüft, ob OpenRGB vorhanden und aktuell ist; bei Bedarf wird es von openrgb.org geladen und gestartet.",
@@ -67,7 +82,7 @@ const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   },
   {
     version: "0.5.14",
-    date: "Oktober 2026",
+    date: "17.10.2026 12:47",
     items: [
       "Beleuchtung (RGB) komplett neu: Gaming Hub spricht jetzt direkt mit dem OpenRGB-SDK – Maus, Tastatur, Lüfter, GPU und Mainboard werden zuverlässig erkannt.",
       "Farbe und Effekt pro Gerät mit den tatsächlich unterstützten Modi.",
@@ -76,7 +91,7 @@ const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   },
   {
     version: "0.5.13",
-    date: "Oktober 2026",
+    date: "17.10.2026 11:18",
     items: [
       "Spiele lassen sich wieder starten/stoppen – jede Karte zeigt direkt Starten/Abbrechen, Klick auf das Bild öffnet die Details.",
       "Beleuchtungs-Tab (RGB) wieder im Menü verfügbar.",
@@ -86,7 +101,7 @@ const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   },
   {
     version: "0.5.12",
-    date: "Oktober 2026",
+    date: "17.10.2026 10:54",
     items: [
       "Premium-Codes: Anzeige „um 0 Tage verlängert“ korrigiert – die tatsächlich gutgeschriebene Laufzeit wird jetzt korrekt angezeigt.",
       "Internet-Checker: Verlauf ist jetzt scrollbar – 1 Woche frei, mit Premium 4 Wochen, inkl. Datums-Anzeige im Diagramm.",
@@ -99,7 +114,7 @@ const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   },
   {
     version: "0.5.6",
-    date: "Oktober 2026",
+    date: "11.10.2026 01:27",
     items: [
       "Neuer „Beleuchtung“ Tab: RGB-Steuerung für Maus, Tastatur, Lüfter, GPU, Mainboard via OpenRGB",
       "Premium-Status im Profil: Countdown mit verbleibender Zeit, Fortschrittsbalken",
@@ -113,7 +128,7 @@ const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   },
   {
     version: "0.5.1",
-    date: "Oktober 2026",
+    date: "10.10.2026 23:31",
     items: [
       "Chat: Nachrichten erscheinen jetzt sofort (robustes Senden, Post-Send-Poll, Fehler-Logging).",
       "Internet-Checker (Premium/Admin): visueller Pfad-Test, 4-Wochen-Verlauf, Ausfall-Einschätzung (Router vs. ISP).",
@@ -124,7 +139,7 @@ const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   },
   {
     version: "0.5.0",
-    date: "Oktober 2026",
+    date: "10.10.2026 22:12",
     items: [
       "Update-Fortschritt beim Start sichtbar – automatische Installation in den Einstellungen wählbar.",
       "System-Ressourcen: aktueller Windows-Benutzer sowie lokale Benutzer & Gruppen (Premium) und Live-GPU.",
@@ -138,7 +153,7 @@ const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   },
   {
     version: "0.4.2",
-    date: "Oktober 2026",
+    date: "10.10.2026 20:50",
     items: [
       "Beim Start werden verfügbare Updates automatisch installiert – danach ein Popup: „Neustart erforderlich“.",
       "Gaming Hub startet automatisch mit Windows und läuft leise im Hintergrund (Infobereich).",
@@ -152,7 +167,7 @@ const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   },
   {
     version: "0.4.1",
-    date: "Oktober 2026",
+    date: "10.10.2026 19:20",
     items: [
       "Geschriebene Nachrichten erscheinen jetzt sofort im Chat.",
       "Anruf & Videoanruf nur noch in Direktnachrichten.",
@@ -165,7 +180,7 @@ const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   },
   {
     version: "0.4.0",
-    date: "Oktober 2026",
+    date: "10.10.2026 18:07",
     items: [
       "Kommunikation: Direktnachrichten per E-Mail-Adresse, Antworten auf Nachrichten und Dateiversand.",
       "Freundesliste mit Anfragen annehmen/ablehnen sowie Blockieren von Nutzern.",
@@ -177,12 +192,12 @@ const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   },
   {
     version: "0.3.1",
-    date: "Oktober 2026",
+    date: "10.10.2026 17:08",
     items: ["Automatisches Update beim Start wurde zuverlässig gemacht."]
   },
   {
     version: "0.3.0",
-    date: "Oktober 2026",
+    date: "10.10.2026 17:03",
     items: [
       "Textchat mit mehreren Kanälen und Direktnachrichten.",
       "Sprachanrufe und Videoanrufe zwischen Nutzern.",
@@ -440,13 +455,16 @@ export function App() {
                     <div style={{ flex: 1 }}>
                       <h4>
                         Version {r.version}{" "}
-                        {isLatest ? (
-                          <span className="badge-you">aktuell</span>
-                        ) : (
-                          <span className="muted small">
-                            · {new Date(r.publishedAt).toLocaleDateString("de-DE")}
-                          </span>
-                        )}
+                        {isLatest && <span className="badge-you">aktuell</span>}{" "}
+                        <span className="muted small">
+                          · {new Date(r.publishedAt).toLocaleString("de-DE", {
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit"
+                          })}
+                        </span>
                       </h4>
                       <div className="row" style={{ marginTop: 8 }}>
                         {canDownload ? (
@@ -489,7 +507,17 @@ export function App() {
 
       <footer>
         <span>© {new Date().getFullYear()} Jann Genzmann – Gaming Hub · Alle Rechte vorbehalten</span>
-        <span><a href="#/" onClick={() => go("start")}>Nach oben</a></span>
+        <span>
+          <a href="https://github.com/jggaming25/Gaming-Hub/blob/main/LICENSE" target="_blank" rel="noreferrer">
+            Lizenz
+          </a>
+          {" · "}
+          <a href="https://github.com/jggaming25/Gaming-Hub" target="_blank" rel="noreferrer">
+            GitHub
+          </a>
+          {" · "}
+          <a href="#/" onClick={() => go("start")}>Nach oben</a>
+        </span>
       </footer>
     </div>
   );

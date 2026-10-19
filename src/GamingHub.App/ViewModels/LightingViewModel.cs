@@ -28,6 +28,34 @@ public partial class LightingViewModel : ViewModelBase
     [ObservableProperty] private bool _isConnected;
     [ObservableProperty] private bool _hasDevices;
     [ObservableProperty] private bool _openRgbNotRunning;
+    [ObservableProperty] private byte _colorR = 255;
+    [ObservableProperty] private byte _colorG;
+    [ObservableProperty] private byte _colorB;
+    private bool _syncingColor;
+
+    public string ColorHex => SelectedColor.ToHex();
+
+    partial void OnColorRChanged(byte value) => SyncColorFromChannels();
+    partial void OnColorGChanged(byte value) => SyncColorFromChannels();
+    partial void OnColorBChanged(byte value) => SyncColorFromChannels();
+
+    private void SyncColorFromChannels()
+    {
+        if (_syncingColor) return;
+        SelectedColor = new RgbColor(ColorR, ColorG, ColorB);
+        OnPropertyChanged(nameof(ColorHex));
+    }
+
+    private void SetColorChannels(RgbColor color)
+    {
+        _syncingColor = true;
+        ColorR = color.R;
+        ColorG = color.G;
+        ColorB = color.B;
+        _syncingColor = false;
+        SelectedColor = color;
+        OnPropertyChanged(nameof(ColorHex));
+    }
 
     public bool CanControl => SelectedDevice != null && IsConnected;
 
@@ -177,6 +205,7 @@ public partial class LightingViewModel : ViewModelBase
             // Farbe), eine sichtbare Standardfarbe verwenden – sonst würde
             // „Farbe anwenden“ die LEDs ausschalten.
             SelectedColor = IsBlack(value.CurrentColor) ? new RgbColor(255, 0, 0) : value.CurrentColor;
+            SetColorChannels(SelectedColor);
             SelectedEffect = AvailableEffects.FirstOrDefault(e =>
                 string.Equals(e, value.CurrentEffect, StringComparison.OrdinalIgnoreCase))
                 ?? AvailableEffects.FirstOrDefault() ?? "static";
@@ -197,6 +226,14 @@ public partial class LightingViewModel : ViewModelBase
         var ok = await AppServices.Rgb.SetColorAsync(SelectedDevice.Id, SelectedColor);
         StatusText = ok ? "Farbe gesetzt" : "Fehler beim Setzen der Farbe – ist OpenRGB im Direct-Modus?";
         if (ok) OnPropertyChanged(nameof(SelectedDevice));
+    }
+
+    [RelayCommand]
+    private async Task ApplyPresetAsync(string? hex)
+    {
+        if (string.IsNullOrWhiteSpace(hex)) return;
+        SetColorChannels(RgbColor.FromHex(hex));
+        await ApplyColorAsync();
     }
 
     [RelayCommand]

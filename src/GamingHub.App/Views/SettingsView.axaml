@@ -73,9 +73,9 @@
             <Border Classes="card">
                 <StackPanel Spacing="10">
                     <TextBlock Text="Benachrichtigungen" FontWeight="SemiBold" FontSize="16" />
-                    <TextBlock Text="Desktop-Benachrichtigungen (neue Nachrichten, klingelnde und verpasste Anrufe) erscheinen rechts unten mit dem Gaming-Hub-Logo, auch wenn die App minimiert ist." FontSize="12" Classes="muted" TextWrapping="Wrap" />
+                    <TextBlock Text="Desktop-Benachrichtigungen (z. B. Updates, Internet-Ausfälle und Erinnerungen) erscheinen rechts unten mit dem Gaming-Hub-Logo, auch wenn die App minimiert ist." FontSize="12" Classes="muted" TextWrapping="Wrap" />
                     <CheckBox Content="Desktop-Benachrichtigungen anzeigen" IsChecked="{Binding DesktopNotificationsEnabled, Mode=TwoWay}" />
-                    <CheckBox Content="Benachrichtigungstöne abspielen (Klingelton bei Anrufen)" IsChecked="{Binding NotificationSoundEnabled, Mode=TwoWay}" />
+                    <CheckBox Content="Benachrichtigungstöne abspielen" IsChecked="{Binding NotificationSoundEnabled, Mode=TwoWay}" />
                 </StackPanel>
             </Border>
 
@@ -123,6 +123,17 @@
                         <Button Content="Ordner öffnen" Command="{Binding OpenLogFolderCommand}" FontSize="12" />
                         <Button Content="Leeren" Command="{Binding ClearLogCommand}" FontSize="12" />
                     </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Classes="card">
+                <StackPanel Spacing="6">
+                    <TextBlock Text="Lizenz &amp; Drittanbieter" FontWeight="SemiBold" FontSize="16" />
+                    <TextBlock TextWrapping="Wrap" Classes="muted" FontSize="12"
+                               Text="Gaming Hub – Nutzungslizenz © 2026 Jann Genzmann. Alle Rechte vorbehalten. Der Quellcode darf ohne ausdrückliche Erlaubnis nicht weiterverbreitet oder kommerziell genutzt werden." />
+                    <TextBlock TextWrapping="Wrap" Classes="muted" FontSize="12"
+                               Text="OpenRGB ist ein separates Open-Source-Projekt unter GPL-2.0 und wird bei Bedarf von openrgb.org geladen. Weitere Bibliotheken stehen unter ihren jeweiligen Lizenzen (siehe Repository)." />
+                    <Button Content="Lizenz auf GitHub öffnen" Command="{Binding OpenLicenseCommand}" HorizontalAlignment="Left" FontSize="12" />
                 </StackPanel>
             </Border>
 

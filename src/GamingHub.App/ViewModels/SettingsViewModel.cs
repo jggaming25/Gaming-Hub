@@ -44,10 +44,6 @@ public partial class SettingsViewModel : ViewModelBase
 {
     private static readonly (string Key, string Label)[] FlagLabels =
     {
-        ("dm_enabled", "Direktnachrichten erlauben"),
-        ("voice_enabled", "Sprachanrufe erlauben"),
-        ("video_enabled", "Videoanrufe erlauben"),
-        ("files_enabled", "Dateiversand erlauben"),
         ("websearch_enabled", "Web-Recherche erlauben"),
         ("cleanup_enabled", "Disk Cleanup erlauben"),
         ("games_enabled", "Spielebibliothek erlauben"),
@@ -71,6 +67,7 @@ public partial class SettingsViewModel : ViewModelBase
     public string DataDirectory => AppServices.Settings.DataDirectory;
     public string RepositoryUrl => AppInfo.RepositoryUrl;
     public string WebsiteUrl => AppInfo.WebsiteUrl;
+    public string LicenseUrl => AppInfo.LicenseUrl;
     public IReadOnlyList<ChangelogEntry> ChangelogEntries => Changelog.Entries;
 
     public bool AutoCheckUpdates
@@ -315,6 +312,9 @@ public partial class SettingsViewModel : ViewModelBase
 
     [RelayCommand]
     private void OpenReleases() => Open(AppInfo.ReleasesUrl);
+
+    [RelayCommand]
+    private void OpenLicense() => Open(AppInfo.LicenseUrl);
 
     [RelayCommand]
     private void OpenDataFolder()

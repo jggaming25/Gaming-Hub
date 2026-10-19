@@ -22,12 +22,29 @@ public sealed class InternetService
     private const int HistoryRetentionDaysBase = 7;
     private const int HistoryRetentionDaysPremium = 28;
     private const int BackupIntervalDays = 5;
+    private const int SpeedTestIntervalMinutes = 30;
+    private const int SpeedSampleRetentionDays = 7;
+    private const long SpeedTestBytes = 2_000_000;
+    private static readonly Uri SpeedTestUri = new("https://speed.cloudflare.com/__down?bytes=2000000");
+
+    /// <summary>HTTPS-Testziele in Fallback-Reihenfolge: Google → YouTube → Cloudflare.
+    /// Es wird die erste erreichbare Seite gewertet, damit ein einzelner
+    /// blockierter/großer Anbieter nicht fälschlich „offline“ meldet.</summary>
+    private static readonly string[] HttpTestUrls =
+    {
+        "https://www.google.com",
+        "https://www.youtube.com",
+        "https://www.cloudflare.com"
+    };
 
     private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(8) };
     private readonly Timer _timer;
     private readonly string _dataDirectory;
+    private readonly List<(DateTimeOffset Time, double Mbps)> _speedSamples = new();
     private volatile bool _running;
     private DateTimeOffset _lastBackupCheck = DateTimeOffset.MinValue;
+    private DateTimeOffset _lastSpeedTest = DateTimeOffset.MinValue;
+    private DateTimeOffset _lastSlowNotification = DateTimeOffset.MinValue;
 
     public event Action? Changed;
 
@@ -37,6 +54,13 @@ public sealed class InternetService
     public double PacketLossPercent { get; private set; } = 0;
     public string? GatewayIp { get; private set; }
     public string? DnsServerIp { get; private set; }
+    public string? LastHttpTarget { get; private set; }
+    /// <summary>Zuletzt gemessene Download-Geschwindigkeit in Mbit/s (-1 = unbekannt).</summary>
+    public double DownloadMbps { get; private set; } = -1;
+    /// <summary>Durchschnitt der Download-Messungen der letzten 7 Tage in Mbit/s.</summary>
+    public double AverageDownloadMbps7d { get; private set; } = -1;
+    public string DownloadSpeedText => DownloadMbps > 0 ? $"{DownloadMbps:0.0} Mbit/s" : "–";
+    public string AverageDownloadText => AverageDownloadMbps7d > 0 ? $"{AverageDownloadMbps7d:0.0} Mbit/s" : "–";
     public bool OfflineMode => !IsOnline && _hasEverBeenOnline;
 
     private bool _hasEverBeenOnline = false;
@@ -45,6 +69,7 @@ public sealed class InternetService
     {
         _dataDirectory = Path.Combine(AppServices.Settings.DataDirectory, "internet");
         Directory.CreateDirectory(_dataDirectory);
+        LoadSpeedSamples();
         _timer = new Timer(async _ => await CheckAsync(), null, Timeout.Infinite, Timeout.Infinite);
     }
 
@@ -122,18 +147,131 @@ public sealed class InternetService
         int httpLatency = -1;
         if (inetOk)
         {
-            var (ok, lat) = await HttpHeadAsync("https://www.google.com", TimeSpan.FromSeconds(5));
+            var (ok, lat, url) = await TestHttpAsync();
             httpOk = ok;
-            httpLatency = lat ?? -1;
+            httpLatency = lat;
+            LastHttpTarget = url;
         }
 
         IsOnline = httpOk;
-        if (IsOnline) _hasEverBeenOnline = true;
+        if (IsOnline)
+        {
+            _hasEverBeenOnline = true;
+            await MaybeMeasureDownloadSpeedAsync();
+        }
 
         int effectiveLatency = httpLatency >= 0 ? httpLatency : inetLatency >= 0 ? inetLatency : dnsLatency >= 0 ? dnsLatency : gwLatency;
         CurrentLatencyMs = effectiveLatency >= 0 ? effectiveLatency : -1;
 
         RecordSnapshot(gwOk, gwLatency, dnsOk, dnsLatency, inetOk, inetLatency, httpOk, httpLatency);
+    }
+
+    private async Task MaybeMeasureDownloadSpeedAsync()
+    {
+        if ((DateTimeOffset.UtcNow - _lastSpeedTest).TotalMinutes < SpeedTestIntervalMinutes) return;
+        _lastSpeedTest = DateTimeOffset.UtcNow;
+
+        double mbps = await MeasureDownloadSpeedAsync();
+        if (mbps <= 0) return;
+
+        DownloadMbps = mbps;
+        _speedSamples.Add((DateTimeOffset.UtcNow, mbps));
+        UpdateSpeedAverage();
+        SaveSpeedSamples();
+        MaybeNotifySlowConnection();
+    }
+
+    private async Task<double> MeasureDownloadSpeedAsync()
+    {
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            using var resp = await _http.GetAsync(SpeedTestUri, HttpCompletionOption.ResponseHeadersRead, cts.Token);
+            if (!resp.IsSuccessStatusCode) return -1;
+
+            await using var stream = await resp.Content.ReadAsStreamAsync(cts.Token);
+            var buffer = new byte[81920];
+            long total = 0;
+            var sw = Stopwatch.StartNew();
+            while (total < SpeedTestBytes)
+            {
+                int read = await stream.ReadAsync(buffer.AsMemory(0, buffer.Length), cts.Token);
+                if (read <= 0) break;
+                total += read;
+                if (sw.ElapsedMilliseconds > 9000) break;
+            }
+            sw.Stop();
+
+            if (total < 100_000 || sw.Elapsed.TotalSeconds <= 0.05) return -1;
+            return total * 8.0 / sw.Elapsed.TotalSeconds / 1_000_000.0;
+        }
+        catch
+        {
+            return -1;
+        }
+    }
+
+    private void LoadSpeedSamples()
+    {
+        try
+        {
+            string file = SpeedFileName;
+            if (!File.Exists(file)) return;
+            var cutoff = DateTimeOffset.UtcNow.AddDays(-SpeedSampleRetentionDays);
+            foreach (var raw in File.ReadAllLines(file))
+            {
+                var parts = raw.Split(',');
+                if (parts.Length < 2) continue;
+                if (DateTimeOffset.TryParse(parts[0], CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var ts)
+                    && double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out double mbps)
+                    && ts > cutoff && mbps > 0)
+                {
+                    _speedSamples.Add((ts, mbps));
+                }
+            }
+            UpdateSpeedAverage();
+            if (_speedSamples.Count > 0)
+                DownloadMbps = _speedSamples[^1].Mbps;
+        }
+        catch (Exception ex)
+        {
+            LogService.Warn("Download-Geschwindigkeitsverlauf konnte nicht geladen werden.", ex);
+        }
+    }
+
+    private string SpeedFileName => Path.Combine(_dataDirectory, "speed.csv");
+
+    private void SaveSpeedSamples()
+    {
+        try
+        {
+            var lines = new List<string> { "timestampUtc,downloadMbps" };
+            lines.AddRange(_speedSamples.Select(s =>
+                $"{s.Time.ToString("o", CultureInfo.InvariantCulture)},{s.Mbps.ToString("0.##", CultureInfo.InvariantCulture)}"));
+            File.WriteAllLines(SpeedFileName, lines);
+        }
+        catch (Exception ex)
+        {
+            LogService.Warn("Download-Geschwindigkeitsverlauf konnte nicht gespeichert werden.", ex);
+        }
+    }
+
+    private void UpdateSpeedAverage()
+    {
+        var cutoff = DateTimeOffset.UtcNow.AddDays(-SpeedSampleRetentionDays);
+        _speedSamples.RemoveAll(s => s.Time < cutoff);
+        AverageDownloadMbps7d = _speedSamples.Count > 0 ? _speedSamples.Average(s => s.Mbps) : -1;
+    }
+
+    private void MaybeNotifySlowConnection()
+    {
+        if (_speedSamples.Count < 5 || AverageDownloadMbps7d <= 0 || DownloadMbps <= 0) return;
+        if (DownloadMbps >= AverageDownloadMbps7d * 0.5) return;
+        if ((DateTimeOffset.UtcNow - _lastSlowNotification).TotalHours < 6) return;
+
+        _lastSlowNotification = DateTimeOffset.UtcNow;
+        AppServices.Notifications.Show("Langsame Internetverbindung",
+            $"Aktuell {DownloadMbps:0.0} Mbit/s – 7-Tage-Schnitt {AverageDownloadMbps7d:0.0} Mbit/s.");
     }
 
     private async Task<(bool Ok, int? LatencyMs)> PingHostAsync(string host, int count)
@@ -166,6 +304,17 @@ public sealed class InternetService
         }
     }
 
+    public async Task<(bool Ok, int LatencyMs, string? Url)> TestHttpAsync()
+    {
+        foreach (var url in HttpTestUrls)
+        {
+            var (ok, latency) = await HttpHeadAsync(url, TimeSpan.FromSeconds(5));
+            if (ok)
+                return (true, latency ?? -1, url);
+        }
+        return (false, -1, null);
+    }
+
     private async Task<(bool Ok, int? LatencyMs)> HttpHeadAsync(string url, TimeSpan timeout)
     {
         try
@@ -173,11 +322,11 @@ public sealed class InternetService
             using var cts = new CancellationTokenSource(timeout);
             using var req = new HttpRequestMessage(HttpMethod.Head, url);
             var sw = Stopwatch.StartNew();
-            var resp = await _http.SendAsync(req, cts.Token);
+            using var resp = await _http.SendAsync(req, cts.Token);
             sw.Stop();
-            if (resp.IsSuccessStatusCode)
-                return (true, (int)sw.ElapsedMilliseconds);
-            return (false, null);
+            // Jede HTTP-Antwort beweist eine funktionierende Verbindung – auch
+            // 4xx/5xx (z. B. blockiert HEAD oder Captive Portal).
+            return (true, (int)sw.ElapsedMilliseconds);
         }
         catch
         {

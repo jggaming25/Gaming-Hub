@@ -46,6 +46,8 @@
                             Command="{Binding AddSelectedDrivesCommand}" FontSize="11" />
 
                     <CheckBox Content="In Papierkorb (sicher)" IsChecked="{Binding UseRecycleBin, Mode=TwoWay}" FontSize="12" />
+                    <TextBlock Text="Deaktiviert: Dateien werden endgültig gelöscht und können nicht wiederhergestellt werden."
+                               Classes="muted" FontSize="10" TextWrapping="Wrap" />
                 </StackPanel>
 
                 <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,12,0,0">
@@ -57,6 +59,7 @@
                         <Button Content="Auswahl aufheben" Command="{Binding DeselectAllGroupsCommand}" />
                         <Button Content="Ausgewählte löschen" Command="{Binding DeleteSelectedCommand}" />
                         <Button Content="Full Auto Clean" Command="{Binding FullAutoCleanCommand}" Classes="accent" />
+                        <Button Content="Bericht exportieren…" Click="ExportReportClick" />
                     </StackPanel>
                     <TextBlock Text="Hinweis: Je nach Datenmenge dauert die Prüfung einige Minuten – bei ca. 2 TB Festplatten rund 15–20 Minuten."
                                Classes="muted" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0" />
