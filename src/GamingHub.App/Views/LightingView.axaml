@@ -92,6 +92,9 @@
                     </Border>
                 </StackPanel>
 
+                <TextBlock Text="{Binding StatusText}" Classes="muted" FontSize="12"
+                           TextWrapping="Wrap" IsVisible="{Binding StatusText, Converter={x:Static vm:CommonConverters.NotEmpty}}" />
+
                 <Border IsVisible="{Binding CanControl}" Classes="card" Padding="16">
                     <StackPanel Spacing="16">
                         <TextBlock Text="{Binding SelectedDevice.Name}" FontWeight="Bold" FontSize="18" />

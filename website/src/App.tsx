@@ -22,6 +22,14 @@ const FEATURES = [
 
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   {
+    version: "0.5.24",
+    date: "19.10.2026 17:15",
+    items: [
+      "Bugfix Beleuchtung: Farben und Effekte werden jetzt zuverlässig auf die Geräte angewendet. Ursache war eine vorhandene fremde OpenRGB-Installation auf dem Standardport, die die Geräte nicht steuern konnte – Gaming Hub startet und nutzt nun eine eigene, unabhängige OpenRGB-Instanz.",
+      "Beleuchtung: Die Ansicht zeigt jetzt eine Rückmeldung an (z. B. „Farbe gesetzt“ oder „Fehler beim Setzen“), die nicht mehr automatisch von der Verbindungsanzeige überschrieben wird."
+    ]
+  },
+  {
     version: "0.5.23",
     date: "19.10.2026 16:33",
     items: [

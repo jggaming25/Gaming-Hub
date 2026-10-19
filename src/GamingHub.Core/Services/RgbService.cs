@@ -9,14 +9,20 @@ namespace GamingHub.Core.Services;
 
 /// <summary>
 /// RGB-Service zur Steuerung von Maus, Tastatur, Lüftern, GPU, Mainboard etc.
-/// Spricht direkt mit dem binären OpenRGB-SDK (TCP, Standardport 6742) und
+/// Spricht direkt mit dem binären OpenRGB-SDK (TCP). Gaming Hub startet dafür
+/// eine eigene, verwaltete OpenRGB-Instanz auf <see cref="ManagedPort"/> und
 /// erkennt darüber alle von OpenRGB unterstützten Geräte. Läuft OpenRGB nicht,
 /// kann es über <see cref="TryLaunchOpenRgb"/> gestartet werden.
 /// </summary>
 public sealed class RgbService : IDisposable
 {
     public const string DefaultHost = "127.0.0.1";
-    public const int DefaultPort = 6742;
+
+    /// <summary>Eigener SDK-Port für die von Gaming Hub verwaltete OpenRGB-Instanz.
+    /// Bewusst nicht der Standardport 6742: Dort läuft oft ein fremder
+    /// OpenRGB-Dienst/eine fremde Installation, die die Geräte nicht (zuverlässig)
+    /// steuern kann. So kollidiert die App nie mit einer vorhandenen OpenRGB-Instanz.</summary>
+    public const int ManagedPort = 6790;
 
     private readonly OpenRgbClient _client = new();
     private readonly OpenRgbInstaller _installer;
@@ -60,7 +66,7 @@ public sealed class RgbService : IDisposable
         => _installer.UpdateIfInstalledAsync(progress);
 
     /// <summary>Verbindet zu OpenRGB und lädt die Geräteliste.</summary>
-    public async Task<bool> ConnectAsync(string host = DefaultHost, int port = DefaultPort, bool launchIfMissing = true)
+    public async Task<bool> ConnectAsync(string host = DefaultHost, int port = ManagedPort, bool launchIfMissing = true)
     {
         await _connectLock.WaitAsync().ConfigureAwait(false);
         try
@@ -84,8 +90,9 @@ public sealed class RgbService : IDisposable
 
             if (launchIfMissing)
             {
-                // Läuft OpenRGB bereits (z. B. manuell gestartet) aber ohne SDK-Server,
-                // muss es mit --server neu gestartet werden, sonst ist Port 6742 dicht.
+                // Läuft der eigene OpenRGB-Server noch nicht, die verwaltete
+                // Instanz auf dem eigenen Port starten. Eine fremde OpenRGB-
+                // Installation/Dienst auf dem Standardport wird nicht angefasst.
                 StartOrRestartOpenRgb();
 
                 // OpenRGB braucht einen Moment zum Starten und Erkennen der Geräte.
@@ -121,8 +128,8 @@ public sealed class RgbService : IDisposable
         DevicesChanged?.Invoke();
     }
 
-    /// <summary>Prüft, ob der OpenRGB-SDK-Server erreichbar ist.</summary>
-    public static bool IsServerRunning(string host = DefaultHost, int port = DefaultPort)
+    /// <summary>Prüft, ob der eigene OpenRGB-SDK-Server erreichbar ist.</summary>
+    public static bool IsServerRunning(string host = DefaultHost, int port = ManagedPort)
     {
         try
         {
@@ -152,9 +159,12 @@ public sealed class RgbService : IDisposable
                         // hält dieses Verzeichnis offen. Beim Auto-Update scheitert dann der
                         // Verzeichnis-Rename von Velopack (App startet endlos neu).
                         WorkingDirectory = Path.GetDirectoryName(path) ?? AppContext.BaseDirectory,
-                        // Wichtig: ohne --server startet OpenRGB den SDK-Server (Port 6742)
-                        // NICHT. --startminimized zeigt die GUI nur minimiert in der Taskleiste.
-                        Arguments = "--server --startminimized"
+                        // Wichtig: ohne --server startet OpenRGB den SDK-Server NICHT.
+                        // --server-port bindet ihn an unseren eigenen Port, damit eine
+                        // evtl. vorhandene fremde OpenRGB-Instanz (Standardport 6742)
+                        // nicht angesprochen wird. --startminimized zeigt nur die
+                        // minimierte GUI in der Taskleiste.
+                        Arguments = $"--server --server-port {ManagedPort} --startminimized"
                     });
                     return true;
                 }
@@ -181,13 +191,43 @@ public sealed class RgbService : IDisposable
     }
 
     /// <summary>
-    /// Startet OpenRGB mit SDK-Server. Läuft bereits ein OpenRGB-Prozess,
-    /// wird dieser beendet und mit aktiviertem Server neu gestartet.
+    /// Startet die von Gaming Hub verwaltete OpenRGB-Instanz mit SDK-Server auf
+    /// dem eigenen Port. Eine laufende, von uns verwaltete Instanz (z. B. mit
+    /// altem Port) wird beendet, damit nicht zwei Instanzen um dasselbe Gerät
+    /// konkurrieren. Fremde OpenRGB-Installationen/-Dienste bleiben unberührt.
     /// </summary>
     public bool StartOrRestartOpenRgb()
     {
         if (IsServerRunning()) return true;
-        return IsOpenRgbProcessRunning() ? RestartOpenRgb() : TryLaunchOpenRgb();
+
+        KillManagedOpenRgbInstances();
+        Thread.Sleep(800);
+        return TryLaunchOpenRgb();
+    }
+
+    /// <summary>Beendet nur OpenRGB-Prozesse aus dem verwalteten Installationsordner.</summary>
+    private void KillManagedOpenRgbInstances()
+    {
+        var managedDir = _installer.ExecutablePath is { } exe ? Path.GetDirectoryName(exe) : null;
+        if (managedDir is null) return;
+
+        foreach (var proc in Process.GetProcessesByName("OpenRGB"))
+        {
+            try
+            {
+                var path = proc.MainModule?.FileName;
+                if (path is not null &&
+                    string.Equals(Path.GetDirectoryName(path), managedDir, StringComparison.OrdinalIgnoreCase))
+                {
+                    proc.Kill();
+                    proc.WaitForExit(3000);
+                }
+            }
+            catch
+            {
+                // Fremde/elevated Prozesse (kein Zugriff) überspringen.
+            }
+        }
     }
 
     /// <summary>
@@ -216,19 +256,6 @@ public sealed class RgbService : IDisposable
         {
             // ignorieren
         }
-    }
-
-    /// <summary>
-    /// Beendet laufende OpenRGB-Prozesse und startet OpenRGB mit aktiviertem
-    /// SDK-Server neu. Nötig, wenn OpenRGB bereits ohne <c>--server</c> läuft.
-    /// </summary>
-    public bool RestartOpenRgb()
-    {
-        KillOpenRgbProcesses();
-
-        // Kurz warten, damit Port/Geräte freigegeben werden.
-        Thread.Sleep(1200);
-        return TryLaunchOpenRgb();
     }
 
     private IEnumerable<string> EnumerateLaunchCandidates()

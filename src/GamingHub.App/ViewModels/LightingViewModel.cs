@@ -196,7 +196,10 @@ public partial class LightingViewModel : ViewModelBase
             bool serverRunning = IsConnected || await Task.Run(() => RgbService.IsServerRunning());
             OpenRgbNotRunning = !IsConnected && !serverRunning;
 
-            if (IsConnected)
+            // Nur setzen, wenn (noch) keine Aktion-Rückmeldung angezeigt wird –
+            // sonst würde der 5-Sekunden-Refresh Meldungen wie „Farbe gesetzt“
+            // sofort wieder überschreiben.
+            if (IsConnected && string.IsNullOrWhiteSpace(StatusText))
                 StatusText = HasDevices
                     ? $"Verbunden mit OpenRGB · {Devices.Count} Gerät(e)"
                     : "Verbunden mit OpenRGB – es wurden keine RGB-Geräte gefunden.";
@@ -407,7 +410,7 @@ public partial class LightingViewModel : ViewModelBase
             OpenRgbNotRunning = !ok && !await Task.Run(() => RgbService.IsServerRunning());
             StatusText = ok
                 ? $"Verbunden mit OpenRGB · {Devices.Count} Gerät(e)"
-                : "OpenRGB nicht erreichbar. Bitte OpenRGB starten (SDK-Server auf Port 6742).";
+                : "OpenRGB nicht erreichbar. Bitte „OpenRGB starten“ wählen oder manuell starten.";
         }
         finally
         {
