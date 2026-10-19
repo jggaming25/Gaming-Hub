@@ -32,6 +32,7 @@ public static class AppServices
         Internet.Stop();
         History.Stop();
         Rgb.Disconnect();
+        Auth.Stop();
         Notifications.Shutdown();
     }
 

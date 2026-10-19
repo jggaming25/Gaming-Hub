@@ -16,6 +16,7 @@ public sealed class AuthService
 {
     private const int OAuthPort = 51555;
     private readonly string _sessionPath;
+    private readonly Timer _refreshTimer;
 
     public SupabaseClient? Client { get; private set; }
     public bool IsConfigured => Client is not null;
@@ -32,9 +33,30 @@ public sealed class AuthService
         if (!string.IsNullOrWhiteSpace(url) && !string.IsNullOrWhiteSpace(key))
         {
             Client = new SupabaseClient(url, key);
+            Client.SessionChanged += PersistSession;
             RestorePersistedSession();
         }
+
+        // Sitzung beim Start erneuern (der Access-Token gilt nur ~1 Stunde) und
+        // danach regelmäßig gültig halten. Sonst meldet die App nach dem Ablauf
+        // fälschlich „nicht angemeldet“, obwohl ein Refresh-Token vorliegt.
+        _ = EnsureSessionAsync();
+        _refreshTimer = new Timer(_ => _ = EnsureSessionAsync(), null,
+            TimeSpan.FromMinutes(10), TimeSpan.FromMinutes(10));
     }
+
+    /// <summary>Erneuert die gespeicherte Sitzung bei Bedarf. Gibt zurück, ob
+    /// danach eine gültige Anmeldung vorliegt.</summary>
+    public async Task<bool> EnsureSessionAsync()
+    {
+        if (Client is null) return false;
+        bool before = IsLoggedIn;
+        bool ok = await Client.EnsureValidSessionAsync();
+        if (ok != before) Changed?.Invoke();
+        return ok;
+    }
+
+    public void Stop() => _refreshTimer.Dispose();
 
     private (string? url, string? key) ResolveConfig()
     {

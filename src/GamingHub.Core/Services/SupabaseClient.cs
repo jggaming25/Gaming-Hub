@@ -37,6 +37,10 @@ public sealed class SupabaseClient
     public string AnonKey { get; }
     public SupabaseSession? Session { get; private set; }
 
+    /// <summary>Wird ausgelöst, wenn sich die Sitzung ändert (Login, Refresh,
+    /// Logout) – so kann die Sitzung dauerhaft gespeichert werden.</summary>
+    public event Action? SessionChanged;
+
     public SupabaseClient(string url, string anonKey)
     {
         Url = url.TrimEnd('/');
@@ -45,7 +49,23 @@ public sealed class SupabaseClient
 
     public bool IsLoggedIn => Session is not null && Session.ExpiresAtUtc > DateTime.UtcNow.AddSeconds(30);
 
-    public void RestoreSession(SupabaseSession? session) => Session = session;
+    private void SetSession(SupabaseSession? session)
+    {
+        Session = session;
+        SessionChanged?.Invoke();
+    }
+
+    public void RestoreSession(SupabaseSession? session) => SetSession(session);
+
+    /// <summary>Stellt sicher, dass eine gültige Sitzung vorliegt. Läuft der
+    /// Access-Token ab, wird er mit dem Refresh-Token automatisch erneuert.</summary>
+    public async Task<bool> EnsureValidSessionAsync()
+    {
+        if (Session is null) return false;
+        if (IsLoggedIn) return true;
+        var refreshed = await RefreshAsync();
+        return refreshed is not null && IsLoggedIn;
+    }
 
     // ---------------- Auth ----------------
 
@@ -80,7 +100,7 @@ public sealed class SupabaseClient
             if (string.IsNullOrWhiteSpace(session.AccessToken))
                 return (session, null);
 
-            Session = session;
+            SetSession(session);
             return (session, null);
         }
         catch (Exception ex)
@@ -95,7 +115,7 @@ public sealed class SupabaseClient
             return null;
         var (s, _) = await AuthRequestAsync("token?grant_type=refresh_token",
             new { refresh_token = Session.RefreshToken });
-        if (s is not null) Session = s;
+        if (s is not null) SetSession(s);
         return s;
     }
 
@@ -108,7 +128,7 @@ public sealed class SupabaseClient
             await _http.SendAsync(req);
         }
         catch { /* ignore */ }
-        Session = null;
+        SetSession(null);
     }
 
     public async Task<string?> GetUserEmailAsync()
@@ -157,7 +177,7 @@ public sealed class SupabaseClient
 
             var json = JsonNode.Parse(text)!.AsObject();
             var session = ParseSession(json);
-            Session = session;
+            SetSession(session);
             return (session, null);
         }
         catch (Exception ex)

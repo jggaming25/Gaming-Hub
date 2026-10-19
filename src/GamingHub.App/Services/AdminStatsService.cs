@@ -116,7 +116,8 @@ public sealed class AdminStatsService
         try
         {
             var client = AppServices.Auth.Client;
-            if (client is null || !AppServices.Auth.IsLoggedIn)
+            // Sitzung bei Bedarf erneuern (Access-Token läuft nach ~1 Std. ab).
+            if (client is null || !await AppServices.Auth.EnsureSessionAsync())
             {
                 usersError = "Nicht mit Supabase angemeldet.";
             }

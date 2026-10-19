@@ -22,6 +22,15 @@ const FEATURES = [
 
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   {
+    version: "0.5.25",
+    date: "19.10.2026 18:55",
+    items: [
+      "Bugfix Anmeldung: Die Supabase-Sitzung wird jetzt automatisch erneuert (beim Start, regelmäßig im Hintergrund und vor der Admin-Statistik). Nach Ablauf des Tokens zeigt die App nicht mehr fälschlich „nicht angemeldet“ an.",
+      "Admin-Statistik: Registrierte Nutzer werden wieder zuverlässig angezeigt.",
+      "Die erneuerte Sitzung wird verschlüsselt gespeichert, damit die Anmeldung auch nach einem Neustart erhalten bleibt."
+    ]
+  },
+  {
     version: "0.5.24",
     date: "19.10.2026 17:15",
     items: [

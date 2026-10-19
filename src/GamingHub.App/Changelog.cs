@@ -8,6 +8,12 @@ public static class Changelog
 {
     public static readonly ChangelogEntry[] Entries =
     {
+        new("0.5.25", "19.10.2026 18:55", new[]
+        {
+            "Bugfix Anmeldung: Die Supabase-Sitzung wird jetzt automatisch erneuert (beim Start, regelmäßig im Hintergrund und vor der Admin-Statistik). Nach Ablauf des Tokens zeigt die App nicht mehr fälschlich „nicht angemeldet“ an.",
+            "Admin-Statistik: Registrierte Nutzer werden wieder zuverlässig angezeigt.",
+            "Die erneuerte Sitzung wird verschlüsselt gespeichert, damit die Anmeldung auch nach einem Neustart erhalten bleibt."
+        }),
         new("0.5.24", "19.10.2026 17:15", new[]
         {
             "Bugfix Beleuchtung: Farben und Effekte werden jetzt zuverlässig auf die Geräte angewendet. Ursache war eine vorhandene fremde OpenRGB-Installation auf dem Standardport, die die Geräte nicht steuern konnte – Gaming Hub startet und nutzt nun eine eigene, unabhängige OpenRGB-Instanz.",
