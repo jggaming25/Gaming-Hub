@@ -22,6 +22,14 @@ const FEATURES = [
 
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   {
+    version: "0.5.23",
+    date: "19.10.2026 16:33",
+    items: [
+      "Bugfix Beleuchtung: Beim Anwenden eines Effekts werden die gewählten Farben jetzt wirklich übernommen. Einfarbige Modi erhalten genau die (gemischte) Farbe, mehrfarbige Modi einen Verlauf, und Modi ohne Farbauswahl (z. B. fester Regenbogen) werden nicht mehr abgelehnt.",
+      "Profile: Beim Laden wird auch bei einfarbigen Effekten die gemischte Farbe verwendet."
+    ]
+  },
+  {
     version: "0.5.22",
     date: "19.10.2026 16:15",
     items: [

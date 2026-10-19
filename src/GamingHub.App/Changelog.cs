@@ -8,6 +8,11 @@ public static class Changelog
 {
     public static readonly ChangelogEntry[] Entries =
     {
+        new("0.5.23", "19.10.2026 16:33", new[]
+        {
+            "Bugfix Beleuchtung: Beim Anwenden eines Effekts werden die gewählten Farben jetzt wirklich übernommen. Einfarbige Modi erhalten genau die (gemischte) Farbe, mehrfarbige Modi einen Verlauf, und Modi ohne Farbauswahl (z. B. fester Regenbogen) werden nicht mehr abgelehnt.",
+            "Profile: Beim Laden wird auch bei einfarbigen Effekten die gemischte Farbe verwendet."
+        }),
         new("0.5.22", "19.10.2026 16:15", new[]
         {
             "Konto: Registrierung mit E-Mail-Bestätigung zeigt jetzt einen klaren Hinweis und meldet sich nicht mehr fälschlich als angemeldet an; ein fehlendes Profil wird automatisch angelegt.",

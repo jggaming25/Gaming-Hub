@@ -301,7 +301,7 @@ public sealed class RgbService : IDisposable
                     string.Equals(effectName, "direct", StringComparison.OrdinalIgnoreCase))
                 {
                     _client.SetCustomMode((uint)device.ControllerIndex);
-                    var direct = palette.FirstOrDefault() ?? color;
+                    var direct = color ?? palette.FirstOrDefault();
                     if (direct is { } c) _client.SetColor((uint)device.ControllerIndex, device.LedCount, c);
                     return true;
                 }
@@ -311,24 +311,38 @@ public sealed class RgbService : IDisposable
                 if (mode == null) return false;
 
                 mode.Speed = (uint)Math.Clamp(speed, 0, 100);
-                if (palette.Count > 0)
+
+                // Modi, die keine Farben annehmen (z. B. fester Regenbogen:
+                // ColorsMax == 0), dürfen keine Farbslots erhalten – sonst
+                // lehnt OpenRGB den Modus ab und die Farbe wird nicht übernommen.
+                if (mode.ColorsMax >= 1 && palette.Count > 0)
                 {
-                    // Modi mit mehreren Farben (Wave, Rainbow, Breathing o. ä.)
-                    // bekommen die gemischte Palette; bei einem einzelnen
-                    // Farbwert wird sie auf alle vorhandenen Slots verteilt.
-                    int slots = Math.Max(
-                        Math.Max(mode.Colors.Count, (int)Math.Max(mode.ColorsMin, 1)),
-                        Math.Min(palette.Count, Math.Max((int)mode.ColorsMax, palette.Count)));
-                    slots = Math.Clamp(slots, 1, 64);
+                    int max = (int)Math.Clamp(mode.ColorsMax, 1, 64);
+                    int min = (int)Math.Clamp(mode.ColorsMin, 1, max);
+                    int slots = Math.Clamp(palette.Count, min, max);
                     mode.Colors.Clear();
-                    for (int i = 0; i < slots; i++)
-                        mode.Colors.Add(palette[i % palette.Count]);
+                    if (slots == 1)
+                    {
+                        // Einfarbige Modi (Static/Breathing) erhalten genau die
+                        // gewählte (ggf. gemischte) Farbe.
+                        mode.Colors.Add(color ?? palette[0]);
+                    }
+                    else
+                    {
+                        // Mehrfarbige Modi (Wave, Color Pulse o. ä.) bekommen
+                        // einen gleichmäßigen Verlauf über die Farbpalette.
+                        for (int i = 0; i < slots; i++)
+                        {
+                            int idx = (int)Math.Round((double)i * (palette.Count - 1) / (slots - 1));
+                            mode.Colors.Add(palette[Math.Clamp(idx, 0, palette.Count - 1)]);
+                        }
+                    }
                 }
-                else if (color is { } chosen)
+                else if (color is { } chosen && mode.ColorsMax >= 1)
                 {
                     if (mode.Colors.Count > 0)
                         for (var i = 0; i < mode.Colors.Count; i++) mode.Colors[i] = chosen;
-                    else if (mode.ColorsMax >= 1 || mode.ColorsMin >= 1)
+                    else
                         mode.Colors.Add(chosen);
                 }
 
@@ -460,12 +474,16 @@ public sealed class RgbService : IDisposable
 
         foreach (var (deviceId, state) in profile.DeviceStates)
         {
+            var primary = state.Color ?? state.EffectColor;
+            var mixed = primary is not null && state.SecondaryColor is not null && state.MixPercent > 0
+                ? RgbColor.Mix(primary, state.SecondaryColor, state.MixPercent / 100.0)
+                : primary;
             var colors = state.Colors.Count > 0
                 ? state.Colors
-                : BuildPalette(state.Color ?? state.EffectColor, state.SecondaryColor, state.MixPercent);
+                : BuildPalette(primary, state.SecondaryColor, state.MixPercent);
 
             if (state.Effect is { } e)
-                await SetEffectAsync(deviceId, e, state.Color ?? state.EffectColor, state.Speed, colors).ConfigureAwait(false);
+                await SetEffectAsync(deviceId, e, mixed, state.Speed, colors).ConfigureAwait(false);
             else if (state.Color is { } c)
                 await SetColorAsync(deviceId, c).ConfigureAwait(false);
         }
