@@ -163,9 +163,15 @@
                                     <Border VerticalAlignment="Top" Height="1" Background="#18FFFFFF" />
                                     <Border VerticalAlignment="Center" Height="1" Background="#18FFFFFF" />
                                     <Border VerticalAlignment="Bottom" Height="1" Background="#18FFFFFF" />
+                                    <Grid ColumnDefinitions="*,*,*,*" IsHitTestVisible="False">
+                                        <Border Grid.Column="1" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
+                                        <Border Grid.Column="2" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
+                                        <Border Grid.Column="3" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
+                                    </Grid>
                                     <Polyline Stretch="Fill"
                                               Points="{Binding CpuSeries, Converter={x:Static vm:CommonConverters.SeriesToPoints}}"
                                               Stroke="#22D3EE" StrokeThickness="2" />
+
                                 </Grid>
                             </Grid>
 
@@ -187,9 +193,15 @@
                                     <Border VerticalAlignment="Top" Height="1" Background="#18FFFFFF" />
                                     <Border VerticalAlignment="Center" Height="1" Background="#18FFFFFF" />
                                     <Border VerticalAlignment="Bottom" Height="1" Background="#18FFFFFF" />
+                                    <Grid ColumnDefinitions="*,*,*,*" IsHitTestVisible="False">
+                                        <Border Grid.Column="1" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
+                                        <Border Grid.Column="2" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
+                                        <Border Grid.Column="3" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
+                                    </Grid>
                                     <Polyline Stretch="Fill"
                                               Points="{Binding RamSeries, Converter={x:Static vm:CommonConverters.SeriesToPoints}}"
                                               Stroke="#4ADE80" StrokeThickness="2" />
+
                                 </Grid>
                             </Grid>
 
@@ -211,9 +223,15 @@
                                     <Border VerticalAlignment="Top" Height="1" Background="#18FFFFFF" />
                                     <Border VerticalAlignment="Center" Height="1" Background="#18FFFFFF" />
                                     <Border VerticalAlignment="Bottom" Height="1" Background="#18FFFFFF" />
+                                    <Grid ColumnDefinitions="*,*,*,*" IsHitTestVisible="False">
+                                        <Border Grid.Column="1" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
+                                        <Border Grid.Column="2" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
+                                        <Border Grid.Column="3" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
+                                    </Grid>
                                     <Polyline Stretch="Fill"
                                               Points="{Binding GpuSeries, Converter={x:Static vm:CommonConverters.SeriesToPoints}}"
                                               Stroke="#A855F7" StrokeThickness="2" />
+
                                 </Grid>
                             </Grid>
 
@@ -235,9 +253,15 @@
                                     <Border VerticalAlignment="Top" Height="1" Background="#18FFFFFF" />
                                     <Border VerticalAlignment="Center" Height="1" Background="#18FFFFFF" />
                                     <Border VerticalAlignment="Bottom" Height="1" Background="#18FFFFFF" />
+                                    <Grid ColumnDefinitions="*,*,*,*" IsHitTestVisible="False">
+                                        <Border Grid.Column="1" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
+                                        <Border Grid.Column="2" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
+                                        <Border Grid.Column="3" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
+                                    </Grid>
                                     <Polyline Stretch="Fill"
                                               Points="{Binding ProcSeries, Converter={x:Static vm:CommonConverters.SeriesToPoints}}"
                                               Stroke="#FACC15" StrokeThickness="2" />
+
                                 </Grid>
                             </Grid>
                             <!-- Zeitachse -->
@@ -245,6 +269,16 @@
                                 <TextBlock Grid.Column="0" Text="Zeitraum" FontSize="9" Classes="muted" VerticalAlignment="Center" />
                                 <TextBlock Grid.Column="2" Text="{Binding HistoryRangeText}" FontSize="9" Classes="muted"
                                            HorizontalAlignment="Stretch" TextAlignment="Center" />
+                            </Grid>
+                            <Grid ColumnDefinitions="132,26,*" Margin="0,1,0,0">
+                                <TextBlock Grid.Column="0" Text="Datum" FontSize="9" Classes="muted" VerticalAlignment="Center" />
+                                <Grid Grid.Column="2" ColumnDefinitions="*,*,*,*,*">
+                                    <TextBlock Grid.Column="0" Text="{Binding HistoryAxisStart}" FontSize="9" Classes="muted" HorizontalAlignment="Left" />
+                                    <TextBlock Grid.Column="1" Text="{Binding HistoryAxisQuarter}" FontSize="9" Classes="muted" HorizontalAlignment="Center" />
+                                    <TextBlock Grid.Column="2" Text="{Binding HistoryAxisMiddle}" FontSize="9" Classes="muted" HorizontalAlignment="Center" />
+                                    <TextBlock Grid.Column="3" Text="{Binding HistoryAxisThreeQuarter}" FontSize="9" Classes="muted" HorizontalAlignment="Center" />
+                                    <TextBlock Grid.Column="4" Text="{Binding HistoryAxisEnd}" FontSize="9" Classes="muted" HorizontalAlignment="Right" />
+                                </Grid>
                             </Grid>
                         </StackPanel>
                     </StackPanel>

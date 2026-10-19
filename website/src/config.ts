@@ -6,7 +6,6 @@ export const DOWNLOAD_PORTABLE_URL =
   "https://github.com/jggaming25/Gaming-Hub/releases/latest/download/GamingHub-win-Portable.zip";
 
 // Alle Releases (auch ältere Versionen) bleiben dauerhaft herunterladbar.
-export const RELEASES_PAGE_URL = "https://github.com/jggaming25/Gaming-Hub/releases";
 
 export function releaseAssetUrl(version: string, kind: "setup" | "portable"): string {
   const file = kind === "setup" ? "GamingHub-win-Setup.exe" : "GamingHub-win-Portable.zip";

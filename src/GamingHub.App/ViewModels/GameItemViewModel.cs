@@ -91,6 +91,8 @@ public partial class GameItemViewModel : ViewModelBase
         OnPropertyChanged(nameof(PlaytimeDisplay));
         OnPropertyChanged(nameof(LastPlayedDisplay));
         OnPropertyChanged(nameof(RunStateText));
+        OnPropertyChanged(nameof(CategoryDisplay));
+        OnPropertyChanged(nameof(IsGameCategory));
     }
 
     partial void OnSizeBytesChanged(long value)

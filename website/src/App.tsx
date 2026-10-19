@@ -6,8 +6,8 @@ import { Admin } from "./Admin";
 import {
   DOWNLOAD_SETUP_URL,
   DOWNLOAD_PORTABLE_URL,
-  RELEASES_PAGE_URL,
   fetchReleases,
+
   type ReleaseInfo,
   isSupabaseConfigured
 } from "./config";
@@ -21,6 +21,19 @@ const FEATURES = [
 ];
 
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: "0.5.21",
+    date: "19.10.2026 14:50",
+    items: [
+      "Beleuchtung: Geräte lassen sich jetzt direkt auswählen; technische OpenRGB-Statusanzeigen sowie „Trennen“ und „Neu verbinden“ wurden entfernt.",
+      "Einstellungen: neuer Untertab „Kontakt“ mit Ansprechpartner, Discord und E-Mail; doppelte Admin-Optionen wurden behoben.",
+      "Lizenz: Der vollständige Lizenztext wird direkt in der App unter Einstellungen → Lizenz angezeigt – ohne GitHub-Verweis.",
+      "System-Ressourcen: GPU-Auslastung wird zuverlässig über NVIDIA NVML gelesen (kein „n. v.“ mehr); die Verlaufsdiagramme haben jetzt eine Datums-/Uhrzeitachse mit Rasterlinien.",
+      "Spielebibliothek: Die Statuszeile wird nicht mehr abgeschnitten; FiveM zählt als Spiel und „Sonstige“-Einträge werden im Hintergrund per Web-Recherche eingeordnet.",
+      "„Kann ich das spielen?“: Die Recherche liefert keine falsche Version mehr (z. B. OMSI 1 statt OMSI 2); alte Ergebnisse verschwinden bei einer neuen Berechnung.",
+      "Datenschutz: Supabase wird im Haftungsausschluss nicht mehr genannt; Bugreports gehen im Fallback per E-Mail statt über GitHub."
+    ]
+  },
   {
     version: "0.5.20",
     date: "19.10.2026 14:12",
@@ -433,18 +446,16 @@ export function App() {
         <section id="versionen" style={{ marginTop: "24px" }}>
           <h2 className="section-title">Frühere Versionen</h2>
           <p className="muted small">
-            Die neueste Version ist für alle kostenlos. Ältere Versionen sind hier und auf der{" "}
-            <a href={RELEASES_PAGE_URL} target="_blank" rel="noreferrer">GitHub Releases-Seite</a>{" "}
-            verfügbar.
+            Die neueste Version ist für alle kostenlos. Ältere Versionen sind hier verfügbar.
           </p>
           {releases.length === 0 ? (
             <div className="card">
               <p className="muted small">
-                Die Versionsliste konnte nicht geladen werden. Alle Downloads findest du auf der{" "}
-                <a href={RELEASES_PAGE_URL} target="_blank" rel="noreferrer">Releases-Seite</a>.
+                Die Versionsliste konnte nicht geladen werden.
               </p>
             </div>
           ) : (
+
             <div className="changelog">
               {releases.map((r, i) => {
                 const isLatest = i === 0;
@@ -479,11 +490,6 @@ export function App() {
                                 Portable (.zip)
                               </a>
                             )}
-                            {!r.setupUrl && !r.portableUrl && (
-                              <a className="btn tiny ghost" href={r.htmlUrl} target="_blank" rel="noreferrer">
-                                Auf GitHub ansehen
-                              </a>
-                            )}
                           </>
                         ) : (
                           <span className="muted small">Downloads deaktiviert</span>
@@ -495,30 +501,18 @@ export function App() {
               })}
             </div>
           )}
-          <p className="muted small" style={{ marginTop: 12 }}>
-            Ältere Releases, Prüfsummen und alle Dateien findest du auch auf der{" "}
-            <a href={RELEASES_PAGE_URL} target="_blank" rel="noreferrer">
-              Releases-Seite
-            </a>
-            .
-          </p>
         </section>
       )}
 
       <footer>
         <span>© {new Date().getFullYear()} Jann Genzmann – Gaming Hub · Alle Rechte vorbehalten</span>
         <span>
-          <a href="https://github.com/jggaming25/Gaming-Hub/blob/main/LICENSE" target="_blank" rel="noreferrer">
-            Lizenz
-          </a>
-          {" · "}
-          <a href="https://github.com/jggaming25/Gaming-Hub" target="_blank" rel="noreferrer">
-            GitHub
-          </a>
+          <span className="muted small">Lizenz in der App unter Einstellungen</span>
           {" · "}
           <a href="#/" onClick={() => go("start")}>Nach oben</a>
         </span>
       </footer>
+
     </div>
   );
 }

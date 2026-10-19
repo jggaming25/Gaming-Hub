@@ -17,39 +17,23 @@
                     <TextBlock Text="💡" FontSize="24" VerticalAlignment="Center" />
                     <StackPanel VerticalAlignment="Center">
                         <TextBlock Text="RGB Beleuchtung" FontWeight="Bold" FontSize="18" />
-                        <TextBlock Text="OpenRGB Integration" Classes="muted" FontSize="11" />
+                        <TextBlock Text="Geräte &amp; Profile" Classes="muted" FontSize="11" />
                     </StackPanel>
-                    <Border Margin="10,0,0,0" Padding="6,2" CornerRadius="4"
-                            Background="{Binding IsConnected, Converter={x:Static vm:CommonConverters.MessageBrush}, ConverterParameter=#4ADE80:#F87171}">
-                        <TextBlock Text="{Binding IsConnected, Converter={x:Static vm:CommonConverters.BoolToText}, ConverterParameter=Verbunden:Getrennt}"
-                                   FontSize="10" Foreground="White" FontWeight="Bold" />
-                    </Border>
                 </StackPanel>
 
-                <!-- Verbindung -->
-                <Border Classes="card" Padding="10" Background="#0B0D1A">
-                    <StackPanel Spacing="8">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <Button Content="Verbinden" Command="{Binding ConnectCommand}" IsVisible="{Binding !IsConnected}" Classes="accent" />
-                            <Button Content="Trennen" Command="{Binding DisconnectCommand}" IsVisible="{Binding IsConnected}" Classes="ghost" />
-                            <Button Content="Neu verbinden" Command="{Binding ConnectCommand}" IsVisible="{Binding IsConnected}" />
-                            <Button Content="OpenRGB starten" Command="{Binding StartOpenRgbCommand}" IsVisible="{Binding OpenRgbNotRunning}" />
-                        </StackPanel>
-                        <TextBlock Text="{Binding StatusText}" FontSize="11" Classes="muted" TextWrapping="Wrap" />
-                        <TextBlock IsVisible="{Binding OpenRgbNotRunning}"
-                                   Text="OpenRGB wird bei Bedarf automatisch installiert und gestartet (separates Open-Source-Projekt, GPL-2.0, geladen von openrgb.org). Der SDK-Server läuft auf Port 6742."
-                                   FontSize="11" Foreground="#F59E0B" TextWrapping="Wrap" />
-                    </StackPanel>
-                </Border>
+                <TextBlock Text="RGB-Geräte werden gesucht…" FontSize="11" Classes="muted"
+                           IsVisible="{Binding !HasDevices}" TextWrapping="Wrap" />
 
                 <!-- Geräte -->
                 <Border Classes="card">
                     <StackPanel Spacing="8">
                         <TextBlock Text="🖥 Geräte" FontWeight="SemiBold" FontSize="14" />
-                        <ItemsControl ItemsSource="{Binding Devices}">
-                            <ItemsControl.ItemTemplate>
+                        <ListBox ItemsSource="{Binding Devices}"
+                                 SelectedItem="{Binding SelectedDevice, Mode=TwoWay}"
+                                 Background="Transparent" BorderThickness="0" Padding="0">
+                            <ListBox.ItemTemplate>
                                 <DataTemplate x:DataType="models:RgbDevice">
-                                    <Border Classes="card" Margin="0,4" Padding="10" Background="#0B0D1A">
+                                    <Border Classes="card" Margin="0,2" Padding="10" Background="#0B0D1A">
                                         <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,4">
                                             <TextBlock Grid.Column="0" Text="{Binding Type, Converter={x:Static vm:CommonConverters.RgbTypeToGlyph}}" FontSize="20" VerticalAlignment="Center" Margin="0,0,10,0" />
                                             <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
@@ -61,8 +45,8 @@
                                         </Grid>
                                     </Border>
                                 </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
                     </StackPanel>
                 </Border>
 
@@ -104,7 +88,7 @@
                     <TextBlock Text="🎛 Steuerung" FontWeight="Bold" FontSize="18" VerticalAlignment="Center" />
                     <Border Padding="6,2" CornerRadius="4" Background="#0B0D1A"
                             IsVisible="{Binding !CanControl}">
-                        <TextBlock Text="Kein Gerät ausgewählt oder nicht verbunden" Classes="muted" FontSize="11" VerticalAlignment="Center" />
+                        <TextBlock Text="Wähle links ein Gerät aus" Classes="muted" FontSize="11" VerticalAlignment="Center" />
                     </Border>
                 </StackPanel>
 

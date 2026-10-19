@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.IO;
+using System.Reflection;
 using Avalonia;
 using Avalonia.Styling;
 using Avalonia.Threading;
@@ -68,6 +70,28 @@ public partial class SettingsViewModel : ViewModelBase
     public string RepositoryUrl => AppInfo.RepositoryUrl;
     public string WebsiteUrl => AppInfo.WebsiteUrl;
     public string LicenseUrl => AppInfo.LicenseUrl;
+
+    public string ContactName => "Jann Genzmann";
+    public string ContactDiscord => "jlg09";
+    public string ContactEmail => "genzmannjann@gmail.com";
+    public string LicenseText { get; } = LoadLicenseText();
+
+    private static string LoadLicenseText()
+    {
+        try
+        {
+            using var stream = Assembly.GetExecutingAssembly()
+                .GetManifestResourceStream("GamingHub.App.LICENSE");
+            if (stream is null)
+                return "Die Lizenzdatei konnte nicht geladen werden.";
+            using var reader = new StreamReader(stream);
+            return reader.ReadToEnd();
+        }
+        catch
+        {
+            return "Die Lizenzdatei konnte nicht geladen werden.";
+        }
+    }
     public IReadOnlyList<ChangelogEntry> ChangelogEntries => Changelog.Entries;
 
     public bool AutoCheckUpdates
@@ -191,35 +215,34 @@ public partial class SettingsViewModel : ViewModelBase
             _ = LoadFlagsAsync();
     }
 
+    private bool _flagsLoading;
+
     private async Task LoadFlagsAsync()
     {
-        // Load flags from app_settings via Supabase RPC or direct query
-        // For now, use defaults if no Supabase
-        if (AppServices.Settings.Settings.SupabaseUrl is null)
-        {
-            foreach (var (key, label) in FlagLabels)
-                Flags.Add(new FlagToggle { Key = key, Label = label, Value = true });
+        // Mehrfache Aufrufe (Konstruktor + Profil-Änderung) dürfen die Liste
+        // nicht doppelt befüllen.
+        if (_flagsLoading || Flags.Count > 0)
             return;
-        }
 
-        // Try to load from Supabase if configured
+        _flagsLoading = true;
         try
         {
-            if (AppServices.Auth.Client is not null && AppServices.Auth.IsLoggedIn)
-            {
-                // Could call Supabase RPC here to get flags
-                // For now use defaults
-                foreach (var (key, label) in FlagLabels)
-                    Flags.Add(new FlagToggle { Key = key, Label = label, Value = true });
-            }
+            Flags.Clear();
+            foreach (var (key, label) in FlagLabels)
+                Flags.Add(new FlagToggle { Key = key, Label = label, Value = true });
+
+            AdminStatusText = "Änderungen werden sofort gespeichert und gelten für alle Nicht-Admins.";
         }
         catch
         {
-            foreach (var (key, label) in FlagLabels)
-                Flags.Add(new FlagToggle { Key = key, Label = label, Value = true });
+            // Bei Fehlern bleibt die Liste leer; kein doppeltes Befüllen.
+        }
+        finally
+        {
+            _flagsLoading = false;
         }
 
-        AdminStatusText = "Änderungen werden sofort gespeichert und gelten für alle Nicht-Admins.";
+        await Task.CompletedTask;
     }
 
     [RelayCommand]
@@ -312,6 +335,9 @@ public partial class SettingsViewModel : ViewModelBase
 
     [RelayCommand]
     private void OpenReleases() => Open(AppInfo.ReleasesUrl);
+
+    [RelayCommand]
+    private void OpenContactEmail() => Open($"mailto:{ContactEmail}");
 
     [RelayCommand]
     private void OpenLicense() => Open(AppInfo.LicenseUrl);

@@ -8,6 +8,16 @@ public static class Changelog
 {
     public static readonly ChangelogEntry[] Entries =
     {
+        new("0.5.21", "19.10.2026 14:50", new[]
+        {
+            "Beleuchtung: Geräte lassen sich jetzt direkt auswählen; technische OpenRGB-Statusanzeigen sowie „Trennen“ und „Neu verbinden“ wurden entfernt.",
+            "Einstellungen: neuer Untertab „Kontakt“ mit Ansprechpartner, Discord und E-Mail; doppelte Admin-Optionen wurden behoben.",
+            "Lizenz: Der vollständige Lizenztext wird direkt in der App unter Einstellungen → Lizenz angezeigt – ohne GitHub-Verweis.",
+            "System-Ressourcen: GPU-Auslastung wird zuverlässig über NVIDIA NVML gelesen (kein „n. v.“ mehr); die Verlaufsdiagramme haben jetzt eine Datums-/Uhrzeitachse mit Rasterlinien.",
+            "Spielebibliothek: Die Statuszeile wird nicht mehr abgeschnitten; FiveM zählt als Spiel und „Sonstige“-Einträge werden im Hintergrund per Web-Recherche eingeordnet.",
+            "„Kann ich das spielen?“: Die Recherche liefert keine falsche Version mehr (z. B. OMSI 1 statt OMSI 2); alte Ergebnisse verschwinden bei einer neuen Berechnung.",
+            "Datenschutz: Supabase wird im Haftungsausschluss nicht mehr genannt; Bugreports gehen im Fallback per E-Mail statt über GitHub."
+        }),
         new("0.5.20", "19.10.2026 14:12", new[]
         {
             "Spielebibliothek neu: übersichtliche Karten mit Logo, Quelle, Dateipfad und Größe; Kategorien für Kommunikation, Entwicklung und Browser; fehlende Ordnergrößen werden automatisch nachgetragen.",

@@ -139,6 +139,7 @@ public partial class GamesViewModel : ViewModelBase
                 ? $"Bibliothek aus dem Cache geladen: {games.Count} Einträge (nur Änderungen werden angewendet)."
                 : $"{games.Count} Einträge gefunden.";
             _ = ComputeMissingSizesAsync();
+            _ = ResearchUnknownAsync();
             if (games.Any(g => g.Category == GameCategory.Game))
                 AppServices.Badges.Grant("bibliothekar");
         }
@@ -167,6 +168,7 @@ public partial class GamesViewModel : ViewModelBase
             ApplyFilter();
             StatusText = $"{games.Count} Einträge gefunden (vollständiger Scan).";
             _ = ComputeMissingSizesAsync();
+            _ = ResearchUnknownAsync();
             if (games.Any(g => g.Category == GameCategory.Game))
                 AppServices.Badges.Grant("bibliothekar");
         }
@@ -235,6 +237,30 @@ public partial class GamesViewModel : ViewModelBase
         finally
         {
             _computingSizes = false;
+        }
+    }
+
+    /// <summary>Lässt „Sonstige“-Einträge im Hintergrund per Web-Recherche
+    /// einordnen und aktualisiert die Liste, sobald ein Spiel erkannt wurde.</summary>
+    private async Task ResearchUnknownAsync()
+    {
+        try
+        {
+            int changed = await AppServices.Games.ResearchUnknownAsync();
+            if (changed <= 0)
+                return;
+
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                foreach (var game in _all)
+                    game.Refresh();
+                ApplyFilter();
+                StatusText += $" · {changed} Sonstige automatisch als Spiel eingeordnet.";
+            });
+        }
+        catch
+        {
+            // Ohne Internet bleibt die bisherige Einordnung bestehen.
         }
     }
 

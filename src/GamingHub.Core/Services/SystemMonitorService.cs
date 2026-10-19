@@ -129,12 +129,16 @@ public sealed class SystemMonitorService
     }
 
     /// <summary>
-    /// Liest die GPU-Auslastung über den WMI-Leistungsindikator „GPU Engine“
-    /// (korrekte Klasse: Win32_PerfFormattedData_GPUPerformanceCounters_GPUEngine).
+    /// Liest die GPU-Auslastung. Bevorzugt NVIDIA NVML (funktioniert auch, wenn
+    /// die Windows-WMI-Leistungsindikatoren deaktiviert sind), danach WMI.
     /// Liefert -1, wenn kein Wert erhebbar ist.
     /// </summary>
     private static double GetGpuUsage()
     {
+        double nvml = TryGetNvmlGpuUsage();
+        if (nvml >= 0)
+            return nvml;
+
         try
         {
             using var searcher = new ManagementObjectSearcher(
@@ -167,6 +171,59 @@ public sealed class SystemMonitorService
         {
             return -1;
         }
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NvmlUtilization
+    {
+        public uint Gpu;
+        public uint Memory;
+    }
+
+    [DllImport("nvml.dll", EntryPoint = "nvmlInit_v2")]
+    private static extern int NvmlInit();
+
+    [DllImport("nvml.dll", EntryPoint = "nvmlDeviceGetHandleByIndex_v2")]
+    private static extern int NvmlGetHandle(uint index, out IntPtr device);
+
+    [DllImport("nvml.dll", EntryPoint = "nvmlDeviceGetUtilizationRates")]
+    private static extern int NvmlGetUtilization(IntPtr device, out NvmlUtilization utilization);
+
+    private static bool _nvmlTried;
+    private static bool _nvmlReady;
+    private static IntPtr _nvmlDevice;
+
+    /// <summary>NVIDIA-spezifischer Fallback über die mit dem Treiber
+    /// installierte NVML-Bibliothek (nvml.dll).</summary>
+    private static double TryGetNvmlGpuUsage()
+    {
+        if (!_nvmlTried)
+        {
+            _nvmlTried = true;
+            try
+            {
+                if (NvmlInit() == 0 && NvmlGetHandle(0, out _nvmlDevice) == 0)
+                    _nvmlReady = true;
+            }
+            catch
+            {
+                _nvmlReady = false;
+            }
+        }
+
+        if (!_nvmlReady)
+            return -1;
+
+        try
+        {
+            if (NvmlGetUtilization(_nvmlDevice, out var util) == 0)
+                return Math.Clamp((double)util.Gpu, 0, 100);
+        }
+        catch
+        {
+            // Treiber-/Bibliotheksfehler ignorieren.
+        }
+        return -1;
     }
 
     private static void GetDiskThroughput(out double read, out double write)

@@ -102,6 +102,10 @@ public partial class LightingViewModel : ViewModelBase
             var match = Devices.FirstOrDefault(d => d.Id == SelectedDevice.Id);
             SelectedDevice = match ?? Devices.FirstOrDefault();
         }
+        else
+        {
+            SelectedDevice = Devices.FirstOrDefault();
+        }
     });
 
     private void OnProfilesChanged() => Dispatcher.UIThread.Post(() =>

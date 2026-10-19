@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Net;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -34,7 +33,7 @@ public partial class BugReportViewModel : ViewModelBase
 
     public string DeliveryHint => CloudAvailable
         ? "Der Report wird direkt an den Gaming-Hub-Bugtracker übermittelt – inklusive des Programm-Logs (wird automatisch angehängt)."
-        : "Supabase ist nicht konfiguriert – der Report wird als vorausgefülltes GitHub-Issue geöffnet (inkl. Log-Auszug).";
+        : "Der Report wird als E-Mail an genzmannjann@gmail.com vorbereitet (inkl. Log-Auszug).";
 
     private string BuildBody() =>
 $@"### Kategorie
@@ -88,23 +87,23 @@ $@"### Kategorie
             return;
         }
 
-        OpenGitHubIssue();
+        OpenEmailReport();
     }
 
-    private void OpenGitHubIssue()
+    private void OpenEmailReport()
     {
-        string url = $"{AppInfo.RepositoryUrl}/issues/new" +
-                     $"?title={WebUtility.UrlEncode("[Bug] " + Title)}" +
-                     $"&body={WebUtility.UrlEncode(BuildBody())}" +
-                     $"&labels={WebUtility.UrlEncode("bug")}";
+        string subject = "[Gaming Hub Bug] " + Title;
+        string url = $"mailto:genzmannjann@gmail.com" +
+                     $"?subject={Uri.EscapeDataString(subject)}" +
+                     $"&body={Uri.EscapeDataString(BuildBody())}";
         try
         {
             Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
-            StatusText = "Bugreport wurde im Browser zum Absenden geöffnet.";
+            StatusText = "E-Mail mit dem Bugreport wurde zum Absenden geöffnet.";
         }
         catch (Exception ex)
         {
-            StatusText = "Konnte Browser nicht öffnen: " + ex.Message;
+            StatusText = "Konnte E-Mail-Programm nicht öffnen: " + ex.Message;
         }
     }
 

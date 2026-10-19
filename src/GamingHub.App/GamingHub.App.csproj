@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <AvaloniaResource Include="Assets\**" />
+    <EmbeddedResource Include="..\..\LICENSE" LogicalName="GamingHub.App.LICENSE" />
   </ItemGroup>
 
   <ItemGroup>

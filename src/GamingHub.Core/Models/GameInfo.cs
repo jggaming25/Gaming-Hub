@@ -56,6 +56,10 @@ public sealed class GameInfo
 
     public GameCategory Category { get; set; } = GameCategory.Other;
 
+    /// <summary>True, wenn für „Sonstige“ bereits eine Hintergrund-Recherche
+    /// durchgeführt wurde (verhindert wiederholte Netzwerkabfragen).</summary>
+    public bool CategoryResearched { get; set; }
+
     public TimeSpan TotalPlaytime { get; set; }
     public DateTime? LastPlayedUtc { get; set; }
 

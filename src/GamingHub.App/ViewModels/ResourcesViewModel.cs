@@ -105,6 +105,11 @@ public partial class ResourcesViewModel : ViewModelBase
 
     [ObservableProperty] private string _historyStatusText = "Zeichnet alle 5 Minuten auf…";
     [ObservableProperty] private string _historyRangeText = "—";
+    [ObservableProperty] private string _historyAxisStart = string.Empty;
+    [ObservableProperty] private string _historyAxisQuarter = string.Empty;
+    [ObservableProperty] private string _historyAxisMiddle = string.Empty;
+    [ObservableProperty] private string _historyAxisThreeQuarter = string.Empty;
+    [ObservableProperty] private string _historyAxisEnd = string.Empty;
     [ObservableProperty] private bool _hasHistory;
     [ObservableProperty] private string _historyRetentionText = "Aufbewahrung: 1 Woche (Premium: 4 Wochen)";
     public bool IsPremium => AppServices.Profile.IsPremium;
@@ -224,6 +229,7 @@ public partial class ResourcesViewModel : ViewModelBase
         HistoryRangeText = points.Count == 0
             ? "—"
             : $"{points[0].TimestampUtc.ToLocalTime():dd.MM. HH:mm}  →  {points[^1].TimestampUtc.ToLocalTime():dd.MM. HH:mm}";
+        UpdateHistoryAxis(points);
         HistoryStatusText = points.Count == 0
             ? "Noch keine Aufzeichnung vorhanden – die ersten Messdaten entstehen automatisch im Hintergrund (alle 5 Minuten). Das Protokoll wird unter „Datenordner → history“ gespeichert."
             : $"Aufzeichnung aktiv: {points.Count} Messpunkte · letzter Punkt um {points[^1].TimestampUtc.ToLocalTime():HH:mm:ss} · max. {points.Max(p => p.ProcessCount)} Prozesse gleichzeitig.";
@@ -232,6 +238,27 @@ public partial class ResourcesViewModel : ViewModelBase
         OnPropertyChanged(nameof(RamSeries));
         OnPropertyChanged(nameof(GpuSeries));
         OnPropertyChanged(nameof(ProcSeries));
+    }
+
+    private void UpdateHistoryAxis(IReadOnlyList<HistoryPoint> points)
+    {
+        if (points.Count == 0)
+        {
+            HistoryAxisStart = HistoryAxisQuarter = HistoryAxisMiddle = HistoryAxisThreeQuarter = HistoryAxisEnd = string.Empty;
+            return;
+        }
+
+        string At(double fraction)
+        {
+            int index = (int)Math.Round((points.Count - 1) * fraction);
+            return points[Math.Clamp(index, 0, points.Count - 1)].TimestampUtc.ToLocalTime().ToString("dd.MM. HH:mm");
+        }
+
+        HistoryAxisStart = At(0);
+        HistoryAxisQuarter = At(0.25);
+        HistoryAxisMiddle = At(0.5);
+        HistoryAxisThreeQuarter = At(0.75);
+        HistoryAxisEnd = At(1);
     }
 
     private async Task LoadFlagsAsync()
@@ -247,6 +274,7 @@ public partial class ResourcesViewModel : ViewModelBase
     }
 
     private bool _sampling;
+    private int _researchGeneration;
 
     private async void Update()
     {
@@ -469,6 +497,16 @@ public partial class ResourcesViewModel : ViewModelBase
     private void Evaluate()
     {
         string name = string.IsNullOrWhiteSpace(SelectedGame) ? "Ausgewähltes Spiel" : SelectedGame!;
+
+        // Alte Web-Recherche ausblenden, damit nie Ergebnisse des vorherigen
+        // Spiels (z. B. OMSI 1 bei OMSI 2) stehen bleiben.
+        _researchGeneration++;
+        HasWebResult = false;
+        WebSummary = string.Empty;
+        WebVersionNote = string.Empty;
+        WebStatus = string.Empty;
+        WebSources.Clear();
+
         var monitor = AppServices.SystemMonitor;
         var result = AppServices.Compatibility.Evaluate(
             name, monitor.CpuName, monitor.GpuName,
@@ -509,6 +547,7 @@ public partial class ResourcesViewModel : ViewModelBase
     private async Task ResearchAsync()
     {
         string name = string.IsNullOrWhiteSpace(SelectedGame) ? "Ausgewähltes Spiel" : SelectedGame!;
+        int generation = ++_researchGeneration;
         IsResearching = true;
         HasWebResult = false;
         WebSummary = string.Empty;
@@ -519,6 +558,13 @@ public partial class ResourcesViewModel : ViewModelBase
         try
         {
             var res = await AppServices.WebResearch.ResearchAsync(name, SelectedGameVersion);
+
+            // Während der Recherche wurde ein anderes Spiel ausgewählt oder
+            // neu berechnet: Ergebnis verwerfen, statt es falsch zuzuordnen.
+            if (generation != _researchGeneration ||
+                !string.Equals(name, SelectedGame, StringComparison.Ordinal))
+                return;
+
             WebSummary = res.Summary;
             WebVersionNote = res.VersionNote ?? string.Empty;
             foreach (var s in res.Sources)

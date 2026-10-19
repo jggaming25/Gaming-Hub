@@ -43,7 +43,7 @@
                     <TextBlock TextWrapping="Wrap" LineHeight="20"
                                Text="8. Premium-Regeln: Premium-Codes sind pro Nutzer einmal einlösbar und verlängern bestehenden Premium-Status nahtlos. Admins können Premium für einzelne Nutzer sperren. Missbrauch führt zum Entzug." />
                     <TextBlock TextWrapping="Wrap" LineHeight="20"
-                               Text="9. Datenschutz (DSGVO): Die App speichert Einstellungen, Verlauf und Protokolle ausschließlich lokal unter %APPDATA%\GamingHub. Es gibt kein Tracking und keine Werbung. Bei freiwilliger Anmeldung werden nur E-Mail-Adresse, Anzeigename und Premium-Status in der Datenbank (Supabase) gespeichert; das Passwort wird niemals im Klartext gespeichert. Lokale Daten lassen sich durch Löschen des Datenordners, Kontodaten durch Löschen des Kontos entfernen. Kontakt: GitHub-Repository des Projekts." />
+                               Text="9. Datenschutz (DSGVO): Die App speichert Einstellungen, Verlauf und Protokolle ausschließlich lokal unter %APPDATA%\GamingHub. Es gibt kein Tracking und keine Werbung. Bei freiwilliger Anmeldung werden nur E-Mail-Adresse, Anzeigename und Premium-Status gespeichert; das Passwort wird niemals im Klartext gespeichert. Lokale Daten lassen sich durch Löschen des Datenordners, Kontodaten durch Löschen des Kontos entfernen. Ansprechpartner: Jann Genzmann, Discord: jlg09, E-Mail: genzmannjann@gmail.com." />
                     <TextBlock TextWrapping="Wrap" LineHeight="20"
                                Text="Mit dem Klick auf „Akzeptieren“ bestätigst du, diesen Ausschluss gelesen und verstanden zu haben und dass du die App auf eigene Gefahr nutzt." />
                 </StackPanel>

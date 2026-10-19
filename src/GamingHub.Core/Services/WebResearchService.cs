@@ -1,6 +1,7 @@
 using System.Net.Http;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using GamingHub.Core.Models;
 
 namespace GamingHub.Core.Services;
 
@@ -73,6 +74,160 @@ public sealed class WebResearchService
         return result;
     }
 
+    /// <summary>
+    /// Hintergrund-Recherche für Programme, die zunächst als „Sonstige“
+    /// eingeordnet wurden. Steam und Wikipedia (de/en) werden abgefragt; nur
+    /// bei einem klaren Spielbezug wird „Spiele“ zurückgegeben.
+    /// </summary>
+    public async Task<GameCategory?> ResearchCategoryAsync(string name, CancellationToken ct = default)
+    {
+        string query = CleanGameName(name);
+        if (query.Length < 2)
+            return null;
+
+        if (await IsSteamGameAsync(query, ct).ConfigureAwait(false))
+            return GameCategory.Game;
+
+        foreach (string lang in new[] { "de", "en" })
+        {
+            try
+            {
+                var candidates = await SearchWikiAsync(lang, query, 8, ct).ConfigureAwait(false);
+                var tokens = SignificantTokens(query);
+                var ordered = candidates
+                    .Where(c => IsRelevant(c.Title, tokens, query))
+                    .OrderByDescending(c => TitleScore(c.Title, query))
+                    .Take(3)
+                    .ToList();
+
+                foreach (var candidate in ordered)
+                {
+                    string title = candidate.Title;
+
+                    if (await HasGameCategoryAsync(lang, title, ct).ConfigureAwait(false))
+                        return GameCategory.Game;
+
+                    var (extract, _) = await FetchExtractAsync(lang, title, ct).ConfigureAwait(false);
+                    if (LooksLikeGame(extract))
+                        return GameCategory.Game;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch
+            {
+                // Netzwerkfehler dürfen die Einordnung nicht blockieren.
+            }
+        }
+
+        return null;
+    }
+
+    private static string CleanGameName(string name)
+    {
+        string n = Regex.Replace(name, @"\s+", " ").Trim();
+        n = Regex.Replace(n, @"[™®©]", string.Empty).Trim();
+        return n;
+    }
+
+    private static async Task<bool> IsSteamGameAsync(string query, CancellationToken ct)
+    {
+        try
+        {
+            string url = "https://store.steampowered.com/api/storesearch/?term=" +
+                         Uri.EscapeDataString(query) + "&l=german&cc=DE";
+            using var resp = await Http.GetAsync(url, ct).ConfigureAwait(false);
+            if (!resp.IsSuccessStatusCode) return false;
+
+            using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false));
+            if (!doc.RootElement.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array)
+                return false;
+
+            string normalizedQuery = NormalizeTitle(query);
+            foreach (var item in items.EnumerateArray())
+            {
+                if (!item.TryGetProperty("name", out var nameEl) || nameEl.ValueKind != JsonValueKind.String)
+                    continue;
+                string normalizedName = NormalizeTitle(nameEl.GetString() ?? string.Empty);
+                if (normalizedName.Length == 0) continue;
+
+                if (normalizedName == normalizedQuery ||
+                    normalizedName.StartsWith(normalizedQuery + " ", StringComparison.Ordinal) ||
+                    normalizedName.StartsWith(normalizedQuery + ":", StringComparison.Ordinal))
+                    return true;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            // Steam nicht erreichbar → Wikipedia-Fallback.
+        }
+        return false;
+    }
+
+    private static string NormalizeTitle(string value)
+        => Regex.Replace(value.ToLowerInvariant(), @"[^a-z0-9\u00e4\u00f6\u00fc\u00df]+", " ").Trim();
+
+    private static int TitleScore(string title, string query)
+    {
+        string t = NormalizeTitle(title);
+        string q = NormalizeTitle(query);
+        if (t == q) return 100;
+        if (t.StartsWith(q + " ", StringComparison.Ordinal) || t.StartsWith(q + ":", StringComparison.Ordinal))
+            return 80;
+        if (t.Contains(q, StringComparison.Ordinal)) return 60;
+        return 0;
+    }
+
+    private static bool LooksLikeGame(string extract)
+    {
+        if (string.IsNullOrWhiteSpace(extract)) return false;
+        string[] markers =
+        {
+            "computerspiel", "videospiel", "video game", "computer game",
+            "multiplayer", "spielmod", "game mod", "modification for",
+            "mod for the game", "mod für das spiel"
+        };
+        return markers.Any(m => extract.Contains(m, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static async Task<bool> HasGameCategoryAsync(string lang, string title, CancellationToken ct)
+    {
+        string url = $"https://{lang}.wikipedia.org/w/api.php?action=query&prop=categories&cllimit=max&redirects=1&format=json&titles=" +
+                     Uri.EscapeDataString(title.Replace(' ', '_'));
+        using var resp = await Http.GetAsync(url, ct).ConfigureAwait(false);
+        if (!resp.IsSuccessStatusCode) return false;
+
+        using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false));
+        if (!doc.RootElement.TryGetProperty("query", out var q) ||
+            !q.TryGetProperty("pages", out var pages))
+            return false;
+
+        foreach (var page in pages.EnumerateObject())
+        {
+            if (!page.Value.TryGetProperty("categories", out var categories) ||
+                categories.ValueKind != JsonValueKind.Array)
+                continue;
+
+            foreach (var category in categories.EnumerateArray())
+            {
+                string value = GetString(category, "title");
+                if (value.Contains("computerspiel", StringComparison.OrdinalIgnoreCase) ||
+                    value.Contains("videospiel", StringComparison.OrdinalIgnoreCase) ||
+                    value.Contains("video game", StringComparison.OrdinalIgnoreCase) ||
+                    value.Contains("computer game", StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
     private static string NormalizeVersion(string? hint)
     {
         if (string.IsNullOrWhiteSpace(hint)) return string.Empty;
@@ -132,8 +287,12 @@ public sealed class WebResearchService
             if (versionToken is not null && relevant.Count > 0)
             {
                 var withVersion = relevant.Where(c => TitleHasWord(c.Title, versionToken)).ToList();
-                if (withVersion.Count > 0)
-                    relevant = withVersion;
+                // Kein Treffer mit der gesuchten Version ⇒ lieber gar kein
+                // Ergebnis als fälschlich die Systemanforderungen einer anderen
+                // Version (z. B. OMSI 1 statt OMSI 2) anzuzeigen.
+                if (withVersion.Count == 0)
+                    return;
+                relevant = withVersion;
             }
 
             if (relevant.Count == 0)
@@ -349,8 +508,11 @@ public sealed class WebResearchService
                                     || l.Snippet.Contains(versionToken, StringComparison.Ordinal)
                                     || l.Url.Contains(versionToken, StringComparison.Ordinal))
                         .ToList();
-                    if (withToken.Count > 0)
-                        links = withToken;
+                    // Keine passende Version → nichts anzeigen, statt die
+                    // falsche Version (z. B. OMSI 1) zu übernehmen.
+                    if (withToken.Count == 0)
+                        return;
+                    links = withToken;
                 }
 
                 result.Summary = Truncate(links[0].Title + " – " + links[0].Snippet, 1400);

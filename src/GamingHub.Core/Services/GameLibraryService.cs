@@ -26,6 +26,7 @@ public sealed class GameLibraryService
     private readonly EpicScanner _epic = new();
     private readonly RegistryAppScanner _registry = new();
     private readonly PlaytimeStore _playtime;
+    private readonly WebResearchService _research = new();
     private readonly string _cachePath;
 
     private DateTime _lastTickUtc;
@@ -57,10 +58,9 @@ public sealed class GameLibraryService
             string markers = ComputeMarkers();
 
             // Nur Änderungen anwenden: Cache laden, wenn sich nichts geändert hat.
-            if (!forceRescan && !string.IsNullOrEmpty(_markers) &&
-                string.Equals(_markers, markers, StringComparison.Ordinal)
-                && TryLoadCache(out var cached))
+            if (!forceRescan && TryLoadCache(markers, out var cached))
             {
+                _markers = markers;
                 foreach (var game in cached)
                 {
                     // Icons ggf. auf höhere Auflösung nachrüsten (alte 32×32-Caches).
@@ -98,6 +98,63 @@ public sealed class GameLibraryService
             UpdateRunningStates();
             return merged;
         });
+    }
+
+    /// <summary>
+    /// Ordnet „Sonstige“-Einträge im Hintergrund per Web-Recherche ein. Die
+    /// Abfragen laufen mit begrenzter Parallelität; das Ergebnis wird im Cache
+    /// gespeichert, damit nicht bei jedem Start erneut gesucht wird.
+    /// </summary>
+    public async Task<int> ResearchUnknownAsync(CancellationToken ct = default)
+    {
+        var targets = Games
+            .Where(g => g.Category == GameCategory.Other && !g.CategoryResearched)
+            .ToList();
+        if (targets.Count == 0)
+            return 0;
+
+        int changed = 0;
+        using var limit = new SemaphoreSlim(3);
+        var tasks = targets.Select(async game =>
+        {
+            await limit.WaitAsync(ct).ConfigureAwait(false);
+            try
+            {
+                var category = await _research.ResearchCategoryAsync(game.Name, ct).ConfigureAwait(false);
+                game.CategoryResearched = true;
+                if (category is { } value && value != GameCategory.Other)
+                {
+                    game.Category = value;
+                    Interlocked.Increment(ref changed);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch
+            {
+                // Einzelne Fehler dürfen die übrigen Einordnungen nicht stoppen.
+            }
+            finally
+            {
+                limit.Release();
+            }
+        });
+
+        try
+        {
+            await Task.WhenAll(tasks).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // Beim Beenden der App ist ein Abbruch in Ordnung.
+        }
+
+        if (targets.Count > 0)
+            SaveCache(Games, _markers);
+
+        return changed;
     }
 
     private void MergePlaytime(GameInfo game)
@@ -157,7 +214,7 @@ public sealed class GameLibraryService
         }
     }
 
-    private bool TryLoadCache(out List<GameInfo> games)
+    private bool TryLoadCache(string markers, out List<GameInfo> games)
     {
         games = new List<GameInfo>();
         try
@@ -165,7 +222,7 @@ public sealed class GameLibraryService
             if (!File.Exists(_cachePath)) return false;
             var payload = JsonSerializer.Deserialize<GameCacheFile>(File.ReadAllText(_cachePath), CacheOptions);
             if (payload?.Games is null) return false;
-            if (!string.Equals(payload.Markers, _markers, StringComparison.Ordinal)) return false;
+            if (!string.Equals(payload.Markers, markers, StringComparison.Ordinal)) return false;
             games = payload.Games;
             return true;
         }

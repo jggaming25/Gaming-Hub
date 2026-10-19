@@ -26,7 +26,7 @@ public static class GameClassifier
         (["discord", "whatsapp", "teamspeak", "microsoft teams", "slack", "zoom", "skype", "telegram", "signal", "messenger", "google meet", "webex", "ventrilo", "mumble", "element", "threema", "line"], GameCategory.Communication),
 
         // Spiele (auch Launcher/Titel, die der Nutzer als Spiel führt)
-        (["bus manager", "epic games launcher", "blender", "roblox player", "roblox"], GameCategory.Game),
+        (["bus manager", "epic games launcher", "blender", "roblox player", "roblox", "fivem", "five m", "cfx.re"], GameCategory.Game),
 
         // AI tools
         (["chatgpt", "chat gpt", "copilot", "github copilot", "claude", "claude code", "gemini", "midjourney", "stable diffusion", "autogpt", "llama", "ollama", "whisper", "elevenlabs", "runway", "ai studio", "notebooklm", "grok", "perplexity", "jan ai", "lm studio", "opencode", "open code", "open-code", "cursor", "windsurf", "aider", "continue ai", "ollama"], GameCategory.AiTool),
