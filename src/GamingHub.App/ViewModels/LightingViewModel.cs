@@ -31,19 +31,44 @@ public partial class LightingViewModel : ViewModelBase
     [ObservableProperty] private byte _colorR = 255;
     [ObservableProperty] private byte _colorG;
     [ObservableProperty] private byte _colorB;
+    [ObservableProperty] private byte _secondaryR = 0;
+    [ObservableProperty] private byte _secondaryG = 128;
+    [ObservableProperty] private byte _secondaryB = 255;
+    [ObservableProperty] private int _colorMix = 50;
+    [ObservableProperty] private bool _mixEnabled;
     private bool _syncingColor;
 
     public string ColorHex => SelectedColor.ToHex();
+    public string SecondaryColorHex => SecondaryColor.ToHex();
+    public RgbColor SecondaryColor => new(SecondaryR, SecondaryG, SecondaryB);
+    public RgbColor MixedColor => MixEnabled
+        ? RgbColor.Mix(SelectedColor, SecondaryColor, ColorMix / 100.0)
+        : SelectedColor;
+    public string MixedColorHex => MixedColor.ToHex();
 
     partial void OnColorRChanged(byte value) => SyncColorFromChannels();
     partial void OnColorGChanged(byte value) => SyncColorFromChannels();
     partial void OnColorBChanged(byte value) => SyncColorFromChannels();
+    partial void OnSecondaryRChanged(byte value) => NotifySecondaryColorChanged();
+    partial void OnSecondaryGChanged(byte value) => NotifySecondaryColorChanged();
+    partial void OnSecondaryBChanged(byte value) => NotifySecondaryColorChanged();
+    partial void OnColorMixChanged(int value) => NotifySecondaryColorChanged();
+    partial void OnMixEnabledChanged(bool value) => NotifySecondaryColorChanged();
 
     private void SyncColorFromChannels()
     {
         if (_syncingColor) return;
         SelectedColor = new RgbColor(ColorR, ColorG, ColorB);
         OnPropertyChanged(nameof(ColorHex));
+        NotifySecondaryColorChanged();
+    }
+
+    private void NotifySecondaryColorChanged()
+    {
+        OnPropertyChanged(nameof(SecondaryColor));
+        OnPropertyChanged(nameof(SecondaryColorHex));
+        OnPropertyChanged(nameof(MixedColor));
+        OnPropertyChanged(nameof(MixedColorHex));
     }
 
     private void SetColorChannels(RgbColor color)
@@ -55,6 +80,29 @@ public partial class LightingViewModel : ViewModelBase
         _syncingColor = false;
         SelectedColor = color;
         OnPropertyChanged(nameof(ColorHex));
+        NotifySecondaryColorChanged();
+    }
+
+    private void SetSecondaryChannels(RgbColor color)
+    {
+        SecondaryR = color.R;
+        SecondaryG = color.G;
+        SecondaryB = color.B;
+    }
+
+    private List<RgbColor> BuildPalette()
+    {
+        if (!MixEnabled || ColorMix <= 0)
+            return new List<RgbColor> { SelectedColor };
+
+        var result = new List<RgbColor>();
+        const int steps = 8;
+        for (int i = 0; i < steps; i++)
+        {
+            double t = (double)i / (steps - 1) * (ColorMix / 100.0);
+            result.Add(RgbColor.Mix(SelectedColor, SecondaryColor, t));
+        }
+        return result;
     }
 
     public bool CanControl => SelectedDevice != null && IsConnected;
@@ -63,6 +111,7 @@ public partial class LightingViewModel : ViewModelBase
     {
         AppServices.Rgb.DevicesChanged += OnDevicesChanged;
         AppServices.Rgb.ProfilesChanged += OnProfilesChanged;
+        AppServices.Rgb.ProfileApplied += OnProfileApplied;
 
         foreach (var e in FallbackEffects) AvailableEffects.Add(e);
         OnProfilesChanged();
@@ -113,6 +162,23 @@ public partial class LightingViewModel : ViewModelBase
         Profiles.Clear();
         foreach (var p in AppServices.Rgb.Profiles)
             Profiles.Add(p);
+    });
+
+    private void OnProfileApplied(RgbProfile profile) => Dispatcher.UIThread.Post(() =>
+    {
+        if (SelectedDevice is null ||
+            !profile.DeviceStates.TryGetValue(SelectedDevice.Id, out var state))
+            return;
+
+        if (state.Color is { } primary)
+            SetColorChannels(primary);
+        if (state.SecondaryColor is { } secondary)
+            SetSecondaryChannels(secondary);
+        ColorMix = Math.Clamp(state.MixPercent, 0, 100);
+        MixEnabled = state.MixPercent > 0;
+        if (!string.IsNullOrWhiteSpace(state.Effect))
+            SelectedEffect = state.Effect;
+        EffectSpeed = state.Speed;
     });
 
     private bool _refreshing;
@@ -227,8 +293,13 @@ public partial class LightingViewModel : ViewModelBase
     {
         if (SelectedDevice == null) return;
         StatusText = "Setze Farbe…";
-        var ok = await AppServices.Rgb.SetColorAsync(SelectedDevice.Id, SelectedColor);
-        StatusText = ok ? "Farbe gesetzt" : "Fehler beim Setzen der Farbe – ist OpenRGB im Direct-Modus?";
+        var color = MixedColor;
+        var ok = await AppServices.Rgb.SetColorAsync(SelectedDevice.Id, color);
+        StatusText = ok
+            ? MixEnabled
+                ? $"Farbmischung {SelectedColor.ToHex()} + {SecondaryColor.ToHex()} gesetzt"
+                : $"Farbe {color.ToHex()} gesetzt"
+            : "Fehler beim Setzen der Farbe – ist OpenRGB im Direct-Modus?";
         if (ok) OnPropertyChanged(nameof(SelectedDevice));
     }
 
@@ -241,12 +312,22 @@ public partial class LightingViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private async Task ApplySecondaryPresetAsync(string? hex)
+    {
+        if (string.IsNullOrWhiteSpace(hex)) return;
+        SetSecondaryChannels(RgbColor.FromHex(hex));
+        MixEnabled = true;
+        await ApplyColorAsync();
+    }
+
+    [RelayCommand]
     private async Task ApplyEffectAsync()
     {
         if (SelectedDevice == null) return;
         StatusText = "Setze Effekt…";
-        var ok = await AppServices.Rgb.SetEffectAsync(SelectedDevice.Id, SelectedEffect, SelectedColor, EffectSpeed);
-        StatusText = ok ? "Effekt gesetzt" : "Dieser Effekt wird vom Gerät nicht unterstützt.";
+        var ok = await AppServices.Rgb.SetEffectAsync(
+            SelectedDevice.Id, SelectedEffect, MixedColor, EffectSpeed, BuildPalette());
+        StatusText = ok ? $"Effekt „{SelectedEffect}“ gesetzt" : "Dieser Effekt wird vom Gerät nicht unterstützt.";
         if (ok) OnPropertyChanged(nameof(SelectedDevice));
     }
 
@@ -259,25 +340,42 @@ public partial class LightingViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private async Task SaveProfileAsync()
+    private Task SaveProfileAsync()
     {
-        if (string.IsNullOrWhiteSpace(NewProfileName)) return;
+        if (string.IsNullOrWhiteSpace(NewProfileName))
+        {
+            StatusText = "Bitte einen Profilnamen eingeben.";
+            return Task.CompletedTask;
+        }
 
-        var profile = new RgbProfile { Name = NewProfileName, CreatedAt = DateTime.Now };
+        var name = NewProfileName.Trim();
+        var existing = AppServices.Rgb.Profiles.FirstOrDefault(p =>
+            string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
+        var profile = existing ?? new RgbProfile { Name = name, CreatedAt = DateTime.Now };
+        if (existing is not null)
+            profile.DeviceStates.Clear();
+
         foreach (var dev in AppServices.Rgb.Devices.Values)
         {
+            bool selected = SelectedDevice?.Id == dev.Id;
             profile.DeviceStates[dev.Id] = new DeviceProfileState
             {
-                Color = dev.CurrentColor,
-                Effect = dev.CurrentEffect,
-                EffectColor = dev.CurrentColor,
-                Speed = dev.EffectSpeed
+                Color = selected ? SelectedColor : dev.CurrentColor,
+                Effect = selected ? SelectedEffect : dev.CurrentEffect,
+                EffectColor = selected ? MixedColor : dev.CurrentColor,
+                SecondaryColor = selected && MixEnabled ? SecondaryColor : null,
+                MixPercent = selected && MixEnabled ? ColorMix : 0,
+                Colors = selected ? BuildPalette() : new List<RgbColor>(),
+                Speed = selected ? EffectSpeed : dev.EffectSpeed
             };
         }
 
         AppServices.Rgb.SaveProfile(profile);
         NewProfileName = "";
-        StatusText = $"Profil „{profile.Name}“ gespeichert";
+        StatusText = existing is null
+            ? $"Profil „{profile.Name}“ gespeichert"
+            : $"Profil „{profile.Name}“ aktualisiert";
+        return Task.CompletedTask;
     }
 
     [RelayCommand]

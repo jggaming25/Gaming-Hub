@@ -130,6 +130,39 @@
                                 <Button Width="26" Height="26" Padding="0" CornerRadius="13" Background="#FF3DAE" BorderThickness="0" Command="{Binding ApplyPresetCommand}" CommandParameter="#FF3DAE" ToolTip.Tip="Pink" />
                                 <Button Width="26" Height="26" Padding="0" CornerRadius="13" Background="#FFFFFF" BorderThickness="0" Command="{Binding ApplyPresetCommand}" CommandParameter="#FFFFFF" ToolTip.Tip="Weiß" />
                             </StackPanel>
+                            <CheckBox Content="Zwei Farben mischen (Verlauf)" IsChecked="{Binding MixEnabled, Mode=TwoWay}" />
+
+                            <StackPanel Spacing="6" IsVisible="{Binding MixEnabled}">
+                                <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
+                                    <Border Grid.Column="0" Width="36" Height="36" CornerRadius="8"
+                                            Background="{Binding SecondaryColor, Converter={x:Static vm:CommonConverters.ColorToBrush}}" />
+                                    <Grid Grid.Column="1" ColumnDefinitions="*,*,*" Margin="12,0" VerticalAlignment="Center">
+                                        <StackPanel Grid.Column="0" Spacing="4">
+                                            <TextBlock Text="R2" FontSize="11" Classes="muted" />
+                                            <TextBox Text="{Binding SecondaryR, Mode=TwoWay}" Width="60" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Spacing="4" Margin="8,0">
+                                            <TextBlock Text="G2" FontSize="11" Classes="muted" />
+                                            <TextBox Text="{Binding SecondaryG, Mode=TwoWay}" Width="60" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2" Spacing="4" Margin="8,0">
+                                            <TextBlock Text="B2" FontSize="11" Classes="muted" />
+                                            <TextBox Text="{Binding SecondaryB, Mode=TwoWay}" Width="60" />
+                                        </StackPanel>
+                                    </Grid>
+                                    <TextBlock Grid.Column="2" Text="{Binding SecondaryColorHex}" FontSize="13" FontFamily="Consolas" VerticalAlignment="Center" Margin="12,0,0,0" />
+                                </Grid>
+
+                                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                    <TextBlock Text="Mischung" FontSize="11" Classes="muted" VerticalAlignment="Center" />
+                                    <Slider Value="{Binding ColorMix, Mode=TwoWay}" Minimum="0" Maximum="100" Width="180" />
+                                    <TextBlock Text="{Binding ColorMix}" FontSize="12" FontWeight="Bold" VerticalAlignment="Center" />
+                                    <Border Width="30" Height="30" CornerRadius="6"
+                                            Background="{Binding MixedColor, Converter={x:Static vm:CommonConverters.ColorToBrush}}" />
+                                    <TextBlock Text="{Binding MixedColorHex}" FontSize="12" FontFamily="Consolas" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </StackPanel>
+
                             <Button Content="Farbe anwenden" Command="{Binding ApplyColorCommand}" Classes="accent" HorizontalAlignment="Left" Padding="16,8" />
                         </StackPanel>
 

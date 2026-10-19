@@ -168,6 +168,21 @@ public partial class SettingsViewModel : ViewModelBase
         set { AppServices.Settings.Settings.NotificationSoundEnabled = value; AppServices.Settings.Save(); OnPropertyChanged(); }
     }
 
+    public string NotificationStatusText => AppServices.Notifications.NativeStatus;
+
+    [RelayCommand]
+    private void TestNotification()
+    {
+        AppServices.Notifications.ShowTest();
+        OnPropertyChanged(nameof(NotificationStatusText));
+    }
+
+    [RelayCommand]
+    private void OpenNotificationSettings()
+    {
+        AppServices.OpenBrowser("ms-settings:notifications");
+    }
+
     public bool DarkTheme
     {
         get => AppServices.Settings.Settings.ThemeVariant != "Light";
@@ -205,6 +220,8 @@ public partial class SettingsViewModel : ViewModelBase
     {
         UpdateAdminState();
         AppServices.Profile.Changed += () => Dispatcher.UIThread.Post(UpdateAdminState);
+        AppServices.Notifications.RefreshNativeStatus();
+        OnPropertyChanged(nameof(NotificationStatusText));
         _ = LoadFlagsAsync();
     }
 

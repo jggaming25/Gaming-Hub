@@ -72,6 +72,14 @@ public sealed class SupabaseClient
                 json = json["session"]!.AsObject();
 
             var session = ParseSession(json);
+
+            // Bei aktivierter E-Mail-Bestätigung liefert Supabase zwar einen
+            // Benutzer, aber noch keine Sitzung (leerer access_token). Eine
+            // solche "Sitzung" darf nicht gespeichert werden, sonst meldet die
+            // App fälschlich einen erfolgreichen Login.
+            if (string.IsNullOrWhiteSpace(session.AccessToken))
+                return (session, null);
+
             Session = session;
             return (session, null);
         }

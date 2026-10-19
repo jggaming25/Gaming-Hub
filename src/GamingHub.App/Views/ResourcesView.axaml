@@ -435,10 +435,13 @@
                         <StackPanel Spacing="12">
                             <TextBlock Text="Kann ich das spielen?" FontWeight="SemiBold" FontSize="16" />
                             <TextBlock Text="Spiel auswählen (oder Name eintippen) und prüfen lassen. Die Empfehlung ist eine Schätzung." Classes="muted" FontSize="11" TextWrapping="Wrap" />
-                            <ComboBox HorizontalAlignment="Stretch" IsEditable="True"
-                                      ItemsSource="{Binding GameNames}"
-                                      Text="{Binding SelectedGame, Mode=TwoWay}"
-                                      PlaceholderText="Spiel wählen oder eingeben…" />
+                            <AutoCompleteBox HorizontalAlignment="Stretch"
+                                             ItemsSource="{Binding GameNames}"
+                                             Text="{Binding SelectedGame, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                             FilterMode="Contains"
+                                             MinimumPrefixLength="0"
+                                             IsTextCompletionEnabled="True"
+                                             PlaceholderText="Spiel wählen oder eingeben…" />
                             <TextBox Text="{Binding SelectedGameVersion, Mode=TwoWay}"
                                      PlaceholderText="Optionale Version, z. B. 2.1 (für präzisere Web-Recherche)" />
                             <Button Content="Einschätzung berechnen" Command="{Binding EvaluateCommand}" Classes="accent" HorizontalAlignment="Stretch" />

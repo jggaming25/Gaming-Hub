@@ -9,6 +9,15 @@ public sealed class DiskVolume
     public long TotalBytes { get; set; }
     public long FreeBytes { get; set; }
 
+    /// <summary>Anzahl der Rechte des angemeldeten Benutzers auf diesem
+    /// Laufwerk (0 = kein Zugriff, 1 = nur Lesen, 2 = Lesen und Schreiben).</summary>
+    public int AccessRightCount { get; set; }
+
+    /// <summary>Kurztext für die Anzeige, z. B. "2/2 Rechte (Lesen, Schreiben)".</summary>
+    public string AccessDisplay { get; set; } = string.Empty;
+
+    public bool IsNetwork { get; set; }
+
     public long UsedBytes => Math.Max(0, TotalBytes - FreeBytes);
     public double UsedPercent => TotalBytes <= 0 ? 0 : (double)UsedBytes / TotalBytes * 100.0;
 }

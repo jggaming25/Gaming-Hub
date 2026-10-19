@@ -68,13 +68,22 @@ public sealed class AuthService
 
     public string GetOAuthRedirectUrl() => $"http://localhost:{OAuthPort}/callback";
 
-    public async Task<(bool ok, string? error)> SignUpAsync(string email, string password)
+    public async Task<(bool ok, bool confirmationRequired, string? error)> SignUpAsync(string email, string password)
     {
-        if (Client is null) return (false, "Supabase ist nicht konfiguriert.");
+        if (Client is null) return (false, false, "Supabase ist nicht konfiguriert.");
         var (session, error) = await Client.SignUpWithPasswordAsync(email, password);
-        if (session is not null) PersistSession();
+
+        // Supabase gibt bei aktivierter E-Mail-Bestätigung einen Benutzer ohne
+        // access_token zurück. Das ist kein Fehler, aber auch noch keine
+        // Anmeldung – die UI muss das klar unterscheiden.
+        bool confirmationRequired = session is not null &&
+                                    string.IsNullOrWhiteSpace(session.AccessToken);
+
+        if (session is not null && !confirmationRequired)
+            PersistSession();
+
         Changed?.Invoke();
-        return (session is not null, error);
+        return (session is not null && !confirmationRequired, confirmationRequired, error);
     }
 
     public async Task<(bool ok, string? error)> SignInAsync(string email, string password)

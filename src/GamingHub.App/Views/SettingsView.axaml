@@ -80,6 +80,11 @@
                     <TextBlock Text="Desktop-Benachrichtigungen (z. B. Updates, Internet-Ausfälle und Erinnerungen) erscheinen rechts unten mit dem Gaming-Hub-Logo, auch wenn die App minimiert ist." FontSize="12" Classes="muted" TextWrapping="Wrap" />
                     <CheckBox Content="Desktop-Benachrichtigungen anzeigen" IsChecked="{Binding DesktopNotificationsEnabled, Mode=TwoWay}" />
                     <CheckBox Content="Benachrichtigungstöne abspielen" IsChecked="{Binding NotificationSoundEnabled, Mode=TwoWay}" />
+                    <TextBlock Text="{Binding NotificationStatusText}" FontSize="11" Classes="muted" TextWrapping="Wrap" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="Windows-Benachrichtigung testen" Command="{Binding TestNotificationCommand}" Classes="accent" FontSize="12" />
+                        <Button Content="Windows-Einstellungen öffnen" Command="{Binding OpenNotificationSettingsCommand}" FontSize="12" />
+                    </StackPanel>
                 </StackPanel>
             </Border>
 

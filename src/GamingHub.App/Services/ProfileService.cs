@@ -59,6 +59,7 @@ public sealed class ProfileService
 
         try
         {
+            bool profileFound = false;
             var res = await client.SelectAsync("profiles",
                 $"select=is_admin,is_banned,premium_until,premium_since,premium_banned&id=eq.{Uri.EscapeDataString(id)}");
             if (res.Ok)
@@ -66,6 +67,7 @@ public sealed class ProfileService
                 var list = JsonSerializer.Deserialize<List<Dictionary<string, JsonElement>>>(res.Body);
                 if (list is { Count: > 0 })
                 {
+                    profileFound = true;
                     IsAdmin = list[0].TryGetValue("is_admin", out var a) && a.ValueKind == JsonValueKind.True;
                     IsBanned = list[0].TryGetValue("is_banned", out var b) && b.ValueKind == JsonValueKind.True;
                     PremiumBanned = list[0].TryGetValue("premium_banned", out var pb) && pb.ValueKind == JsonValueKind.True;
@@ -93,6 +95,19 @@ public sealed class ProfileService
                         DateTimeOffset.TryParse(ps.GetString(), out var since))
                         PremiumSince = since;
                 }
+            }
+
+            // Ältere Datenbanken ohne handle_new_user-Trigger: Profilzeile
+            // selbst anlegen (RLS-Policy profiles_insert_own erlaubt das).
+            if (!profileFound && client.IsLoggedIn)
+            {
+                var user = AppServices.Auth.CurrentUser;
+                await client.InsertAsync("profiles", new
+                {
+                    id,
+                    email = user?.Email,
+                    display_name = user?.DisplayName ?? user?.Email
+                });
             }
 
             // Serverseitig vergebene Abzeichen (z. B. 3 Monate Premium in Folge).

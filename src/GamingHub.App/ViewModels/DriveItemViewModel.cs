@@ -23,6 +23,10 @@ public sealed class DriveItemViewModel
     public string TotalValue => FormatGb(_model.TotalBytes);
     public string UsedValue => FormatGb(_model.UsedBytes);
 
+    public bool IsNetwork => _model.IsNetwork;
+    public string AccessDisplay => _model.AccessDisplay;
+    public bool HasAccessInfo => !string.IsNullOrWhiteSpace(_model.AccessDisplay);
+
     private static string FormatGb(long bytes)
         => (bytes / 1024.0 / 1024.0 / 1024.0).ToString("N2");
 }

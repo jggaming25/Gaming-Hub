@@ -22,6 +22,17 @@ const FEATURES = [
 
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   {
+    version: "0.5.22",
+    date: "19.10.2026 16:15",
+    items: [
+      "Konto: Registrierung mit E-Mail-Bestätigung zeigt jetzt einen klaren Hinweis und meldet sich nicht mehr fälschlich als angemeldet an; ein fehlendes Profil wird automatisch angelegt.",
+      "„Kann ich das spielen?“: Spiele lassen sich jetzt frei eintippen (mit Vorschlägen). Für Steam-Spiele werden die echten Mindest- und Empfehlungsanforderungen angezeigt, und fremde Treffer werden ausgefiltert.",
+      "Beleuchtung: Zwei Farben lassen sich mischen (Anteil per Regler) und als Farbverlauf auf Effekte anwenden; Profile mit Farbverlauf werden gespeichert und aktualisiert.",
+      "Benachrichtigungen: Echte Windows-Benachrichtigungen mit Test-Knopf und Direktlink zu den Windows-Einstellungen; die Anzeige in der App bleibt als Fallback bestehen.",
+      "Spielebibliothek: Netzlaufwerke erscheinen jetzt in der Laufwerksliste (auch nicht verbundene) – inklusive der Rechte des angemeldeten Benutzers (Lesen/Schreiben)."
+    ]
+  },
+  {
     version: "0.5.21",
     date: "19.10.2026 14:50",
     items: [

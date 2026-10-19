@@ -184,12 +184,21 @@ public partial class ProfileViewModel : ViewModelBase
         StatusText = signIn ? "Anmelden…" : "Registrieren…";
         try
         {
-            var (ok, error) = signIn
-                ? await AppServices.Auth.SignInAsync(Email, Password)
-                : await AppServices.Auth.SignUpAsync(Email, Password);
-            StatusText = ok
-                ? "Erfolgreich angemeldet."
-                : (signIn ? "Anmeldung fehlgeschlagen: " : "Registrierung fehlgeschlagen: ") + error;
+            if (signIn)
+            {
+                var (ok, error) = await AppServices.Auth.SignInAsync(Email, Password);
+                StatusText = ok ? "Erfolgreich angemeldet." : "Anmeldung fehlgeschlagen: " + error;
+            }
+            else
+            {
+                var (ok, confirmationRequired, error) = await AppServices.Auth.SignUpAsync(Email, Password);
+                if (confirmationRequired)
+                    StatusText = "Registrierung erfolgreich. Bitte bestätige jetzt die E-Mail in deinem Postfach und melde dich anschließend an.";
+                else
+                    StatusText = ok
+                        ? "Erfolgreich angemeldet."
+                        : "Registrierung fehlgeschlagen: " + error;
+            }
         }
         finally
         {

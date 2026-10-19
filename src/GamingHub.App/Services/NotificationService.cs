@@ -7,6 +7,8 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
+using Microsoft.Toolkit.Uwp.Notifications;
+using Windows.UI.Notifications;
 
 namespace GamingHub.App.Services;
 
@@ -26,12 +28,82 @@ public sealed class NotificationService
 {
     public event Action<NotificationKind>? Activated;
 
+    /// <summary>True, wenn native Windows-Toasts auf diesem System möglich sind.</summary>
+    public bool NativeSupported { get; private set; }
+
+    /// <summary>True, wenn der Benutzer Windows-Benachrichtigungen erlaubt hat.</summary>
+    public bool NativeEnabled { get; private set; }
+
+    /// <summary>Für die Einstellungen: aktueller Status der Windows-Toasts.</summary>
+    public string NativeStatus { get; private set; } = "Native Windows-Benachrichtigungen werden geprüft…";
+
+    /// <summary>Prüft, ob Windows-Benachrichtigungen erlaubt sind, und
+    /// registriert bei Bedarf die AppUserModelId für unverpackte Apps.</summary>
+    public void RefreshNativeStatus()
+    {
+        try
+        {
+            var notifier = ToastNotificationManagerCompat.CreateToastNotifier();
+            NativeSupported = true;
+            NativeEnabled = notifier.Setting == NotificationSetting.Enabled;
+            NativeStatus = NativeEnabled
+                ? "Windows-Benachrichtigungen sind aktiv."
+                : "Windows-Benachrichtigungen sind in den Windows-Einstellungen deaktiviert.";
+        }
+        catch (Exception ex)
+        {
+            NativeSupported = false;
+            NativeEnabled = false;
+            NativeStatus = "Native Windows-Benachrichtigungen sind nicht verfügbar. Es wird die In-App-Anzeige verwendet (" + ex.Message + ").";
+        }
+    }
+
+    /// <summary>Zeigt eine echte Windows-Testbenachrichtigung.</summary>
+    public bool ShowTest()
+    {
+        RefreshNativeStatus();
+        if (!NativeSupported || !NativeEnabled)
+        {
+            Show("Gaming Hub", "Testbenachrichtigung – In-App-Anzeige.");
+            return false;
+        }
+
+        try
+        {
+            new ToastContentBuilder()
+                .AddText("Gaming Hub")
+                .AddText("Testbenachrichtigung – Windows-Benachrichtigungen funktionieren.")
+                .Show();
+            return true;
+        }
+        catch
+        {
+            // Fallback auf die In-App-Anzeige.
+            Show("Gaming Hub", "Testbenachrichtigung – In-App-Anzeige.");
+            return false;
+        }
+    }
+
     private readonly Queue<(NotificationKind Kind, string Title, string Body)> _pending = new();
     private bool _showing;
     private Window? _toast;
     private DispatcherTimer? _hideTimer;
     private bool _ringActive;
     private string? _ringFile;
+
+    public NotificationService()
+    {
+        RefreshNativeStatus();
+        try
+        {
+            ToastNotificationManagerCompat.OnActivated += _ =>
+                Dispatcher.UIThread.Post(() => Activated?.Invoke(NotificationKind.NewMessage));
+        }
+        catch
+        {
+            // Aktivierung ist optional; Anzeige funktioniert auch ohne.
+        }
+    }
 
     public void NewMessage(string chatName, string sender, string message)
     {
@@ -59,11 +131,41 @@ public sealed class NotificationService
         if (!AppServices.Settings.Settings.DesktopNotificationsEnabled)
             return;
 
+        // Zuerst eine echte Windows-Benachrichtigung versuchen. Nur wenn das
+        // System sie nicht erlaubt/unterstützt, wird die In-App-Anzeige genutzt.
+        if (TryShowNative(title, body))
+            return;
+
         Dispatcher.UIThread.Post(() =>
         {
             _pending.Enqueue((kind, title, body));
             ShowNext();
         });
+    }
+
+    private bool TryShowNative(string title, string body)
+    {
+        if (!NativeSupported)
+            return false;
+
+        try
+        {
+            NativeEnabled = ToastNotificationManagerCompat.CreateToastNotifier().Setting == NotificationSetting.Enabled;
+            if (!NativeEnabled)
+                return false;
+
+            new ToastContentBuilder()
+                .AddText(title)
+                .AddText(body)
+                .Show();
+            if (SoundEnabled && AppServices.Settings.Settings.NotificationSoundEnabled)
+                PlaySystemSound("SystemAsterisk");
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private void ShowNext()

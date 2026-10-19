@@ -28,6 +28,10 @@ public sealed class RgbService : IDisposable
     public event Action? DevicesChanged;
     public event Action? ProfilesChanged;
 
+    /// <summary>Wird nach dem Laden eines Profils ausgelöst, damit die UI die
+    /// gespeicherten Farben/Modi übernehmen kann.</summary>
+    public event Action<RgbProfile>? ProfileApplied;
+
     public IReadOnlyDictionary<string, RgbDevice> Devices => _devices;
     public ReadOnlyObservableCollection<RgbProfile> Profiles { get; }
 
@@ -278,11 +282,16 @@ public sealed class RgbService : IDisposable
         return ok;
     }
 
-    /// <summary>Effekt (Modus) setzen.</summary>
-    public async Task<bool> SetEffectAsync(string deviceId, string effectName, RgbColor? color = null, int speed = 50)
+    /// <summary>Effekt (Modus) setzen. <paramref name="colors"/> erlaubt eine
+    /// Farbpalette (z. B. Farbverlauf aus zwei gemischten Farben); ohne Palette
+    /// wird die einzelne <paramref name="color"/> verwendet.</summary>
+    public async Task<bool> SetEffectAsync(string deviceId, string effectName, RgbColor? color = null, int speed = 50,
+        IReadOnlyList<RgbColor>? colors = null)
     {
         if (!_client.IsConnected) return false;
         if (!_devices.TryGetValue(deviceId, out var device)) return false;
+
+        var palette = colors?.Where(c => c != null).ToList() ?? new List<RgbColor>();
 
         var ok = await Task.Run(() =>
         {
@@ -292,7 +301,8 @@ public sealed class RgbService : IDisposable
                     string.Equals(effectName, "direct", StringComparison.OrdinalIgnoreCase))
                 {
                     _client.SetCustomMode((uint)device.ControllerIndex);
-                    if (color is { } c) _client.SetColor((uint)device.ControllerIndex, device.LedCount, c);
+                    var direct = palette.FirstOrDefault() ?? color;
+                    if (direct is { } c) _client.SetColor((uint)device.ControllerIndex, device.LedCount, c);
                     return true;
                 }
 
@@ -301,7 +311,20 @@ public sealed class RgbService : IDisposable
                 if (mode == null) return false;
 
                 mode.Speed = (uint)Math.Clamp(speed, 0, 100);
-                if (color is { } chosen)
+                if (palette.Count > 0)
+                {
+                    // Modi mit mehreren Farben (Wave, Rainbow, Breathing o. ä.)
+                    // bekommen die gemischte Palette; bei einem einzelnen
+                    // Farbwert wird sie auf alle vorhandenen Slots verteilt.
+                    int slots = Math.Max(
+                        Math.Max(mode.Colors.Count, (int)Math.Max(mode.ColorsMin, 1)),
+                        Math.Min(palette.Count, Math.Max((int)mode.ColorsMax, palette.Count)));
+                    slots = Math.Clamp(slots, 1, 64);
+                    mode.Colors.Clear();
+                    for (int i = 0; i < slots; i++)
+                        mode.Colors.Add(palette[i % palette.Count]);
+                }
+                else if (color is { } chosen)
                 {
                     if (mode.Colors.Count > 0)
                         for (var i = 0; i < mode.Colors.Count; i++) mode.Colors[i] = chosen;
@@ -437,10 +460,35 @@ public sealed class RgbService : IDisposable
 
         foreach (var (deviceId, state) in profile.DeviceStates)
         {
-            if (state.Effect is { } e) await SetEffectAsync(deviceId, e, state.Color ?? state.EffectColor, state.Speed).ConfigureAwait(false);
-            else if (state.Color is { } c) await SetColorAsync(deviceId, c).ConfigureAwait(false);
+            var colors = state.Colors.Count > 0
+                ? state.Colors
+                : BuildPalette(state.Color ?? state.EffectColor, state.SecondaryColor, state.MixPercent);
+
+            if (state.Effect is { } e)
+                await SetEffectAsync(deviceId, e, state.Color ?? state.EffectColor, state.Speed, colors).ConfigureAwait(false);
+            else if (state.Color is { } c)
+                await SetColorAsync(deviceId, c).ConfigureAwait(false);
         }
+
+        ProfileApplied?.Invoke(profile);
         return true;
+    }
+
+    private static List<RgbColor> BuildPalette(RgbColor? primary, RgbColor? secondary, int mixPercent)
+    {
+        if (primary is null)
+            return new List<RgbColor>();
+        if (secondary is null || mixPercent <= 0)
+            return new List<RgbColor> { primary };
+
+        var result = new List<RgbColor>();
+        const int steps = 8;
+        for (int i = 0; i < steps; i++)
+        {
+            double t = (double)i / (steps - 1);
+            result.Add(RgbColor.Mix(primary, secondary, t * Math.Clamp(mixPercent, 0, 100) / 100.0));
+        }
+        return result;
     }
 
     public void DeleteProfile(string profileId)
@@ -537,6 +585,17 @@ public sealed class RgbColor
         );
     }
 
+    /// <summary>Mischt zwei Farben linear. <paramref name="amount"/> 0 = a, 1 = b.</summary>
+    public static RgbColor Mix(RgbColor a, RgbColor b, double amount)
+    {
+        amount = Math.Clamp(amount, 0, 1);
+        return new RgbColor(
+            (byte)Math.Round(a.R + (b.R - a.R) * amount),
+            (byte)Math.Round(a.G + (b.G - a.G) * amount),
+            (byte)Math.Round(a.B + (b.B - a.B) * amount),
+            (byte)Math.Round(a.A + (b.A - a.A) * amount));
+    }
+
     public string ToHex() => $"#{R:X2}{G:X2}{B:X2}";
 }
 
@@ -553,6 +612,9 @@ public sealed class DeviceProfileState
     public RgbColor? Color { get; set; }
     public string? Effect { get; set; }
     public RgbColor? EffectColor { get; set; }
+    public RgbColor? SecondaryColor { get; set; }
+    public int MixPercent { get; set; }
+    public List<RgbColor> Colors { get; set; } = new();
     public int Speed { get; set; } = 50;
     public Dictionary<int, RgbColor> ZoneColors { get; set; } = new();
 }

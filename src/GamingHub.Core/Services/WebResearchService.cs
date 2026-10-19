@@ -60,9 +60,14 @@ public sealed class WebResearchService
             ? game
             : $"{game} {result.QueryVersion}";
 
-        await TryWikipediaAsync(search, game, result, ct).ConfigureAwait(false);
+        // Steam liefert die tatsächlichen Mindestanforderungen und ist
+        // verlässlicher als eine allgemeine Websuche. Wikipedia und
+        // DuckDuckGo bleiben als Fallback erhalten.
+        await TrySteamRequirementsAsync(game, result, ct).ConfigureAwait(false);
         if (!result.Found)
-            await TryDuckDuckGoAsync(search, VersionToken(result.QueryVersion, game), result, ct).ConfigureAwait(false);
+            await TryWikipediaAsync(search, game, result, ct).ConfigureAwait(false);
+        if (!result.Found)
+            await TryDuckDuckGoAsync(search, game, VersionToken(result.QueryVersion, game), result, ct).ConfigureAwait(false);
         result.DetectedVersion = DetectVersion(result.Summary);
         if (!string.IsNullOrWhiteSpace(result.DetectedVersion))
         {
@@ -418,7 +423,43 @@ public sealed class WebResearchService
             return t.Contains(tokens[0]);
 
         int hits = tokens.Count(tok => t.Contains(tok));
-        return hits >= 1;
+
+        // Bei mehrteiligen Namen müssen mindestens zwei Bestandteile im Titel
+        // vorkommen. Ein einzelnes "Gaming" würde sonst beliebige Treffer wie
+        // "ProinHub" durchlassen.
+        int required = Math.Min(2, tokens.Count);
+        if (hits < required)
+            return false;
+
+        // Zahlen wie "2" in "OMSI 2" müssen exakt als Wort im Titel stehen,
+        // damit nicht versehentlich OMSI 1 oder ein Jahrgang matcht.
+        foreach (string numeric in tokens.Where(x => x.All(char.IsDigit)))
+            if (!TitleHasWord(title, numeric))
+                return false;
+
+        return true;
+    }
+
+    /// <summary>Strenger Relevanztest für DuckDuckGo-Fallbacktreffer. Der
+    /// Spielname (bzw. seine signifikanten Bestandteile) muss in Titel,
+    /// Snippet oder URL vorkommen; reine Zufallstreffer werden verworfen.</summary>
+    private static bool IsRelevantSearchResult(string title, string snippet, string url, string game)
+    {
+        var tokens = SignificantTokens(game);
+        if (tokens.Count == 0)
+            return false;
+
+        string haystack = (title + " " + snippet + " " + url).ToLowerInvariant();
+        int hits = tokens.Count(tok => haystack.Contains(tok, StringComparison.Ordinal));
+        int required = tokens.Count == 1 ? 1 : Math.Min(2, tokens.Count);
+        if (hits < required)
+            return false;
+
+        foreach (string numeric in tokens.Where(x => x.All(char.IsDigit)))
+            if (!Regex.IsMatch(haystack, $@"(?<!\d){Regex.Escape(numeric)}(?!\d)"))
+                return false;
+
+        return true;
     }
 
     /// <summary>Ermittelt eine "Versionszahl" aus der gesuchten Version oder
@@ -473,7 +514,143 @@ public sealed class WebResearchService
         return Truncate(section[..end].Trim(), 2400);
     }
 
-    private static async Task TryDuckDuckGoAsync(string search, string? versionToken, WebResearchResult result, CancellationToken ct)
+    /// <summary>Liest die Systemanforderungen direkt aus dem Steam-Shop.
+    /// Das ist für Spiele deutlich verlässlicher als eine allgemeine Suche.</summary>
+    private static async Task TrySteamRequirementsAsync(string game, WebResearchResult result, CancellationToken ct)
+    {
+        try
+        {
+            var app = await FindSteamAppAsync(game, ct).ConfigureAwait(false);
+            if (app is null)
+                return;
+
+            string url = $"https://store.steampowered.com/app/{app.Value.Id}/?l=german&cc=DE";
+            using var resp = await Http.GetAsync(url, ct).ConfigureAwait(false);
+            if (!resp.IsSuccessStatusCode)
+                return;
+
+            string html = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            string requirements = ExtractSteamRequirements(html);
+            if (string.IsNullOrWhiteSpace(requirements))
+                return;
+
+            result.Summary = Truncate(requirements, 2400);
+            result.IsEstimate = false;
+            result.Error = null;
+            result.Sources.Add(new WebResearchSource(
+                $"Steam – {TitleWithoutTemplate(app.Value.Name)}",
+                $"https://store.steampowered.com/app/{app.Value.Id}/",
+                Truncate(requirements, 260)));
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            result.Error = ex.Message;
+        }
+    }
+
+    private static async Task<(int Id, string Name)?> FindSteamAppAsync(string query, CancellationToken ct)
+    {
+        string url = "https://store.steampowered.com/api/storesearch/?term=" +
+                     Uri.EscapeDataString(query) + "&l=german&cc=DE";
+        using var resp = await Http.GetAsync(url, ct).ConfigureAwait(false);
+        if (!resp.IsSuccessStatusCode)
+            return null;
+
+        using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false));
+        if (!doc.RootElement.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array)
+            return null;
+
+        string normalizedQuery = NormalizeTitle(query);
+        (int Id, string Name)? best = null;
+        int bestScore = 0;
+        foreach (var item in items.EnumerateArray())
+        {
+            if (!item.TryGetProperty("id", out var idEl) || !idEl.TryGetInt32(out int id))
+                continue;
+            if (!item.TryGetProperty("name", out var nameEl) || nameEl.ValueKind != JsonValueKind.String)
+                continue;
+
+            string name = nameEl.GetString() ?? string.Empty;
+            int score = SteamTitleScore(name, normalizedQuery);
+            if (score == 0)
+                continue;
+
+            if (best is null || score > bestScore ||
+                (score == bestScore && name.Length < best.Value.Name.Length))
+            {
+                best = (id, name);
+                bestScore = score;
+            }
+        }
+
+        return best;
+    }
+
+    private static int SteamTitleScore(string name, string normalizedQuery)
+    {
+        string normalizedName = NormalizeTitle(name);
+        if (normalizedName.Length == 0 || normalizedQuery.Length == 0)
+            return 0;
+        if (normalizedName == normalizedQuery)
+            return 100;
+
+        string[] separators = { " ", ":" };
+        foreach (string separator in separators)
+        {
+            string prefix = normalizedQuery + separator;
+            if (!normalizedName.StartsWith(prefix, StringComparison.Ordinal))
+                continue;
+
+            string suffix = normalizedName[prefix.Length..].Trim();
+            if (IsEditionSuffix(suffix))
+                return 80;
+        }
+
+        return 0;
+    }
+
+    private static bool IsEditionSuffix(string suffix)
+    {
+        string[] allowed =
+        {
+            "steam edition", "definitive edition", "deluxe edition", "ultimate edition",
+            "gold edition", "complete edition", "premium edition", "standard edition",
+            "enhanced edition", "remastered", "classic", "anniversary edition",
+            "game of the year", "goty", "collector's edition", "collectors edition"
+        };
+        return allowed.Any(a => suffix == a || suffix.StartsWith(a + " ", StringComparison.Ordinal));
+    }
+
+    private static string ExtractSteamRequirements(string html)
+    {
+        var parts = new List<string>();
+        foreach (Match m in Regex.Matches(html,
+                     @"<div[^>]+class=""[^""]*game_area_sys_req_(?:leftCol|rightCol|full)[^""]*""[^>]*>(.*?)</div>",
+                     RegexOptions.Singleline | RegexOptions.IgnoreCase))
+        {
+            string raw = Regex.Replace(m.Groups[1].Value,
+                @"<br\s*/?>|</(?:li|p|div|tr|h\d)>", " ",
+                RegexOptions.IgnoreCase);
+            string text = System.Net.WebUtility.HtmlDecode(StripTags(raw));
+            text = Regex.Replace(text, @"\s+", " ").Trim();
+            if (text.Length > 0 && !parts.Contains(text))
+                parts.Add(text);
+        }
+
+        if (parts.Count == 0)
+            return string.Empty;
+
+        string combined = string.Join(" | ", parts);
+        if (!Regex.IsMatch(combined, @"(mindest|minimum|empfohlen|recommended|system)", RegexOptions.IgnoreCase))
+            return string.Empty;
+        return combined;
+    }
+
+    private static async Task TryDuckDuckGoAsync(string search, string game, string? versionToken, WebResearchResult result, CancellationToken ct)
     {
         try
         {
@@ -496,6 +673,13 @@ public sealed class WebResearchService
                     snippet = StripTags(System.Net.WebUtility.HtmlDecode(s.Groups[1].Value));
                 links.Add((title, href, snippet));
             }
+
+            // Nur Treffer behalten, in denen der gesuchte Spielname wirklich
+            // vorkommt (Titel, Snippet oder URL). Das verhindert z. B. fremde
+            // "ProinHub"- oder Shop-Treffer bei einer Suche nach "Gaming Hub".
+            links = links
+                .Where(l => IsRelevantSearchResult(l.Title, l.Snippet, l.Url, game))
+                .ToList();
 
             if (links.Count > 0)
             {

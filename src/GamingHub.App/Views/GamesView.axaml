@@ -76,6 +76,8 @@
                                     </MultiBinding>
                                 </TextBlock.Text>
                             </TextBlock>
+                            <TextBlock Text="{Binding AccessDisplay}" FontSize="10" Foreground="#22D3EE"
+                                       TextWrapping="Wrap" IsVisible="{Binding HasAccessInfo}" />
                         </StackPanel>
                     </Border>
                 </DataTemplate>

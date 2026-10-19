@@ -125,6 +125,12 @@ drop policy if exists "profiles_select" on public.profiles;
 create policy "profiles_select" on public.profiles
     for select using (auth.uid() = id or public.is_admin());
 
+-- Fallback: Falls der Trigger in einer älteren Datenbank noch fehlt, darf
+-- jeder angemeldete Nutzer sein eigenes Profil einmalig anlegen.
+drop policy if exists "profiles_insert_own" on public.profiles;
+create policy "profiles_insert_own" on public.profiles
+    for insert with check (auth.uid() = id);
+
 drop policy if exists "profiles_update_own" on public.profiles;
 create policy "profiles_update_own" on public.profiles
     for update using (auth.uid() = id) with check (auth.uid() = id);
