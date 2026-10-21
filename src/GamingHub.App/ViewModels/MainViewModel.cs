@@ -224,7 +224,10 @@ public partial class MainViewModel : ViewModelBase
         SelectedView = value?.ViewModel;
 
         if (value?.ViewModel is ResourcesViewModel res)
+        {
+            AppServices.SystemMonitor.RefreshActivationTime();
             res.ReloadGameNames();
+        }
 
         if (value?.ViewModel is LightingViewModel lighting)
             lighting.Activate();

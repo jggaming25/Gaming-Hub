@@ -8,6 +8,13 @@ public static class Changelog
 {
     public static readonly ChangelogEntry[] Entries =
     {
+        new("0.5.28", "22.10.2026 01:39", new[]
+        {
+            "System-Ressourcen: Die große Laufzeit zählt jetzt seit der letzten Aktivierung – also seit dem letzten Start oder Aufwachen aus dem Standby.",
+            "Zusätzlich werden die Windows-Betriebszeit seit dem letzten vollständigen Start (inklusive Standby) und der letzte vollständige Start separat angezeigt.",
+            "Damit ist klar, warum Windows nach dem Standby eine höhere Laufzeit anzeigt als die gefühlte Zeit seit dem Einschalten; das Windows-Alter wird getrennt ausgewiesen.",
+            "Die kopierten Systeminformationen und der Hilfe-Tab erklären die beiden Laufzeit-Werte jetzt ebenfalls."
+        }),
         new("0.5.27", "22.10.2026 01:28", new[]
         {
             "Spielebibliothek: EXE und Installationsordner werden jetzt nur noch angezeigt, wenn sie wirklich erkannt wurden – fehlende Angaben erscheinen nicht mehr als Platzhalter.",

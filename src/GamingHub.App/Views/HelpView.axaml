@@ -136,11 +136,13 @@
             <Expander Header="📊 System-Ressourcen und kopierte Systeminformationen">
                 <StackPanel Spacing="8" Margin="4,8,4,4">
                     <TextBlock TextWrapping="Wrap" FontSize="12" LineHeight="20"
-                               Text="Unter System-Ressourcen findest du CPU, GPU, RAM, Mainboard, Windows-Version, Installationsdatum, Systemlaufzeit und die letzte Startzeit." />
+                               Text="Unter System-Ressourcen findest du CPU, GPU, RAM, Mainboard, Windows-Version, Installationsdatum, Laufzeiten und die letzte Aktivierung." />
                     <TextBlock TextWrapping="Wrap" FontSize="12" LineHeight="20"
                                Text="Mit „Systeminfo kopieren“ landen alle Angaben in der Zwischenablage – praktisch für Support und Fehlerberichte." />
                     <TextBlock TextWrapping="Wrap" FontSize="11" Classes="muted"
-                               Text="Die Systemlaufzeit bezeichnet hier das Alter der Windows-Installation. Die Laufzeit seit dem letzten Start steht separat bei „Gestartet“." />
+                               Text="Die große Laufzeit zählt seit der letzten Aktivierung – also seit dem letzten Start oder Aufwachen aus dem Standby. Die Windows-Betriebszeit zählt dagegen seit dem letzten vollständigen Start und enthält auch Standby-Zeit. Deshalb kann sie deutlich höher sein als die gefühlte Laufzeit." />
+                    <TextBlock TextWrapping="Wrap" FontSize="11" Classes="muted"
+                               Text="Das Windows-Alter beschreibt dagegen, wie lange Windows bereits installiert ist – nicht die Laufzeit des PCs." />
                 </StackPanel>
             </Expander>
 

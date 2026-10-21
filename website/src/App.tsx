@@ -22,6 +22,16 @@ const FEATURES = [
 
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   {
+    version: "0.5.28",
+    date: "22.10.2026 01:39",
+    items: [
+      "System-Ressourcen: Die große Laufzeit zählt jetzt seit der letzten Aktivierung – also seit dem letzten Start oder Aufwachen aus dem Standby.",
+      "Zusätzlich werden die Windows-Betriebszeit seit dem letzten vollständigen Start (inklusive Standby) und der letzte vollständige Start separat angezeigt.",
+      "Damit ist klar, warum Windows nach dem Standby eine höhere Laufzeit anzeigt als die gefühlte Zeit seit dem Einschalten; das Windows-Alter wird getrennt ausgewiesen.",
+      "Die kopierten Systeminformationen und der Hilfe-Tab erklären die beiden Laufzeit-Werte jetzt ebenfalls."
+    ]
+  },
+  {
     version: "0.5.27",
     date: "22.10.2026 01:28",
     items: [

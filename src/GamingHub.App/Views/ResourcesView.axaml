@@ -112,13 +112,19 @@
                     <Border Classes="card">
                         <StackPanel Spacing="6">
                             <TextBlock Text="Laufzeit &amp; System" FontWeight="SemiBold" />
-                            <TextBlock Text="{Binding UptimeDisplay}" FontSize="16" FontWeight="Bold" />
-                            <TextBlock Text="Windows läuft seit dem letzten Start" FontSize="9" Classes="muted" />
+                            <TextBlock Text="{Binding SinceActivationDisplay}" FontSize="16" FontWeight="Bold" />
+                            <TextBlock Text="Seit letzter Aktivierung (Start oder Aufwachen aus dem Standby)" FontSize="9" Classes="muted" />
                             <TextBlock FontSize="11">
-                                <Run Text="Installiert: " FontWeight="SemiBold" /><Run Text="{Binding SystemInstallDisplay}" />
+                                <Run Text="Letzte Aktivierung: " FontWeight="SemiBold" /><Run Text="{Binding LastActivationDisplay}" />
                             </TextBlock>
                             <TextBlock FontSize="11">
-                                <Run Text="Systemlaufzeit: " FontWeight="SemiBold" /><Run Text="{Binding SystemAgeDisplay}" />
+                                <Run Text="Windows-Betriebszeit: " FontWeight="SemiBold" /><Run Text="{Binding UptimeDisplay}" /><Run Text=" (seit vollständigem Start, inkl. Standby)" />
+                            </TextBlock>
+                            <TextBlock FontSize="11">
+                                <Run Text="Letzter vollständiger Start: " FontWeight="SemiBold" /><Run Text="{Binding BootTimeDisplay}" />
+                            </TextBlock>
+                            <TextBlock FontSize="11">
+                                <Run Text="Windows-Alter: " FontWeight="SemiBold" /><Run Text="{Binding SystemAgeDisplay}" /><Run Text=" (installiert am " /><Run Text="{Binding SystemInstallDisplay}" /><Run Text=")" />
                             </TextBlock>
                             <TextBlock Text="{Binding OsDisplay}" FontSize="10" Classes="muted" TextWrapping="Wrap" MaxHeight="28" />
                             <TextBlock FontSize="11">
@@ -178,13 +184,19 @@
                                     <TextBlock Text="{Binding OsDisplay}" FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap" />
                                     <TextBlock Text="{Binding MotherboardDisplay}" FontSize="10" Classes="muted" TextWrapping="Wrap" />
                                     <TextBlock FontSize="10" Classes="muted">
-                                        <Run Text="Installiert: " /><Run Text="{Binding SystemInstallDisplay}" />
+                                        <Run Text="Windows installiert: " /><Run Text="{Binding SystemInstallDisplay}" />
                                     </TextBlock>
                                     <TextBlock FontSize="10" Classes="muted">
-                                        <Run Text="Systemlaufzeit: " /><Run Text="{Binding SystemAgeDisplay}" />
+                                        <Run Text="Windows-Alter: " /><Run Text="{Binding SystemAgeDisplay}" />
                                     </TextBlock>
                                     <TextBlock FontSize="10" Classes="muted">
-                                        <Run Text="Gestartet: " /><Run Text="{Binding BootTimeDisplay}" />
+                                        <Run Text="Letzte Aktivierung: " /><Run Text="{Binding LastActivationDisplay}" />
+                                    </TextBlock>
+                                    <TextBlock FontSize="10" Classes="muted">
+                                        <Run Text="Seit letzter Aktivierung: " /><Run Text="{Binding SinceActivationDisplay}" />
+                                    </TextBlock>
+                                    <TextBlock FontSize="10" Classes="muted">
+                                        <Run Text="Letzter vollständiger Start: " /><Run Text="{Binding BootTimeDisplay}" />
                                     </TextBlock>
                                 </StackPanel>
                             </Border>

@@ -69,6 +69,8 @@ public partial class ResourcesViewModel : ViewModelBase
     [ObservableProperty] private string _systemInstallDisplay = "—";
     [ObservableProperty] private string _systemAgeDisplay = "—";
     [ObservableProperty] private string _bootTimeDisplay = "—";
+    [ObservableProperty] private string _lastActivationDisplay = "—";
+    [ObservableProperty] private string _sinceActivationDisplay = "—";
     [ObservableProperty] private string _motherboardDisplay = "—";
     [ObservableProperty] private string _copyStatusText = string.Empty;
     [ObservableProperty] private string _diskReadDisplay = "0 B/s";
@@ -319,6 +321,16 @@ public partial class ResourcesViewModel : ViewModelBase
         MachineName = s.MachineName;
         MotherboardDisplay = string.IsNullOrWhiteSpace(s.MotherboardName) ? "—" : s.MotherboardName;
         BootTimeDisplay = s.BootTime.ToString("dd.MM.yyyy HH:mm");
+        if (s.LastActivationUtc is { } activation)
+        {
+            LastActivationDisplay = activation.ToLocalTime().ToString("dd.MM.yyyy HH:mm");
+            SinceActivationDisplay = Format.Duration(DateTime.UtcNow - activation);
+        }
+        else
+        {
+            LastActivationDisplay = BootTimeDisplay;
+            SinceActivationDisplay = UptimeDisplay;
+        }
         SystemInstallDisplay = s.SystemInstallUtc is { } installed
             ? installed.ToLocalTime().ToString("dd.MM.yyyy")
             : "—";
@@ -572,8 +584,11 @@ public partial class ResourcesViewModel : ViewModelBase
             sb.AppendLine($"Mainboard: {MotherboardDisplay}");
             sb.AppendLine($"Windows: {OsDisplay}");
             sb.AppendLine($"Windows installiert: {SystemInstallDisplay}");
-            sb.AppendLine($"Systemlaufzeit: {SystemAgeDisplay}");
-            sb.AppendLine($"Gestartet: {BootTimeDisplay}");
+            sb.AppendLine($"Windows-Alter: {SystemAgeDisplay}");
+            sb.AppendLine($"Letzte Aktivierung: {LastActivationDisplay}");
+            sb.AppendLine($"Seit letzter Aktivierung: {SinceActivationDisplay}");
+            sb.AppendLine($"Windows-Betriebszeit (inkl. Standby): {UptimeDisplay}");
+            sb.AppendLine($"Letzter vollständiger Start: {BootTimeDisplay}");
             sb.AppendLine($"Angemeldet als: {CurrentUserDisplay}");
             sb.AppendLine($"Datum der Abfrage: {DateTime.Now:dd.MM.yyyy HH:mm:ss}");
 

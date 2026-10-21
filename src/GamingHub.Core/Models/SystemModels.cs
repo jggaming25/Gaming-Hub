@@ -46,6 +46,9 @@ public sealed class SystemSnapshot
     /// <summary>Installationsdatum von Windows; null, wenn nicht ermittelbar.</summary>
     public DateTime? SystemInstallUtc { get; set; }
 
+    /// <summary>Letzter vollständiger Start oder letzte Reaktivierung aus dem Standby.</summary>
+    public DateTime? LastActivationUtc { get; set; }
+
     /// <summary>Anmeldename des aktuell angemeldeten Windows-Benutzers.</summary>
     public string UserName { get; set; } = string.Empty;
 

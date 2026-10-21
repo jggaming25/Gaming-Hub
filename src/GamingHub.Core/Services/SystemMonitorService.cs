@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Diagnostics.Eventing.Reader;
 using System.Management;
 using System.Net.NetworkInformation;
 using System.Runtime.InteropServices;
@@ -37,8 +38,12 @@ public sealed class SystemMonitorService
     public string MotherboardName { get; private set; } = "Unbekanntes Mainboard";
     public string OsVersionDisplay { get; private set; } = RuntimeInformation.OSDescription.Trim();
 
-    /// <summary>Installationsdatum von Windows (für die Systemlaufzeit).</summary>
+    /// <summary>Installationsdatum von Windows (für das Windows-Alter).</summary>
     public DateTime? SystemInstallUtc { get; private set; }
+
+    /// <summary>Zeitpunkt des letzten vollständigen Starts oder der letzten
+    /// Reaktivierung aus dem Standby/Ruhezustand.</summary>
+    public DateTime? LastActivationUtc { get; private set; }
 
     /// <summary>Anmeldename des aktuell angemeldeten Windows-Benutzers.</summary>
     public string CurrentUserName { get; } = Environment.UserName;
@@ -55,6 +60,10 @@ public sealed class SystemMonitorService
         LoadStaticGpuInfo();
         LoadStaticSystemInfo();
     }
+
+    /// <summary>Aktualisiert die letzte Aktivierung (z. B. nach dem Aufwachen
+    /// aus dem Standby), ohne die übrigen statischen Daten neu zu laden.</summary>
+    public void RefreshActivationTime() => LastActivationUtc = LoadLastActivation();
 
     public SystemSnapshot Sample()
     {
@@ -80,6 +89,7 @@ public sealed class SystemMonitorService
             OsDescription = OsVersionDisplay,
             MotherboardName = MotherboardName,
             SystemInstallUtc = SystemInstallUtc,
+            LastActivationUtc = LastActivationUtc,
             MachineName = Environment.MachineName,
             UserName = CurrentUserName,
             UserDomain = CurrentUserDomain,
@@ -437,6 +447,8 @@ public sealed class SystemMonitorService
         }
         catch { }
 
+        LastActivationUtc = LoadLastActivation();
+
         try
         {
             var board = new ManagementObjectSearcher(
@@ -453,6 +465,43 @@ public sealed class SystemMonitorService
             }
         }
         catch { }
+    }
+
+    /// <summary>Ermittelt den letzten vollständigen Start bzw. die letzte
+    /// Reaktivierung aus Standby/Ruhezustand aus dem System-Ereignisprotokoll.</summary>
+    private static DateTime? LoadLastActivation()
+    {
+        DateTime? latest = null;
+        foreach (var candidate in new[]
+                 {
+                     GetLatestEventTime("Microsoft-Windows-Power-Troubleshooter", 1),
+                     GetLatestEventTime("Microsoft-Windows-Kernel-Boot", 27),
+                     GetLatestEventTime("Microsoft-Windows-Kernel-Power", 107)
+                 })
+        {
+            if (candidate is { } value && (latest is null || value > latest))
+                latest = value;
+        }
+        return latest;
+    }
+
+    private static DateTime? GetLatestEventTime(string provider, int eventId)
+    {
+        try
+        {
+            string query = $"*[System[Provider[@Name='{provider}'] and (EventID={eventId})]]";
+            var logQuery = new EventLogQuery("System", PathType.LogName, query)
+            {
+                ReverseDirection = true
+            };
+            using var reader = new EventLogReader(logQuery);
+            using var record = reader.ReadEvent();
+            return record?.TimeCreated?.ToUniversalTime();
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private void TryReadVramFromRegistry()
