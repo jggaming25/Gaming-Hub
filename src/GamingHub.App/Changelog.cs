@@ -8,6 +8,18 @@ public static class Changelog
 {
     public static readonly ChangelogEntry[] Entries =
     {
+        new("0.5.26", "22.10.2026 01:08", new[]
+        {
+            "Beleuchtung: Neuer automatischer Farbwechsel – die gewählte Farbe wechselt im eingestellten Intervall (2–120 Sekunden) mit der Zweitfarbe. Funktioniert auch bei Geräten, die nur den Direct-Modus unterstützen.",
+            "Beleuchtung: Die Farben bleiben jetzt dauerhaft aktiv, statt nach einigen Sekunden auszufallen.",
+            "Beleuchtung: „Profil laden“ und das Löschen von Profilen funktionieren wieder zuverlässig.",
+            "Neu: Treiber-Ansicht mit allen installierten Treibern (Hersteller, Version, Datum, Gerät), Suche über Windows Update und Installation gefundener Updates – bei Bedarf mit Administratorabfrage.",
+            "System-Ressourcen: Installationsdatum von Windows, Systemlaufzeit und Startzeit werden angezeigt; zusätzlich eine Übersicht mit CPU, GPU, RAM, Mainboard und Windows-Version, die sich per Knopfdruck kopieren lässt.",
+            "Internet-Checker: Der komplette Verbindungsweg wird jetzt als übersichtliches Diagramm geprüft – vom Netzwerkadapter über Router und DNS bis zum Internet, HTTPS und einem echten Download-Test.",
+            "Spielebibliothek: Zu jedem Eintrag werden, wenn vorhanden, die ausführbare Datei, der Installationsordner und die tatsächliche Ordnergröße direkt angezeigt.",
+            "Benachrichtigungen: Windows-Toasts lassen sich jetzt zuverlässig testen. Wird die Anzeige durch Windows blockiert (Fokusassistent, Vollbild, Stummschaltung), zeigt die App den Grund und öffnet auf Wunsch direkt die passende Windows-Einstellung.",
+            "Einstellungen: neuer Untertab „Impressum“ mit freiwilligen Kontaktangaben und Hinweis zum privaten Hobbyprojekt."
+        }),
         new("0.5.25", "19.10.2026 18:55", new[]
         {
             "Bugfix Anmeldung: Die Supabase-Sitzung wird jetzt automatisch erneuert (beim Start, regelmäßig im Hintergrund und vor der Admin-Statistik). Nach Ablauf des Tokens zeigt die App nicht mehr fälschlich „nicht angemeldet“ an.",

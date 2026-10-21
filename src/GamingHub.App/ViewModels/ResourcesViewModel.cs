@@ -1,5 +1,8 @@
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Text;
+using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -61,7 +64,13 @@ public partial class ResourcesViewModel : ViewModelBase
     [ObservableProperty] private string _ramTotalDisplay = "—";
     [ObservableProperty] private string _uptimeDisplay = "—";
     [ObservableProperty] private string _osDisplay = "—";
+    [ObservableProperty] private string _machineName = "—";
     [ObservableProperty] private string _currentUserDisplay = "—";
+    [ObservableProperty] private string _systemInstallDisplay = "—";
+    [ObservableProperty] private string _systemAgeDisplay = "—";
+    [ObservableProperty] private string _bootTimeDisplay = "—";
+    [ObservableProperty] private string _motherboardDisplay = "—";
+    [ObservableProperty] private string _copyStatusText = string.Empty;
     [ObservableProperty] private string _diskReadDisplay = "0 B/s";
     [ObservableProperty] private string _diskWriteDisplay = "0 B/s";
     [ObservableProperty] private bool _hasNetworkItems;
@@ -306,7 +315,16 @@ public partial class ResourcesViewModel : ViewModelBase
         RamUsedDisplay = Format.Bytes((long)s.RamUsedBytes);
         RamTotalDisplay = Format.Bytes((long)s.RamTotalBytes);
         UptimeDisplay = Format.Duration(s.Uptime);
-        OsDisplay = s.MachineName + " · " + s.OsDescription;
+        OsDisplay = s.OsDescription;
+        MachineName = s.MachineName;
+        MotherboardDisplay = string.IsNullOrWhiteSpace(s.MotherboardName) ? "—" : s.MotherboardName;
+        BootTimeDisplay = s.BootTime.ToString("dd.MM.yyyy HH:mm");
+        SystemInstallDisplay = s.SystemInstallUtc is { } installed
+            ? installed.ToLocalTime().ToString("dd.MM.yyyy")
+            : "—";
+        SystemAgeDisplay = s.SystemInstallUtc is { } since
+            ? FormatSystemAge(DateTime.UtcNow - since)
+            : "—";
         CurrentUserDisplay = string.IsNullOrWhiteSpace(s.UserDomain) || string.Equals(s.UserDomain, s.MachineName, StringComparison.OrdinalIgnoreCase)
             ? s.UserName
             : $"{s.UserDomain}\\{s.UserName}";
@@ -541,6 +559,43 @@ public partial class ResourcesViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private async Task CopySystemInfoAsync()
+    {
+        try
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("Gaming Hub – Systeminformationen");
+            sb.AppendLine($"Computer: {MachineName}");
+            sb.AppendLine($"CPU: {CpuName} ({CpuCoresDisplay})");
+            sb.AppendLine($"GPU: {GpuName} (VRAM: {GpuVramDisplay})");
+            sb.AppendLine($"RAM: {RamUsedDisplay} von {RamTotalDisplay} ({RamUsageDisplay})");
+            sb.AppendLine($"Mainboard: {MotherboardDisplay}");
+            sb.AppendLine($"Windows: {OsDisplay}");
+            sb.AppendLine($"Windows installiert: {SystemInstallDisplay}");
+            sb.AppendLine($"Systemlaufzeit: {SystemAgeDisplay}");
+            sb.AppendLine($"Gestartet: {BootTimeDisplay}");
+            sb.AppendLine($"Angemeldet als: {CurrentUserDisplay}");
+            sb.AppendLine($"Datum der Abfrage: {DateTime.Now:dd.MM.yyyy HH:mm:ss}");
+
+            var lifetime = Avalonia.Application.Current?.ApplicationLifetime
+                as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
+            if (lifetime?.MainWindow?.Clipboard is { } clipboard)
+            {
+                await clipboard.SetValueAsync(DataFormat.Text, sb.ToString());
+                CopyStatusText = "Systeminformationen in die Zwischenablage kopiert.";
+            }
+            else
+            {
+                CopyStatusText = "Keine Zwischenablage verfügbar.";
+            }
+        }
+        catch (Exception ex)
+        {
+            CopyStatusText = "Kopieren fehlgeschlagen: " + ex.Message;
+        }
+    }
+
+    [RelayCommand]
     private void OpenWebSearch() => AppServices.OpenBrowser(WebSearchUrl);
 
     [RelayCommand]
@@ -584,5 +639,17 @@ public partial class ResourcesViewModel : ViewModelBase
         {
             IsResearching = false;
         }
+    }
+
+    private static string FormatSystemAge(TimeSpan age)
+    {
+        if (age.TotalDays < 1)
+            return $"{Math.Max(1, (int)age.TotalHours)} Stunden";
+        int days = (int)age.TotalDays;
+        if (days < 60)
+            return $"{days} Tage";
+        int years = days / 365;
+        int rest = days % 365;
+        return rest == 0 ? $"{years} Jahr(e)" : $"{years} Jahr(e), {rest} Tage";
     }
 }

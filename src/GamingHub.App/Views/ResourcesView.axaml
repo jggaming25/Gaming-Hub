@@ -113,22 +113,87 @@
                         <StackPanel Spacing="6">
                             <TextBlock Text="Laufzeit &amp; System" FontWeight="SemiBold" />
                             <TextBlock Text="{Binding UptimeDisplay}" FontSize="16" FontWeight="Bold" />
+                            <TextBlock Text="Windows läuft seit dem letzten Start" FontSize="9" Classes="muted" />
+                            <TextBlock FontSize="11">
+                                <Run Text="Installiert: " FontWeight="SemiBold" /><Run Text="{Binding SystemInstallDisplay}" />
+                            </TextBlock>
+                            <TextBlock FontSize="11">
+                                <Run Text="Systemlaufzeit: " FontWeight="SemiBold" /><Run Text="{Binding SystemAgeDisplay}" />
+                            </TextBlock>
                             <TextBlock Text="{Binding OsDisplay}" FontSize="10" Classes="muted" TextWrapping="Wrap" MaxHeight="28" />
                             <TextBlock FontSize="11">
                                 <Run Text="Angemeldet als: " FontWeight="SemiBold" /><Run Text="{Binding CurrentUserDisplay}" />
                             </TextBlock>
-                            <TextBlock Text="GPU" FontWeight="SemiBold" FontSize="12" />
                             <TextBlock FontSize="11">
-                                <Run Text="Auslastung: " /><Run Text="{Binding GpuUsageDisplay}" Foreground="#A855F7" FontWeight="SemiBold" />
+                                <Run Text="GPU-Auslastung: " /><Run Text="{Binding GpuUsageDisplay}" Foreground="#A855F7" FontWeight="SemiBold" />
                             </TextBlock>
-                            <TextBlock Text="{Binding GpuName}" FontSize="10" Classes="muted" TextWrapping="Wrap" MaxHeight="28" />
                             <TextBlock FontSize="11" Classes="muted">
                                 <Run Text="Datenträger – Lesen: " /><Run Text="{Binding DiskReadDisplay}" /><Run Text=" · Schreiben: " /><Run Text="{Binding DiskWriteDisplay}" />
                             </TextBlock>
-                            <TextBlock FontSize="11" Classes="muted"><Run Text="VRAM: " /><Run Text="{Binding GpuVramDisplay}" /></TextBlock>
                         </StackPanel>
                     </Border>
                 </Grid>
+
+                <!-- Detaillierte Systeminformationen + Kopierbutton -->
+                <Border Classes="card" Padding="14">
+                    <StackPanel Spacing="10">
+                        <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="Systeminformationen" FontWeight="SemiBold" FontSize="14" />
+                                <TextBlock Text="Alle wichtigen Angaben zu CPU, GPU, RAM und Windows auf einen Blick." FontSize="11" Classes="muted" />
+                            </StackPanel>
+                            <Button Grid.Column="1" Content="📋 Systeminfo kopieren" Command="{Binding CopySystemInfoCommand}"
+                                    Classes="accent" FontSize="12" Padding="12,6" VerticalAlignment="Center" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="*,*,*,*">
+                            <Border Grid.Column="0" Background="#0B0D1A" CornerRadius="8" Padding="10" Margin="0,0,8,0">
+                                <StackPanel Spacing="3">
+                                    <TextBlock Text="Prozessor" FontSize="10" Classes="muted" />
+                                    <TextBlock Text="{Binding CpuName}" FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                    <TextBlock Text="{Binding CpuCoresDisplay}" FontSize="10" Classes="muted" />
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Column="1" Background="#0B0D1A" CornerRadius="8" Padding="10" Margin="0,0,8,0">
+                                <StackPanel Spacing="3">
+                                    <TextBlock Text="Grafikkarte" FontSize="10" Classes="muted" />
+                                    <TextBlock Text="{Binding GpuName}" FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                    <TextBlock FontSize="10" Classes="muted">
+                                        <Run Text="VRAM: " /><Run Text="{Binding GpuVramDisplay}" />
+                                    </TextBlock>
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Column="2" Background="#0B0D1A" CornerRadius="8" Padding="10" Margin="0,0,8,0">
+                                <StackPanel Spacing="3">
+                                    <TextBlock Text="Arbeitsspeicher" FontSize="10" Classes="muted" />
+                                    <TextBlock Text="{Binding RamTotalDisplay}" FontSize="12" FontWeight="SemiBold" />
+                                    <TextBlock FontSize="10" Classes="muted">
+                                        <Run Text="{Binding RamUsedDisplay}" /><Run Text=" belegt (" /><Run Text="{Binding RamUsageDisplay}" /><Run Text=")" />
+                                    </TextBlock>
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Column="3" Background="#0B0D1A" CornerRadius="8" Padding="10">
+                                <StackPanel Spacing="3">
+                                    <TextBlock Text="Windows &amp; System" FontSize="10" Classes="muted" />
+                                    <TextBlock Text="{Binding OsDisplay}" FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                    <TextBlock Text="{Binding MotherboardDisplay}" FontSize="10" Classes="muted" TextWrapping="Wrap" />
+                                    <TextBlock FontSize="10" Classes="muted">
+                                        <Run Text="Installiert: " /><Run Text="{Binding SystemInstallDisplay}" />
+                                    </TextBlock>
+                                    <TextBlock FontSize="10" Classes="muted">
+                                        <Run Text="Systemlaufzeit: " /><Run Text="{Binding SystemAgeDisplay}" />
+                                    </TextBlock>
+                                    <TextBlock FontSize="10" Classes="muted">
+                                        <Run Text="Gestartet: " /><Run Text="{Binding BootTimeDisplay}" />
+                                    </TextBlock>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+
+                        <TextBlock Text="{Binding CopyStatusText}" FontSize="10" Foreground="#4ADE80"
+                                   IsVisible="{Binding CopyStatusText, Converter={x:Static vm:CommonConverters.NotEmpty}}" />
+                    </StackPanel>
+                </Border>
 
                 <!-- Verlauf (Hintergrund-Aufzeichnung) -->
                 <Border Classes="card" Padding="14">

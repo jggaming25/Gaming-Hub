@@ -52,10 +52,14 @@ public partial class InternetCheckerViewModel : ViewModelBase
 
     public ObservableCollection<InternetStep> Steps { get; } = new()
     {
-        new InternetStep { Name = "Gateway (Router)", Glyph = "🏠", Description = "Lokales Gateway / Router erreichen" },
-        new InternetStep { Name = "DNS-Server", Glyph = "🔍", Description = "DNS-Auflösung (z. B. 1.1.1.1)" },
+        new InternetStep { Name = "Netzwerkadapter", Glyph = "🔌", Description = "Aktiver LAN-/WLAN-Adapter vorhanden" },
+        new InternetStep { Name = "Lokale IP-Adresse", Glyph = "📍", Description = "IP-Adresse vom Router (DHCP) erhalten" },
+        new InternetStep { Name = "Gateway (Router)", Glyph = "🏠", Description = "Router im lokalen Netz erreichen" },
+        new InternetStep { Name = "DNS-Server", Glyph = "🔍", Description = "DNS-Server antwortet auf Ping" },
+        new InternetStep { Name = "DNS-Auflösung", Glyph = "🧭", Description = "Domainname wird in eine IP übersetzt" },
         new InternetStep { Name = "Internet (8.8.8.8)", Glyph = "🌐", Description = "Öffentliches Internet erreichbar" },
-        new InternetStep { Name = "HTTPS-Websites", Glyph = "🔒", Description = "Google → YouTube → Cloudflare (Fallback)" }
+        new InternetStep { Name = "HTTPS / Web", Glyph = "🔒", Description = "Google → YouTube → Cloudflare (Fallback)" },
+        new InternetStep { Name = "Download-Test", Glyph = "⬇", Description = "1 MB Testdatei von Cloudflare laden" }
     };
 
     [ObservableProperty] private bool _isTesting;
@@ -122,9 +126,16 @@ public partial class InternetCheckerViewModel : ViewModelBase
         ShowOfflineHint = AppServices.Internet.OfflineMode;
 
         // Update step statuses based on live data (rough) - but not during manual test
-        if (!IsTesting && Steps.Count >= 4)
+        if (!IsTesting && Steps.Count >= 8)
         {
-            Steps[0].IsComplete = AppServices.Internet.GatewayIp != null;
+            var adapter = GetActiveAdapter();
+            Steps[0].IsComplete = adapter is not null;
+            Steps[0].DetailText = adapter is null
+                ? string.Empty
+                : $"{adapter.Name} · {FormatSpeed(adapter.Speed)}";
+            string? localIp = GetLocalIpv4(adapter);
+            Steps[1].IsComplete = !string.IsNullOrWhiteSpace(localIp);
+            Steps[1].DetailText = localIp ?? string.Empty;
         }
     }
 
@@ -184,35 +195,78 @@ public partial class InternetCheckerViewModel : ViewModelBase
         {
             switch (_testStepIndex)
             {
-                case 0: // Gateway
+                case 0: // Aktiver Adapter
+                    var adapter = GetActiveAdapter();
+                    ok = adapter is not null;
+                    if (adapter is not null)
+                        step.DetailText = $"{adapter.Name} · {FormatSpeed(adapter.Speed)}";
+                    break;
+                case 1: // Lokale IP
+                    var localIp = GetLocalIpv4(GetActiveAdapter());
+                    ok = !string.IsNullOrWhiteSpace(localIp);
+                    step.DetailText = localIp ?? "keine IPv4-Adresse";
+                    break;
+                case 2: // Gateway
                     var gw = AppServices.Internet.GatewayIp;
                     if (!string.IsNullOrEmpty(gw))
                     {
                         var (o, l) = await PingHostAsync(gw, 3);
                         ok = o; latency = l ?? -1;
+                        step.DetailText = gw;
                     }
                     else
                     {
                         ok = false;
+                        step.DetailText = "kein Gateway ermittelbar";
                     }
                     break;
-                case 1: // DNS
+                case 3: // DNS-Server
                     var dns = GetDnsServerIp();
                     if (!string.IsNullOrEmpty(dns))
                     {
                         var (o, l) = await PingHostAsync(dns, 3);
                         ok = o; latency = l ?? -1;
+                        step.DetailText = dns;
                     }
-                    else ok = false;
+                    else
+                    {
+                        ok = false;
+                        step.DetailText = "kein DNS-Server konfiguriert";
+                    }
                     break;
-                case 2: // Internet
+                case 4: // DNS-Auflösung
+                    var sw = Stopwatch.StartNew();
+                    try
+                    {
+                        var addresses = await Dns.GetHostAddressesAsync("www.google.com");
+                        sw.Stop();
+                        var first = addresses.FirstOrDefault(a =>
+                            a.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork);
+                        ok = addresses.Length > 0;
+                        latency = (int)sw.ElapsedMilliseconds;
+                        step.DetailText = first?.ToString() ?? "keine IPv4-Adresse";
+                    }
+                    catch
+                    {
+                        sw.Stop();
+                        ok = false;
+                        step.DetailText = "Namensauflösung fehlgeschlagen";
+                    }
+                    break;
+                case 5: // Internet
                     var (o2, l2) = await PingHostAsync("8.8.8.8", 3);
                     ok = o2; latency = l2 ?? -1;
+                    step.DetailText = "8.8.8.8 (Google DNS)";
                     break;
-                case 3: // HTTP (mit Fallback)
+                case 6: // HTTP (mit Fallback)
                     var (o3, l3, url) = await AppServices.Internet.TestHttpAsync();
                     ok = o3; latency = l3;
                     step.DetailText = url is null ? "alle Testseiten nicht erreichbar" : new Uri(url).Host;
+                    break;
+                case 7: // Download-Test
+                    var (o4, l4, detail) = await TestDownloadAsync();
+                    ok = o4; latency = l4 ?? -1;
+                    step.DetailText = detail;
                     break;
             }
         }
@@ -250,6 +304,111 @@ public partial class InternetCheckerViewModel : ViewModelBase
 
         AssessmentText = AppServices.Internet.GetOutageAssessment();
         ReloadHistory();
+    }
+
+    private static NetworkInterface? GetActiveAdapter()
+    {
+        try
+        {
+            var candidates = NetworkInterface.GetAllNetworkInterfaces()
+                .Where(n => n.OperationalStatus == OperationalStatus.Up &&
+                            n.NetworkInterfaceType is not (NetworkInterfaceType.Loopback or
+                                NetworkInterfaceType.Tunnel) &&
+                            !IsVirtualAdapter(n))
+                .OrderByDescending(n => HasIpv4Gateway(n))
+                .ThenByDescending(n => n.NetworkInterfaceType is NetworkInterfaceType.Ethernet or
+                    NetworkInterfaceType.Wireless80211)
+                .ThenByDescending(n => n.Speed)
+                .ToList();
+            return candidates.FirstOrDefault();
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static bool HasIpv4Gateway(NetworkInterface adapter)
+    {
+        try
+        {
+            return adapter.GetIPProperties().GatewayAddresses.Any(g =>
+                g.Address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork &&
+                !g.Address.Equals(System.Net.IPAddress.Any));
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool IsVirtualAdapter(NetworkInterface adapter)
+    {
+        string text = adapter.Name + " " + adapter.Description;
+        return text.Contains("virtual", StringComparison.OrdinalIgnoreCase) ||
+               text.Contains("hyper-v", StringComparison.OrdinalIgnoreCase) ||
+               text.Contains("vmware", StringComparison.OrdinalIgnoreCase) ||
+               text.Contains("virtualbox", StringComparison.OrdinalIgnoreCase) ||
+               text.Contains("tap-", StringComparison.OrdinalIgnoreCase) ||
+               text.Contains("vpn", StringComparison.OrdinalIgnoreCase) ||
+               text.Contains("loopback", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string? GetLocalIpv4(NetworkInterface? adapter)
+    {
+        try
+        {
+            if (adapter is null)
+                return null;
+            return adapter.GetIPProperties().UnicastAddresses
+                .FirstOrDefault(a => a.Address.AddressFamily ==
+                                     System.Net.Sockets.AddressFamily.InterNetwork)
+                ?.Address.ToString();
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string FormatSpeed(long bitsPerSecond)
+    {
+        if (bitsPerSecond <= 0)
+            return "Geschwindigkeit unbekannt";
+        double mbit = bitsPerSecond / 1_000_000.0;
+        return mbit >= 1000
+            ? $"{mbit / 1000:0.#} Gbit/s"
+            : $"{mbit:0.#} Mbit/s";
+    }
+
+    private static async Task<(bool Ok, int? LatencyMs, string Detail)> TestDownloadAsync()
+    {
+        try
+        {
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(12) };
+            var sw = Stopwatch.StartNew();
+            using var response = await http.GetAsync(
+                "https://speed.cloudflare.com/__down?bytes=1048576",
+                HttpCompletionOption.ResponseHeadersRead);
+            if (!response.IsSuccessStatusCode)
+                return (false, null, "HTTP " + (int)response.StatusCode);
+
+            await using var stream = await response.Content.ReadAsStreamAsync();
+            var buffer = new byte[81920];
+            long total = 0;
+            int read;
+            while ((read = await stream.ReadAsync(buffer)) > 0)
+                total += read;
+            sw.Stop();
+
+            double mbit = total * 8 / Math.Max(0.001, sw.Elapsed.TotalSeconds) / 1_000_000.0;
+            return (total > 0, (int)sw.ElapsedMilliseconds,
+                $"{mbit:0.0} Mbit/s · {total / 1024} KB in {sw.Elapsed.TotalSeconds:0.0} s");
+        }
+        catch (Exception ex)
+        {
+            return (false, null, "Download fehlgeschlagen: " + ex.Message);
+        }
     }
 
     private static async Task<(bool Ok, int? LatencyMs)> PingHostAsync(string host, int count)

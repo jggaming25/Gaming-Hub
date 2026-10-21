@@ -1,6 +1,7 @@
 ﻿using Avalonia;
 using System;
 using System.Threading;
+using GamingHub.App.Services;
 using GamingHub.Core.Services;
 using Velopack;
 
@@ -16,6 +17,10 @@ sealed class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        // Vor dem ersten Fenster: stabile AUMID + Startmenü-Link registrieren,
+        // damit Windows native Desktop-Toasts zustellen kann.
+        NotificationService.Initialize();
+
         // Marker for Velopack packaging (Setup-Installer). Der Auto-Update-Check
         // läuft beim Start (siehe SplashWindow + App.ShowSplashThenMain).
         // Wichtig: Vor dem Anwenden eines Updates alle OpenRGB-Prozesse beenden.
@@ -25,6 +30,16 @@ sealed class Program
         VelopackApp.Build()
             .OnBeforeUpdateFastCallback(_ => RgbService.KillOpenRgbProcesses())
             .Run();
+
+        // Einmaliger, erhöhter Helfer für Treiber-Installationen (UAC).
+        if (args.Length >= 2 && string.Equals(args[0], "--install-driver", StringComparison.Ordinal))
+        {
+            var result = DriverUpdateService.InstallUpdate(args[1]);
+            int resultIndex = Array.IndexOf(args, "--result");
+            if (resultIndex >= 0 && resultIndex + 1 < args.Length)
+                DriverUpdateService.WriteResult(args[resultIndex + 1], result);
+            return;
+        }
 
         // Nur eine Instanz zulassen: Mehrere Instanzen würden sich gegenseitig
         // die Verlaufs-/Internet-Dateien sperren. Ein zweiter Start holt das

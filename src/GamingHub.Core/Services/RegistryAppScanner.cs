@@ -48,9 +48,14 @@ public sealed class RegistryAppScanner
                     if (sub.GetValue("SystemComponent") is int sc && sc == 1)
                         continue;
 
-                    string? installLocation = sub.GetValue("InstallLocation") as string;
+                    string? rawInstall = sub.GetValue("InstallLocation") as string;
+                    string? installLocation = CleanPath(rawInstall);
                     string? icon = sub.GetValue("DisplayIcon") as string;
                     string? exe = ResolveExecutable(icon, installLocation);
+                    if (string.IsNullOrWhiteSpace(exe) && !string.IsNullOrWhiteSpace(installLocation))
+                        exe = GameExecutableLocator.Find(installLocation, displayName);
+                    if (string.IsNullOrWhiteSpace(installLocation) && !string.IsNullOrWhiteSpace(exe))
+                        installLocation = Path.GetDirectoryName(exe);
 
                     if (exe is null && string.IsNullOrWhiteSpace(installLocation))
                         continue;
@@ -62,7 +67,7 @@ public sealed class RegistryAppScanner
                         Id = "reg:" + subName,
                         Name = displayName,
                         Source = GameSource.Registry,
-                        InstallPath = CleanPath(installLocation),
+                        InstallPath = installLocation,
                         ExecutablePath = exe,
                         ProcessName = exe is not null ? Path.GetFileNameWithoutExtension(exe) : null
                     });

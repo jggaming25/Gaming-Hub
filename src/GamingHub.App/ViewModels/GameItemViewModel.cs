@@ -72,6 +72,12 @@ public partial class GameItemViewModel : ViewModelBase
     public string PathDisplay => !string.IsNullOrWhiteSpace(Model.ExecutablePath)
         ? Model.ExecutablePath!
         : Model.InstallPath ?? "—";
+    public string ExecutableDisplay => string.IsNullOrWhiteSpace(Model.ExecutablePath)
+        ? "EXE noch nicht erkannt"
+        : Model.ExecutablePath!;
+    public string FolderDisplay => string.IsNullOrWhiteSpace(Model.InstallPath)
+        ? "Ordner unbekannt"
+        : Model.InstallPath!;
     public string SizeDisplay => SizeBytes > 0 ? Format.Bytes(SizeBytes) : "—";
     public string PlaytimeDisplay => Format.Playtime(Playtime);
     public string LastPlayedDisplay => Format.Date(Model.LastPlayedUtc);

@@ -35,8 +35,16 @@ public sealed class SystemSnapshot
     public double GpuUsagePercent { get; set; } = -1;
 
     public TimeSpan Uptime { get; set; }
+
+    /// <summary>Startzeit des Systems (abgeleitet aus der Laufzeit).</summary>
+    public DateTime BootTime => DateTime.Now - Uptime;
+
     public string OsDescription { get; set; } = string.Empty;
     public string MachineName { get; set; } = string.Empty;
+    public string MotherboardName { get; set; } = string.Empty;
+
+    /// <summary>Installationsdatum von Windows; null, wenn nicht ermittelbar.</summary>
+    public DateTime? SystemInstallUtc { get; set; }
 
     /// <summary>Anmeldename des aktuell angemeldeten Windows-Benutzers.</summary>
     public string UserName { get; set; } = string.Empty;

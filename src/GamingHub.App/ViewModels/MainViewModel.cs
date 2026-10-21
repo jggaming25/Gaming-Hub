@@ -150,12 +150,14 @@ public partial class MainViewModel : ViewModelBase
         var settings = new SettingsViewModel();
         var internetChecker = new InternetCheckerViewModel();
         InternetCheckerViewModel = internetChecker;
+        var drivers = new DriversViewModel();
         var lighting = new LightingViewModel();
         var adminStats = new AdminStatsViewModel();
 
         _allNav.Add(new NavItem { Title = "Spiele", Glyph = "\uE7FC", FlagKey = "games_enabled", ViewModel = games });
         _allNav.Add(new NavItem { Title = "Disk Cleanup", Glyph = "\uE74D", FlagKey = "cleanup_enabled", ViewModel = cleanup });
         _allNav.Add(new NavItem { Title = "System-Ressourcen", Glyph = "\uE9D9", ViewModel = resources });
+        _allNav.Add(new NavItem { Title = "Treiber", Glyph = "\uE90F", ViewModel = drivers });
         _allNav.Add(new NavItem { Title = "Internet-Checker", Glyph = "\uE727", FlagKey = "internet_checker_enabled", ViewModel = internetChecker });
         _allNav.Add(new NavItem { Title = "Beleuchtung", Glyph = "\uE7F4", FlagKey = "lighting_enabled", ViewModel = lighting });
         _allNav.Add(new NavItem { Title = "Profil", Glyph = "\uE77B", ViewModel = profile });

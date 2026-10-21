@@ -31,6 +31,15 @@ public sealed class RgbService : IDisposable
     private readonly string _profilesPath;
     private readonly SemaphoreSlim _connectLock = new(1, 1);
 
+    // Manche Geräte (z. B. Corsair K55) verlieren im Direct-Modus nach einigen
+    // Sekunden die Farbe, wenn kein neuer Frame gesendet wird. Dieser Keepalive
+    // schickt die zuletzt gesetzte Farbe regelmäßig erneut.
+    private readonly object _keepAliveLock = new();
+    private Timer? _keepAliveTimer;
+    private string? _keepAliveDeviceId;
+    private RgbColor? _keepAliveColor;
+    private bool _keepAliveDisposed;
+
     public event Action? DevicesChanged;
     public event Action? ProfilesChanged;
 
@@ -309,6 +318,61 @@ public sealed class RgbService : IDisposable
         return ok;
     }
 
+    /// <summary>Hält die zuletzt gesetzte Direct-Farbe aktiv (gegen Farbverlust
+    /// nach einigen Sekunden bei manchen Controllern).</summary>
+    public void StartColorKeepAlive(string deviceId, RgbColor color)
+    {
+        lock (_keepAliveLock)
+        {
+            if (_keepAliveDisposed)
+                return;
+            _keepAliveDeviceId = deviceId;
+            _keepAliveColor = color;
+            _keepAliveTimer ??= new Timer(_ => KeepAliveTick(), null,
+                TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(3));
+        }
+    }
+
+    /// <summary>Beendet den Keepalive (z. B. bei einem Hardware-Effekt).</summary>
+    public void StopColorKeepAlive()
+    {
+        lock (_keepAliveLock)
+        {
+            _keepAliveTimer?.Dispose();
+            _keepAliveTimer = null;
+            _keepAliveDeviceId = null;
+            _keepAliveColor = null;
+        }
+    }
+
+    private void KeepAliveTick()
+    {
+        string? deviceId;
+        RgbColor? color;
+        lock (_keepAliveLock)
+        {
+            deviceId = _keepAliveDeviceId;
+            color = _keepAliveColor;
+        }
+
+        if (deviceId is null || color is null || !_client.IsConnected)
+            return;
+        if (!_devices.TryGetValue(deviceId, out var device))
+            return;
+
+        try
+        {
+            _client.SetCustomMode((uint)device.ControllerIndex);
+            _client.SetColor((uint)device.ControllerIndex, device.LedCount, color);
+            device.CurrentColor = color;
+            device.CurrentEffect = "direct";
+        }
+        catch
+        {
+            // Beim nächsten Tick erneut versuchen.
+        }
+    }
+
     /// <summary>Effekt (Modus) setzen. <paramref name="colors"/> erlaubt eine
     /// Farbpalette (z. B. Farbverlauf aus zwei gemischten Farben); ohne Palette
     /// wird die einzelne <paramref name="color"/> verwendet.</summary>
@@ -570,7 +634,16 @@ public sealed class RgbService : IDisposable
         catch { }
     }
 
-    public void Dispose() => _client.Dispose();
+    public void Dispose()
+    {
+        lock (_keepAliveLock)
+        {
+            _keepAliveDisposed = true;
+            _keepAliveTimer?.Dispose();
+            _keepAliveTimer = null;
+        }
+        _client.Dispose();
+    }
 }
 
 public enum RgbDeviceType

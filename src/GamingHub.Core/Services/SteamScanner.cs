@@ -41,14 +41,21 @@ public sealed class SteamScanner
                         ? Path.Combine(steamApps, "common", installDir)
                         : null;
 
+                    string? executable = GameExecutableLocator.Find(fullPath, name);
+                    if (size <= 0)
+                        size = GameExecutableLocator.GetDirectorySize(fullPath);
+
                     var game = new GameInfo
                     {
                         Id = "steam:" + appId,
                         Name = name,
                         Source = GameSource.Steam,
                         InstallPath = fullPath,
+                        ExecutablePath = executable,
                         LaunchUri = $"steam://rungameid/{appId}",
-                        ProcessName = installDir is not null ? SanitizeProcessName(installDir) : null,
+                        ProcessName = executable is not null
+                            ? Path.GetFileNameWithoutExtension(executable)
+                            : SanitizeProcessName(installDir),
                         SizeOnDisk = size,
                         Category = GameClassifier.Classify(name, GameSource.Steam)
                     };

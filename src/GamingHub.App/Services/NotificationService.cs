@@ -1,4 +1,6 @@
 using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.ComTypes;
+using System.Text;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -8,6 +10,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
 using Microsoft.Toolkit.Uwp.Notifications;
+using Microsoft.Win32;
 using Windows.UI.Notifications;
 
 namespace GamingHub.App.Services;
@@ -26,6 +29,9 @@ public enum NotificationKind
 /// </summary>
 public sealed class NotificationService
 {
+    /// <summary>Stabile AppUserModelID für unverpackte Desktop-Toasts.</summary>
+    public const string ToastAppId = "GamingHub.Desktop";
+
     public event Action<NotificationKind>? Activated;
 
     /// <summary>True, wenn native Windows-Toasts auf diesem System möglich sind.</summary>
@@ -37,51 +43,338 @@ public sealed class NotificationService
     /// <summary>Für die Einstellungen: aktueller Status der Windows-Toasts.</summary>
     public string NativeStatus { get; private set; } = "Native Windows-Benachrichtigungen werden geprüft…";
 
+    /// <summary>Beschreibt das konkrete Hindernis (falls vorhanden) inklusive
+    /// der Windows-Einstellungsseite, auf der es behoben werden kann.</summary>
+    public string NotificationProblem { get; private set; } = string.Empty;
+
+    /// <summary>Direkter Sprung zur passenden Windows-Einstellungsseite.</summary>
+    public string NotificationSettingsUri { get; private set; } = "ms-settings:notifications";
+
+    public bool HasNotificationProblem => !string.IsNullOrWhiteSpace(NotificationProblem);
+
+    /// <summary>Registriert die AUMID und einen Startmenü-Link, damit Windows
+    /// Toasts von unverpackten Apps überhaupt zustellt.</summary>
+    public static void Initialize()
+    {
+        try
+        {
+            SetCurrentProcessExplicitAppUserModelID(ToastAppId);
+
+            using var key = Registry.CurrentUser.CreateSubKey(
+                $@"Software\Classes\AppUserModelId\{ToastAppId}");
+            if (key is not null)
+            {
+                key.SetValue("DisplayName", "Gaming Hub");
+                key.SetValue("ShowInSettings", 1, RegistryValueKind.DWord);
+                key.SetValue("IconBackgroundColor", "0E1024");
+                string? exe = Environment.ProcessPath;
+                if (!string.IsNullOrWhiteSpace(exe))
+                    key.SetValue("IconUri", exe);
+            }
+
+            EnsureStartMenuShortcut();
+        }
+        catch
+        {
+            // Ohne Registrierung funktioniert weiterhin die In-App-Anzeige.
+        }
+    }
+
     /// <summary>Prüft, ob Windows-Benachrichtigungen erlaubt sind, und
     /// registriert bei Bedarf die AppUserModelId für unverpackte Apps.</summary>
     public void RefreshNativeStatus()
     {
+        Initialize();
+
+        NotificationProblem = string.Empty;
+        NotificationSettingsUri = "ms-settings:notifications";
+
         try
         {
             var notifier = ToastNotificationManagerCompat.CreateToastNotifier();
             NativeSupported = true;
             NativeEnabled = notifier.Setting == NotificationSetting.Enabled;
-            NativeStatus = NativeEnabled
-                ? "Windows-Benachrichtigungen sind aktiv."
-                : "Windows-Benachrichtigungen sind in den Windows-Einstellungen deaktiviert.";
+
+            if (notifier.Setting == NotificationSetting.DisabledForApplication || !IsAppNotificationsEnabled())
+            {
+                NativeEnabled = false;
+                NotificationProblem =
+                    "Gaming Hub ist in den Windows-Benachrichtigungseinstellungen deaktiviert. Aktiviere dort den Schalter für Gaming Hub.";
+                NotificationSettingsUri = "ms-settings:notifications";
+            }
+            else if (notifier.Setting == NotificationSetting.DisabledForUser || !IsGlobalNotificationsEnabled())
+            {
+                NativeEnabled = false;
+                NotificationProblem =
+                    "Benachrichtigungen sind für dein Windows-Benutzerkonto komplett deaktiviert. Aktiviere sie in den Windows-Einstellungen.";
+                NotificationSettingsUri = "ms-settings:notifications";
+            }
+            else if (notifier.Setting == NotificationSetting.DisabledByGroupPolicy)
+            {
+                NativeEnabled = false;
+                NotificationProblem =
+                    "Benachrichtigungen wurden durch eine Richtlinie (Gruppenrichtlinie/Administrator) blockiert.";
+                NotificationSettingsUri = "ms-settings:notifications";
+            }
+            else if (notifier.Setting == NotificationSetting.DisabledByManifest)
+            {
+                NativeEnabled = false;
+                NotificationProblem =
+                    "Windows blockiert Benachrichtigungen für diese App über das App-Manifest.";
+                NotificationSettingsUri = "ms-settings:notifications";
+            }
+            else
+            {
+                var state = GetUserNotificationState();
+                switch (state)
+                {
+                    case UserNotificationState.QuietTime:
+                        NotificationProblem =
+                            "Der Fokusassistent (Nicht stören) ist aktiv. Toasts werden deshalb unterdrückt.";
+                        NotificationSettingsUri = "ms-settings:notifications";
+                        break;
+                    case UserNotificationState.RunningD3dFullScreen:
+                        NotificationProblem =
+                            "Ein Spiel läuft im Vollbild. Windows unterdrückt Benachrichtigungen während Vollbild-Anwendungen.";
+                        NotificationSettingsUri = "ms-settings:notifications";
+                        break;
+                    case UserNotificationState.PresentationMode:
+                        NotificationProblem =
+                            "Der Präsentationsmodus ist aktiv. Windows unterdrückt Benachrichtigungen.";
+                        NotificationSettingsUri = "ms-settings:notifications";
+                        break;
+                    case UserNotificationState.Busy:
+                    case UserNotificationState.NotPresent:
+                        NotificationProblem =
+                            "Windows meldet den Status „beschäftigt/abwesend“. Benachrichtigungen können dadurch unterdrückt werden.";
+                        NotificationSettingsUri = "ms-settings:notifications";
+                        break;
+                }
+            }
+
+            if (!NativeEnabled)
+            {
+                NativeStatus = string.IsNullOrWhiteSpace(NotificationProblem)
+                    ? "Windows-Benachrichtigungen sind deaktiviert."
+                    : NotificationProblem;
+            }
+            else if (NotificationProblem.Length > 0)
+            {
+                NativeStatus = "Windows-Benachrichtigungen sind aktiv, aber aktuell gestört: " + NotificationProblem;
+            }
+            else
+            {
+                NativeStatus = "Windows-Benachrichtigungen sind aktiv.";
+            }
+
+            if (!IsNotificationSoundEnabledByWindows())
+                NativeStatus += " Systemtöne für Benachrichtigungen sind in Windows ausgeschaltet.";
         }
         catch (Exception ex)
         {
             NativeSupported = false;
             NativeEnabled = false;
-            NativeStatus = "Native Windows-Benachrichtigungen sind nicht verfügbar. Es wird die In-App-Anzeige verwendet (" + ex.Message + ").";
+            string detail = ex.Message;
+            if (string.IsNullOrWhiteSpace(detail))
+                detail = ex.GetType().Name + " (0x" + ex.HResult.ToString("X8") + ")";
+            NotificationProblem =
+                "Native Windows-Toasts sind nicht verfügbar. Die App zeigt Benachrichtigungen weiterhin als In-App-Hinweis an (" +
+                detail + ").";
+            NotificationSettingsUri = "ms-settings:notifications";
+            NativeStatus = NotificationProblem;
         }
+    }
+
+    private enum UserNotificationState
+    {
+        NotPresent = 1,
+        Busy = 2,
+        RunningD3dFullScreen = 3,
+        PresentationMode = 4,
+        AcceptsNotifications = 5,
+        QuietTime = 6
+    }
+
+    [DllImport("shell32.dll")]
+    private static extern int SHQueryUserNotificationState(out UserNotificationState state);
+
+    private static UserNotificationState GetUserNotificationState()
+    {
+        try
+        {
+            return SHQueryUserNotificationState(out var state) == 0
+                ? state
+                : UserNotificationState.AcceptsNotifications;
+        }
+        catch
+        {
+            return UserNotificationState.AcceptsNotifications;
+        }
+    }
+
+    private static bool IsGlobalNotificationsEnabled()
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(
+                @"SOFTWARE\Microsoft\Windows\CurrentVersion\Notifications\Settings");
+            return key?.GetValue("NOC_GLOBAL_SETTING_TOASTS_ENABLED") is not int v || v != 0;
+        }
+        catch
+        {
+            return true;
+        }
+    }
+
+    private static bool IsAppNotificationsEnabled()
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(
+                $@"SOFTWARE\Microsoft\Windows\CurrentVersion\Notifications\Settings\{ToastAppId}");
+            if (key is null)
+                return true;
+            return key.GetValue("Enabled") is not int v || v != 0;
+        }
+        catch
+        {
+            return true;
+        }
+    }
+
+    private static bool IsNotificationSoundEnabledByWindows()
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(
+                @"SOFTWARE\Microsoft\Windows\CurrentVersion\Notifications\Settings");
+            return key?.GetValue("NOC_GLOBAL_SETTING_ALLOW_NOTIFICATION_SOUND") is not int v || v != 0;
+        }
+        catch
+        {
+            return true;
+        }
+    }
+
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern int SetCurrentProcessExplicitAppUserModelID(string appId);
+
+    private static void EnsureStartMenuShortcut()
+    {
+        try
+        {
+            string? exe = Environment.ProcessPath;
+            if (string.IsNullOrWhiteSpace(exe) || !System.IO.File.Exists(exe))
+                return;
+
+            string programs = Environment.GetFolderPath(Environment.SpecialFolder.Programs);
+            string folder = System.IO.Path.Combine(programs, "Gaming Hub");
+            System.IO.Directory.CreateDirectory(folder);
+            string linkPath = System.IO.Path.Combine(folder, "Gaming Hub Benachrichtigungen.lnk");
+
+            var link = (IShellLinkW)new ShellLink();
+            link.SetPath(exe);
+            link.SetWorkingDirectory(System.IO.Path.GetDirectoryName(exe) ?? string.Empty);
+            link.SetIconLocation(exe, 0);
+            link.SetDescription("Gaming Hub");
+
+            var store = (IPropertyStore)link;
+            var key = PKEY_AppUserModel_ID;
+            var value = new PropVariant
+            {
+                vt = 31, // VT_LPWSTR
+                pointerValue = Marshal.StringToCoTaskMemUni(ToastAppId)
+            };
+            try
+            {
+                store.SetValue(ref key, ref value);
+                store.Commit();
+            }
+            finally
+            {
+                Marshal.FreeCoTaskMem(value.pointerValue);
+            }
+
+            ((IPersistFile)link).Save(linkPath, true);
+        }
+        catch
+        {
+            // Der Startmenü-Link ist nur für native Toasts nötig.
+        }
+    }
+
+    private static readonly PropertyKey PKEY_AppUserModel_ID = new(
+        new Guid("9F4C2855-9F79-4B39-A8D0-E1D42DE1D5F3"), 5);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct PropertyKey
+    {
+        public Guid formatId;
+        public int propertyId;
+
+        public PropertyKey(Guid formatId, int propertyId)
+        {
+            this.formatId = formatId;
+            this.propertyId = propertyId;
+        }
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct PropVariant
+    {
+        public ushort vt;
+        public ushort reserved1;
+        public ushort reserved2;
+        public ushort reserved3;
+        public IntPtr pointerValue;
+        public int pointerValue2;
+    }
+
+    [ComImport, Guid("00021401-0000-0000-C000-000000000046")]
+    private class ShellLink;
+
+    [ComImport, Guid("000214F9-0000-0000-C000-000000000046"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IShellLinkW
+    {
+        void GetPath([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszFile, int cch, IntPtr pfd, uint fFlags);
+        void GetIDList(out IntPtr ppidl);
+        void SetIDList(IntPtr pidl);
+        void GetDescription([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszName, int cch);
+        void SetDescription([MarshalAs(UnmanagedType.LPWStr)] string pszName);
+        void GetWorkingDirectory([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszDir, int cch);
+        void SetWorkingDirectory([MarshalAs(UnmanagedType.LPWStr)] string pszDir);
+        void GetArguments([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszArgs, int cch);
+        void SetArguments([MarshalAs(UnmanagedType.LPWStr)] string pszArgs);
+        void GetHotkey(out short pwHotkey);
+        void SetHotkey(short wHotkey);
+        void GetShowCmd(out int piShowCmd);
+        void SetShowCmd(int iShowCmd);
+        void GetIconLocation([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszIconPath, int cch, out int piIcon);
+        void SetIconLocation([MarshalAs(UnmanagedType.LPWStr)] string pszIconPath, int iIcon);
+        void SetRelativePath([MarshalAs(UnmanagedType.LPWStr)] string pszPathRel, int dwReserved);
+        void Resolve(IntPtr hwnd, uint fFlags);
+        void SetPath([MarshalAs(UnmanagedType.LPWStr)] string pszFile);
+    }
+
+    [ComImport, Guid("886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IPropertyStore
+    {
+        uint GetCount();
+        void GetAt(uint iProp, out PropertyKey pkey);
+        void GetValue(ref PropertyKey key, out PropVariant pv);
+        void SetValue(ref PropertyKey key, ref PropVariant pv);
+        void Commit();
     }
 
     /// <summary>Zeigt eine echte Windows-Testbenachrichtigung.</summary>
     public bool ShowTest()
     {
         RefreshNativeStatus();
-        if (!NativeSupported || !NativeEnabled)
-        {
-            Show("Gaming Hub", "Testbenachrichtigung – In-App-Anzeige.");
-            return false;
-        }
-
-        try
-        {
-            new ToastContentBuilder()
-                .AddText("Gaming Hub")
-                .AddText("Testbenachrichtigung – Windows-Benachrichtigungen funktionieren.")
-                .Show();
+        if (TryShowNative("Gaming Hub", "Testbenachrichtigung – Windows-Benachrichtigungen funktionieren."))
             return true;
-        }
-        catch
-        {
-            // Fallback auf die In-App-Anzeige.
-            Show("Gaming Hub", "Testbenachrichtigung – In-App-Anzeige.");
-            return false;
-        }
+
+        Show("Gaming Hub", "Testbenachrichtigung – In-App-Anzeige.");
+        return false;
     }
 
     private readonly Queue<(NotificationKind Kind, string Title, string Body)> _pending = new();
@@ -150,14 +443,22 @@ public sealed class NotificationService
 
         try
         {
-            NativeEnabled = ToastNotificationManagerCompat.CreateToastNotifier().Setting == NotificationSetting.Enabled;
+            var notifier = ToastNotificationManagerCompat.CreateToastNotifier();
+            NativeEnabled = notifier.Setting == NotificationSetting.Enabled;
             if (!NativeEnabled)
                 return false;
 
-            new ToastContentBuilder()
+            var content = new ToastContentBuilder()
                 .AddText(title)
                 .AddText(body)
-                .Show();
+                .GetToastContent();
+            var toast = new ToastNotification(content.GetXml())
+            {
+                Tag = "gaminghub",
+                Group = "gaminghub"
+            };
+            notifier.Show(toast);
+
             if (SoundEnabled && AppServices.Settings.Settings.NotificationSoundEnabled)
                 PlaySystemSound("SystemAsterisk");
             return true;

@@ -34,6 +34,12 @@ public sealed class SystemMonitorService
     public int CpuCores { get; private set; }
     public int CpuThreads { get; private set; }
 
+    public string MotherboardName { get; private set; } = "Unbekanntes Mainboard";
+    public string OsVersionDisplay { get; private set; } = RuntimeInformation.OSDescription.Trim();
+
+    /// <summary>Installationsdatum von Windows (für die Systemlaufzeit).</summary>
+    public DateTime? SystemInstallUtc { get; private set; }
+
     /// <summary>Anmeldename des aktuell angemeldeten Windows-Benutzers.</summary>
     public string CurrentUserName { get; } = Environment.UserName;
 
@@ -47,6 +53,7 @@ public sealed class SystemMonitorService
     {
         LoadStaticCpuInfo();
         LoadStaticGpuInfo();
+        LoadStaticSystemInfo();
     }
 
     public SystemSnapshot Sample()
@@ -70,7 +77,9 @@ public sealed class SystemMonitorService
             GpuVramBytes = GpuVramBytes,
             GpuUsagePercent = gpu,
             Uptime = TimeSpan.FromMilliseconds(Environment.TickCount64),
-            OsDescription = RuntimeInformation.OSDescription.Trim(),
+            OsDescription = OsVersionDisplay,
+            MotherboardName = MotherboardName,
+            SystemInstallUtc = SystemInstallUtc,
             MachineName = Environment.MachineName,
             UserName = CurrentUserName,
             UserDomain = CurrentUserDomain,
@@ -401,6 +410,49 @@ public sealed class SystemMonitorService
 
         // Registry gives real VRAM (AdapterRAM is 32-bit limited).
         TryReadVramFromRegistry();
+    }
+
+    private void LoadStaticSystemInfo()
+    {
+        try
+        {
+            using var key = Registry.LocalMachine.OpenSubKey(
+                @"SOFTWARE\Microsoft\Windows NT\CurrentVersion");
+            if (key is not null)
+            {
+                string product = key.GetValue("ProductName") as string ?? "Windows";
+                string? display = key.GetValue("DisplayVersion") as string;
+                string? build = key.GetValue("CurrentBuildNumber") as string;
+                string? ubr = key.GetValue("UBR")?.ToString();
+
+                OsVersionDisplay = string.IsNullOrWhiteSpace(display)
+                    ? product
+                    : $"{product} {display}";
+                if (!string.IsNullOrWhiteSpace(build))
+                    OsVersionDisplay += $" (Build {build}{(string.IsNullOrWhiteSpace(ubr) ? "" : "." + ubr)})";
+
+                if (key.GetValue("InstallDate") is int installSeconds && installSeconds > 0)
+                    SystemInstallUtc = DateTimeOffset.FromUnixTimeSeconds(installSeconds).UtcDateTime;
+            }
+        }
+        catch { }
+
+        try
+        {
+            var board = new ManagementObjectSearcher(
+                "SELECT Manufacturer, Product FROM Win32_BaseBoard").Get()
+                .Cast<ManagementObject>()
+                .FirstOrDefault();
+            if (board is not null)
+            {
+                string manufacturer = (board["Manufacturer"] as string)?.Trim() ?? string.Empty;
+                string product = (board["Product"] as string)?.Trim() ?? string.Empty;
+                MotherboardName = string.IsNullOrWhiteSpace(product)
+                    ? (string.IsNullOrWhiteSpace(manufacturer) ? MotherboardName : manufacturer)
+                    : $"{manufacturer} {product}".Trim();
+            }
+        }
+        catch { }
     }
 
     private void TryReadVramFromRegistry()

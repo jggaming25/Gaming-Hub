@@ -61,12 +61,17 @@ public sealed class GameLibraryService
             if (!forceRescan && TryLoadCache(markers, out var cached))
             {
                 _markers = markers;
+                bool enriched = false;
                 foreach (var game in cached)
                 {
+                    // EXE/Ordner/Größe für ältere Cache-Einträge nachrüsten.
+                    enriched |= EnrichGame(game);
                     // Icons ggf. auf höhere Auflösung nachrüsten (alte 32×32-Caches).
                     ExtractIconForGame(game);
                     MergePlaytime(game);
                 }
+                if (enriched)
+                    SaveCache(cached, markers);
                 Games = cached;
                 UpdateRunningStates();
                 return cached;
@@ -88,6 +93,7 @@ public sealed class GameLibraryService
             foreach (var game in merged)
             {
                 game.Category = GameClassifier.Classify(game.Name, game.Source);
+                EnrichGame(game);
                 ExtractIconForGame(game);
                 MergePlaytime(game);
             }
@@ -166,6 +172,66 @@ public sealed class GameLibraryService
         var rec = _playtime.Get(game.Id);
         game.TotalPlaytime = TimeSpan.FromSeconds(rec.TotalSeconds);
         game.LastPlayedUtc = rec.LastPlayedUtc;
+    }
+
+    /// <summary>Ergänzt fehlende EXE-, Ordner- und Größenangaben. Gibt true zurück,
+    /// wenn sich der Datensatz geändert hat (dann muss der Cache neu geschrieben werden).</summary>
+    private static bool EnrichGame(GameInfo game)
+    {
+        bool changed = false;
+
+        if (string.IsNullOrWhiteSpace(game.ExecutablePath) &&
+            !string.IsNullOrWhiteSpace(game.InstallPath) &&
+            Directory.Exists(game.InstallPath))
+        {
+            string? exe = GameExecutableLocator.Find(game.InstallPath, game.Name);
+            if (!string.IsNullOrWhiteSpace(exe))
+            {
+                game.ExecutablePath = exe;
+                game.ProcessName ??= Path.GetFileNameWithoutExtension(exe);
+                changed = true;
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(game.InstallPath) &&
+            !string.IsNullOrWhiteSpace(game.ExecutablePath))
+        {
+            string? dir = Path.GetDirectoryName(game.ExecutablePath);
+            if (!string.IsNullOrWhiteSpace(dir))
+            {
+                game.InstallPath = dir;
+                changed = true;
+            }
+        }
+
+        if (game.SizeOnDisk <= 0 &&
+            !string.IsNullOrWhiteSpace(game.InstallPath) &&
+            Directory.Exists(game.InstallPath) &&
+            !IsSharedSystemFolder(game.InstallPath))
+        {
+            long size = GameExecutableLocator.GetDirectorySize(game.InstallPath);
+            if (size > 0)
+            {
+                game.SizeOnDisk = size;
+                changed = true;
+            }
+        }
+
+        return changed;
+    }
+
+    private static bool IsSharedSystemFolder(string path)
+    {
+        string trimmed = path.TrimEnd('\\', '/');
+        if (trimmed.Length <= 3)
+            return true;
+        string name = Path.GetFileName(trimmed);
+        return name.Equals("Program Files", StringComparison.OrdinalIgnoreCase) ||
+               name.Equals("Program Files (x86)", StringComparison.OrdinalIgnoreCase) ||
+               name.Equals("Windows", StringComparison.OrdinalIgnoreCase) ||
+               name.Equals("steamapps", StringComparison.OrdinalIgnoreCase) ||
+               name.Equals("common", StringComparison.OrdinalIgnoreCase) ||
+               name.Equals("Steam", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>Extracts the associated icon from the game's executable and saves it as PNG.</summary>

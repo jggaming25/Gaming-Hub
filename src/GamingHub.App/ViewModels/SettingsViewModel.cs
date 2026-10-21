@@ -169,18 +169,29 @@ public partial class SettingsViewModel : ViewModelBase
     }
 
     public string NotificationStatusText => AppServices.Notifications.NativeStatus;
+    public bool HasNotificationProblem => AppServices.Notifications.HasNotificationProblem;
+    public string NotificationProblemText => AppServices.Notifications.NotificationProblem;
 
     [RelayCommand]
     private void TestNotification()
     {
         AppServices.Notifications.ShowTest();
+        RefreshNotificationStatus();
+    }
+
+    [RelayCommand]
+    private void RefreshNotificationStatus()
+    {
+        AppServices.Notifications.RefreshNativeStatus();
         OnPropertyChanged(nameof(NotificationStatusText));
+        OnPropertyChanged(nameof(HasNotificationProblem));
+        OnPropertyChanged(nameof(NotificationProblemText));
     }
 
     [RelayCommand]
     private void OpenNotificationSettings()
     {
-        AppServices.OpenBrowser("ms-settings:notifications");
+        AppServices.OpenBrowser(AppServices.Notifications.NotificationSettingsUri);
     }
 
     public bool DarkTheme

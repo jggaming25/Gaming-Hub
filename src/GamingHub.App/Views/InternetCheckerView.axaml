@@ -16,7 +16,7 @@
                         <TextBlock Text="🌐" FontSize="24" VerticalAlignment="Center" />
                         <StackPanel VerticalAlignment="Center">
                             <TextBlock Text="Internet-Checker" FontSize="20" FontWeight="Bold" />
-                            <TextBlock Text="Prüft den Pfad: PC → Router → DNS → Internet → Web" Classes="muted" FontSize="12" />
+                            <TextBlock Text="Prüft den Pfad: PC → Adapter → IP → Router → DNS → Internet → Web → Download" Classes="muted" FontSize="12" />
                         </StackPanel>
                     </StackPanel>
                     <StackPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center" Spacing="6">
@@ -65,44 +65,79 @@
         <!-- Main content -->
         <ScrollViewer Grid.Row="1" Padding="0,0,8,0">
             <StackPanel Spacing="12">
-                <!-- Visual path test -->
-                <Border Classes="card" Padding="16">
-                    <StackPanel Spacing="10">
-                        <TextBlock Text="Visueller Verbindungspfad" FontWeight="SemiBold" FontSize="16" />
-                        <TextBlock Text="Jeder Schritt wird nacheinander getestet. Grün = OK, Rot = Problem an dieser Stelle." Classes="muted" FontSize="11" TextWrapping="Wrap" />
-                        <ItemsControl ItemsSource="{Binding Steps}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="vm:InternetStep">
-                                    <Border Margin="0,6" Padding="12" Background="#0B0D1A" CornerRadius="8">
-                                        <Grid ColumnDefinitions="Auto,*,Auto,Auto" VerticalAlignment="Center">
-                                            <TextBlock Grid.Column="0" Text="{Binding Glyph}" FontSize="20" VerticalAlignment="Center" Margin="0,0,12,0" />
-                                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-                                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" />
-                                                    <Border Width="10" Height="10" CornerRadius="5"
-                                                            Background="{Binding IsComplete, Converter={x:Static vm:CommonConverters.BoolToColor}, ConverterParameter=#4ADE80:#F87171}"
-                                                            IsVisible="{Binding IsComplete}"
-                                                            VerticalAlignment="Center" />
-                                                    <Border Width="10" Height="10" CornerRadius="5"
-                                                            Background="#F87171"
-                                                            IsVisible="{Binding IsFailed}"
-                                                            VerticalAlignment="Center" />
-                                                    <Border Width="10" Height="10" CornerRadius="5"
-                                                            Background="#FACC15"
-                                                            IsVisible="{Binding IsActive}"
-                                                            VerticalAlignment="Center" />
+                <!-- Visual path test (gerahmtes Diagramm) -->
+                <Border Padding="16" CornerRadius="12"
+                        Background="#0A0E1F" BorderBrush="#22D3EE66" BorderThickness="1">
+                    <StackPanel Spacing="12">
+                        <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="🛰 Visueller Verbindungspfad" FontWeight="Bold" FontSize="16" />
+                                <TextBlock Text="PC → Netzwerkadapter → Router → DNS → Internet → Web. Jeder Knoten wird der Reihe nach geprüft."
+                                           Classes="muted" FontSize="11" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <Border Width="9" Height="9" CornerRadius="5" Background="#4ADE80" VerticalAlignment="Center" />
+                                    <TextBlock Text="OK" FontSize="10" Classes="muted" />
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <Border Width="9" Height="9" CornerRadius="5" Background="#FACC15" VerticalAlignment="Center" />
+                                    <TextBlock Text="läuft" FontSize="10" Classes="muted" />
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <Border Width="9" Height="9" CornerRadius="5" Background="#F87171" VerticalAlignment="Center" />
+                                    <TextBlock Text="Problem" FontSize="10" Classes="muted" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Grid>
+
+                        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                            <ItemsControl ItemsSource="{Binding Steps}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:InternetStep">
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Border Width="196" Padding="12" CornerRadius="10"
+                                                    Background="#101528" BorderBrush="#2A3350" BorderThickness="1">
+                                                <StackPanel Spacing="6">
+                                                    <Grid ColumnDefinitions="Auto,*,Auto">
+                                                        <Border Grid.Column="0" Width="34" Height="34" CornerRadius="17"
+                                                                Background="#0B0D1A" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding Glyph}" FontSize="17"
+                                                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                        </Border>
+                                                        <Border Grid.Column="2" Width="10" Height="10" CornerRadius="5"
+                                                                Background="{Binding StatusColor}" VerticalAlignment="Top" Margin="0,4,0,0" />
+                                                    </Grid>
+                                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13" TextWrapping="Wrap" />
+                                                    <TextBlock Text="{Binding Description}" FontSize="10" Classes="muted" TextWrapping="Wrap" MinHeight="28" />
+                                                    <Grid ColumnDefinitions="*,Auto">
+                                                        <TextBlock Grid.Column="0" Text="{Binding StatusText}" FontSize="11" FontWeight="SemiBold"
+                                                                   Foreground="{Binding StatusColor}" />
+                                                        <TextBlock Grid.Column="1" Text="{Binding LatencyText}" FontSize="11" FontWeight="SemiBold"
+                                                                   Foreground="#A855F7" />
+                                                    </Grid>
+                                                    <TextBlock Text="{Binding DetailText}" FontSize="10" Foreground="#22D3EE"
+                                                               TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding DetailText}"
+                                                               IsVisible="{Binding DetailText, Converter={x:Static vm:CommonConverters.NotEmpty}}" />
                                                 </StackPanel>
-                                                <TextBlock Text="{Binding Description}" FontSize="11" Classes="muted" />
-                                                <TextBlock Text="{Binding DetailText}" FontSize="10" Foreground="#22D3EE"
-                                                           IsVisible="{Binding DetailText, Converter={x:Static vm:CommonConverters.NotEmpty}}" />
-                                            </StackPanel>
-                                            <TextBlock Grid.Column="2" Text="{Binding LatencyText}" FontSize="12" FontWeight="SemiBold" Foreground="#A855F7" VerticalAlignment="Center" Margin="0,0,12,0" />
-                                            <TextBlock Grid.Column="3" Text="{Binding StatusText}" FontSize="12" FontWeight="SemiBold" Foreground="{Binding StatusColor}" VerticalAlignment="Center" />
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                                            </Border>
+                                            <TextBlock Text="→" FontSize="20" Foreground="#3A3F5E"
+                                                       VerticalAlignment="Center" Margin="6,0" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+
+                        <Border Background="#0B0D1A" CornerRadius="8" Padding="10">
+                            <TextBlock Text="{Binding OverallStatus}" FontSize="12" FontWeight="SemiBold"
+                                       Foreground="{Binding OverallStatusColor}" TextWrapping="Wrap" />
+                        </Border>
                     </StackPanel>
                 </Border>
 
