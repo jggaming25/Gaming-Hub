@@ -184,7 +184,8 @@ public sealed class GameLibraryService
             !string.IsNullOrWhiteSpace(game.InstallPath) &&
             Directory.Exists(game.InstallPath))
         {
-            string? exe = GameExecutableLocator.Find(game.InstallPath, game.Name);
+            string? exe = GameExecutableLocator.Find(game.InstallPath, game.Name) ??
+                          GameExecutableLocator.FindRecursive(game.InstallPath, game.Name);
             if (!string.IsNullOrWhiteSpace(exe))
             {
                 game.ExecutablePath = exe;

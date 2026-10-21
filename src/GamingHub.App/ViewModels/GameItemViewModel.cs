@@ -68,16 +68,15 @@ public partial class GameItemViewModel : ViewModelBase
         GameSource.Manual => "Manuell",
         _ => Model.Source.ToString()
     };
-    public string InstallPath => Model.InstallPath ?? "—";
+    public string InstallPath => Model.InstallPath ?? string.Empty;
     public string PathDisplay => !string.IsNullOrWhiteSpace(Model.ExecutablePath)
         ? Model.ExecutablePath!
-        : Model.InstallPath ?? "—";
-    public string ExecutableDisplay => string.IsNullOrWhiteSpace(Model.ExecutablePath)
-        ? "EXE noch nicht erkannt"
-        : Model.ExecutablePath!;
-    public string FolderDisplay => string.IsNullOrWhiteSpace(Model.InstallPath)
-        ? "Ordner unbekannt"
-        : Model.InstallPath!;
+        : Model.InstallPath ?? string.Empty;
+    public string ExecutableDisplay => Model.ExecutablePath ?? string.Empty;
+    public string FolderDisplay => Model.InstallPath ?? string.Empty;
+    public bool HasExecutable => !string.IsNullOrWhiteSpace(Model.ExecutablePath);
+    public bool HasFolder => !string.IsNullOrWhiteSpace(Model.InstallPath);
+    public bool HasPath => HasExecutable || HasFolder;
     public string SizeDisplay => SizeBytes > 0 ? Format.Bytes(SizeBytes) : "—";
     public string PlaytimeDisplay => Format.Playtime(Playtime);
     public string LastPlayedDisplay => Format.Date(Model.LastPlayedUtc);

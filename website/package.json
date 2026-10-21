@@ -1,7 +1,7 @@
 {
   "name": "gaming-hub-website",
   "private": true,
-  "version": "0.5.26",
+  "version": "0.5.27",
   "type": "module",
   "scripts": {
     "dev": "vite",

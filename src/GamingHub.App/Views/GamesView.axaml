@@ -159,7 +159,8 @@
 
                                         <TextBlock Grid.Row="3" Text="{Binding PathDisplay}" FontSize="10"
                                                    Classes="muted" TextTrimming="CharacterEllipsis"
-                                                   ToolTip.Tip="{Binding PathDisplay}" />
+                                                   ToolTip.Tip="{Binding PathDisplay}"
+                                                   IsVisible="{Binding HasPath}" />
 
                                         <Grid Grid.Row="4" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
                                             <Button Grid.Column="0" Content="Starten" Command="{Binding LaunchCommand}"
@@ -214,20 +215,23 @@
                                             </Border>
                                         </Grid>
 
-                                        <Border Grid.Row="1" Background="#0F1122" CornerRadius="8" Padding="12">
+                                        <Border Grid.Row="1" Background="#0F1122" CornerRadius="8" Padding="12"
+                                                IsVisible="{Binding HasPath}">
                                             <StackPanel Spacing="4">
                                                 <Grid ColumnDefinitions="Auto,*,Auto">
-                                                    <TextBlock Grid.Column="0" Text="🚀" FontSize="12" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                                    <TextBlock Grid.Column="0" Text="🚀" FontSize="12" VerticalAlignment="Center" Margin="0,0,8,0"
+                                                               IsVisible="{Binding HasExecutable}" />
                                                     <TextBlock Grid.Column="1" FontSize="11" Classes="muted"
                                                                TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
-                                                               ToolTip.Tip="{Binding ExecutableDisplay}">
+                                                               ToolTip.Tip="{Binding ExecutableDisplay}"
+                                                               IsVisible="{Binding HasExecutable}">
                                                         <Run Text="EXE: " FontWeight="SemiBold" /><Run Text="{Binding ExecutableDisplay}" />
                                                     </TextBlock>
                                                     <TextBlock Grid.Column="2" Text="{Binding SizeDisplay}"
                                                                FontSize="11" FontWeight="SemiBold" Foreground="#A855F7"
                                                                VerticalAlignment="Center" />
                                                 </Grid>
-                                                <Grid ColumnDefinitions="Auto,*">
+                                                <Grid ColumnDefinitions="Auto,*" IsVisible="{Binding HasFolder}">
                                                     <TextBlock Grid.Column="0" Text="📁" FontSize="12" VerticalAlignment="Center" Margin="0,0,8,0" />
                                                     <TextBlock Grid.Column="1" FontSize="10" Classes="muted"
                                                                TextTrimming="CharacterEllipsis" VerticalAlignment="Center"

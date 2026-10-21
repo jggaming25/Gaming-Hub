@@ -146,6 +146,7 @@ public partial class MainViewModel : ViewModelBase
         var cleanup = new CleanupViewModel();
         var resources = new ResourcesViewModel();
         var bug = new BugReportViewModel();
+        var help = new HelpViewModel();
         var profile = new ProfileViewModel();
         var settings = new SettingsViewModel();
         var internetChecker = new InternetCheckerViewModel();
@@ -162,6 +163,7 @@ public partial class MainViewModel : ViewModelBase
         _allNav.Add(new NavItem { Title = "Beleuchtung", Glyph = "\uE7F4", FlagKey = "lighting_enabled", ViewModel = lighting });
         _allNav.Add(new NavItem { Title = "Profil", Glyph = "\uE77B", ViewModel = profile });
         _allNav.Add(new NavItem { Title = "Bugreport", Glyph = "\uE7BA", FlagKey = "bugreport_enabled", ViewModel = bug });
+        _allNav.Add(new NavItem { Title = "Hilfe", Glyph = "\uE897", ViewModel = help });
         _allNav.Add(new NavItem { Title = "Einstellungen", Glyph = "\uE713", ViewModel = settings });
         _allNav.Add(new NavItem { Title = "Statistik", Glyph = "\uE9D2", AdminOnly = true, ViewModel = adminStats });
 

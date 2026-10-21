@@ -224,7 +224,7 @@ public static class GameExecutableLocator
     private static List<string> BuildTokens(string? gameName, string? installDirName)
     {
         var tokens = new List<string>();
-        foreach (string raw in new[] { gameName, installDirName })
+        foreach (string? raw in new string?[] { gameName, installDirName })
         {
             if (string.IsNullOrWhiteSpace(raw))
                 continue;

@@ -8,6 +8,13 @@ public static class Changelog
 {
     public static readonly ChangelogEntry[] Entries =
     {
+        new("0.5.27", "22.10.2026 01:28", new[]
+        {
+            "Spielebibliothek: EXE und Installationsordner werden jetzt nur noch angezeigt, wenn sie wirklich erkannt wurden – fehlende Angaben erscheinen nicht mehr als Platzhalter.",
+            "Spielebibliothek: Die automatische Erkennung sucht jetzt auch in tieferen Unterordnern nach der passenden Startdatei.",
+            "Neu: Umfangreicher Hilfe-Tab mit Lösungen für fehlende Spielangaben, Windows-Benachrichtigungen, Beleuchtung, Treiber, Internet und Update-Probleme.",
+            "Hilfe: Direkte Schaltflächen zu Windows-Benachrichtigungen, Windows Update, Netzwerkstatus, Geräte-Manager, Log- und Datenordner sowie eine kopierbare Diagnose für den Support."
+        }),
         new("0.5.26", "22.10.2026 01:08", new[]
         {
             "Beleuchtung: Neuer automatischer Farbwechsel – die gewählte Farbe wechselt im eingestellten Intervall (2–120 Sekunden) mit der Zweitfarbe. Funktioniert auch bei Geräten, die nur den Direct-Modus unterstützen.",

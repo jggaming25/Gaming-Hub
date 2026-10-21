@@ -1,0 +1,184 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:GamingHub.App.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="720"
+             x:Class="GamingHub.App.Views.HelpView"
+             x:DataType="vm:HelpViewModel">
+
+    <ScrollViewer>
+        <StackPanel Margin="16" Spacing="14" MaxWidth="980" HorizontalAlignment="Left">
+
+            <Border Classes="card">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="20">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Hilfe &amp; Problemlösung" FontSize="24" FontWeight="Bold" />
+                        <TextBlock Text="Hier findest du Erklärungen zu häufigen Problemen und direkte Wege zu den passenden Windows-Einstellungen."
+                                   FontSize="12" Classes="muted" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding AppVersion}" FontSize="11" Classes="muted" />
+                    </StackPanel>
+                    <TextBlock Grid.Column="1" Text="🛟" FontSize="42" VerticalAlignment="Center" />
+                </Grid>
+            </Border>
+
+            <Border Classes="card">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Schnellhilfe" FontWeight="SemiBold" FontSize="15" />
+                    <WrapPanel>
+                        <Button Content="🔔 Benachrichtigungen prüfen" Command="{Binding OpenNotificationSettingsCommand}"
+                                Classes="accent" FontSize="12" Margin="0,0,8,8" Padding="12,7" />
+                        <Button Content="🪟 Windows Update öffnen" Command="{Binding OpenWindowsUpdateCommand}"
+                                FontSize="12" Margin="0,0,8,8" Padding="12,7" />
+                        <Button Content="🌐 Netzwerkstatus öffnen" Command="{Binding OpenNetworkSettingsCommand}"
+                                FontSize="12" Margin="0,0,8,8" Padding="12,7" />
+                        <Button Content="🖥 Geräte-Manager öffnen" Command="{Binding OpenDeviceManagerCommand}"
+                                FontSize="12" Margin="0,0,8,8" Padding="12,7" />
+                        <Button Content="📁 Log-Ordner öffnen" Command="{Binding OpenLogFolderCommand}"
+                                FontSize="12" Margin="0,0,8,8" Padding="12,7" />
+                        <Button Content="💾 Datenordner öffnen" Command="{Binding OpenDataFolderCommand}"
+                                FontSize="12" Margin="0,0,8,8" Padding="12,7" />
+                        <Button Content="📋 Diagnose kopieren" Command="{Binding CopyDiagnosticsCommand}"
+                                FontSize="12" Margin="0,0,8,8" Padding="12,7" />
+                        <Button Content="✉ E-Mail schreiben" Command="{Binding OpenContactEmailCommand}"
+                                FontSize="12" Margin="0,0,8,8" Padding="12,7" />
+                    </WrapPanel>
+                    <TextBlock Text="{Binding CopyStatusText}" FontSize="11" Foreground="#4ADE80"
+                               IsVisible="{Binding CopyStatusText, Converter={x:Static vm:CommonConverters.NotEmpty}}" />
+                </StackPanel>
+            </Border>
+
+            <Expander Header="🎮 Spielebibliothek: EXE oder Ordner wird nicht angezeigt" IsExpanded="True">
+                <StackPanel Spacing="8" Margin="4,8,4,4">
+                    <TextBlock TextWrapping="Wrap" FontSize="12" LineHeight="20"
+                               Text="In der Detailansicht werden EXE und Installationsordner nur dann angezeigt, wenn sie wirklich erkannt wurden. Fehlt eine der beiden Angaben, wird die Zeile ausgeblendet – statt eines Platzhaltertexts." />
+                    <TextBlock TextWrapping="Wrap" FontSize="12" LineHeight="20"
+                               Text="So verbesserst du die Erkennung:" />
+                    <TextBlock TextWrapping="Wrap" FontSize="12" LineHeight="20"
+                               Text="1. Öffne „Spiele“ und klicke auf „Bibliothek scannen“ oder „Komplett neu scannen“." />
+                    <TextBlock TextWrapping="Wrap" FontSize="12" LineHeight="20"
+                               Text="2. Prüfe, ob der Installationsordner im Explorer existiert und für deinen Benutzer lesbar ist." />
+                    <TextBlock TextWrapping="Wrap" FontSize="12" LineHeight="20"
+                               Text="3. Starte Gaming Hub möglichst mit demselben Windows-Benutzer, der das Spiel installiert hat." />
+                    <TextBlock TextWrapping="Wrap" FontSize="12" LineHeight="20"
+                               Text="4. Bei Portabel-Apps oder Microsoft-Store-Spielen ist manchmal keine klassische EXE vorhanden. Dann bleibt die Angabe bewusst leer." />
+                    <TextBlock TextWrapping="Wrap" FontSize="11" Classes="muted"
+                               Text="Die Erkennung läuft automatisch im Hintergrund: zuerst im Installationsordner, danach in typischen Unterordnern wie bin, win64 oder Binaries." />
+                </StackPanel>
+            </Expander>
+
+            <Expander Header="🔔 Windows-Benachrichtigungen erscheinen nicht">
+                <StackPanel Spacing="8" Margin="4,8,4,4">
+                    <TextBlock TextWrapping="Wrap" FontSize="12" LineHeight="20"
+                               Text="Gaming Hub zeigt in den Einstellungen an, ob Windows Toasts blockiert. Häufige Ursachen:" />
+                    <TextBlock TextWrapping="Wrap" FontSize="12" LineHeight="20"
+                               Text="• Fokusassistent / „Nicht stören“ ist aktiv." />
+                    <TextBlock TextWrapping="Wrap" FontSize="12" LineHeight="20"
+                               Text="• Ein Spiel läuft im exklusiven Vollbild." />
+                    <TextBlock TextWrapping="Wrap" FontSize="12" LineHeight="20"
+                               Text="• Benachrichtigungen sind für Gaming Hub oder den gesamten Benutzer deaktiviert." />
+                    <TextBlock TextWrapping="Wrap" FontSize="12" LineHeight="20"
+                               Text="• Die Benachrichtigungstöne sind in Windows ausgeschaltet." />
+                    <TextBlock TextWrapping="Wrap" FontSize="11" Classes="muted"
+                               Text="Unter Einstellungen → Benachrichtigungen siehst du den genauen Grund und kannst ihn mit einem Klick beheben. Der Testknopf prüft die Zustellung sofort." />
+                    <Button Content="Benachrichtigungseinstellungen öffnen" Command="{Binding OpenNotificationSettingsCommand}"
+                            Classes="accent" FontSize="12" HorizontalAlignment="Left" />
+                </StackPanel>
+            </Expander>
+
+            <Expander Header="💡 Beleuchtung: Farbe fällt aus oder Profil lädt nicht">
+                <StackPanel Spacing="8" Margin="4,8,4,4">
+                    <TextBlock TextWrapping="Wrap" FontSize="12" LineHeight="20"
+                               Text="Gaming Hub startet eine eigene OpenRGB-Instanz. Eine bereits laufende fremde OpenRGB-Installation kann Geräte blockieren." />
+                    <TextBlock TextWrapping="Wrap" FontSize="12" LineHeight="20"
+                               Text="• Bei Geräten ohne Hardware-Effekt bleibt die Farbe durch einen automatischen Keepalive dauerhaft aktiv." />
+                    <TextBlock TextWrapping="Wrap" FontSize="12" LineHeight="20"
+                               Text="• Der automatische Farbwechsel funktioniert auch im Direct-Modus; Intervall zwischen 2 und 120 Sekunden." />
+                    <TextBlock TextWrapping="Wrap" FontSize="12" LineHeight="20"
+                               Text="• Wenn ein Profil nicht lädt, prüfe, ob das Gerät noch verbunden ist und ob der Effekt vom Gerät unterstützt wird." />
+                    <TextBlock TextWrapping="Wrap" FontSize="11" Classes="muted"
+                               Text="Tipp: Nach einem Neustart von OpenRGB dauert die Geräteerkennung einige Sekunden. Die Beleuchtung verbindet sich automatisch neu." />
+                </StackPanel>
+            </Expander>
+
+            <Expander Header="🖥 Treiber: Update wird nicht gefunden oder installiert">
+                <StackPanel Spacing="8" Margin="4,8,4,4">
+                    <TextBlock TextWrapping="Wrap" FontSize="12" LineHeight="20"
+                               Text="Die Treiber-Ansicht liest installierte Geräte über WMI und fragt Treiber-Updates über den Windows Update Agent ab." />
+                    <TextBlock TextWrapping="Wrap" FontSize="12" LineHeight="20"
+                               Text="• Die Installation benötigt Administratorrechte; Windows zeigt beim Start die UAC-Abfrage." />
+                    <TextBlock TextWrapping="Wrap" FontSize="12" LineHeight="20"
+                               Text="• Werden keine Updates gefunden, kann Windows Update bereits alles aktuelle installiert haben." />
+                    <TextBlock TextWrapping="Wrap" FontSize="12" LineHeight="20"
+                               Text="• Nach einer Treiberinstallation ist oft ein Neustart erforderlich." />
+                    <TextBlock TextWrapping="Wrap" FontSize="11" Classes="muted"
+                               Text="Falls die Abfrage fehlschlägt, prüfe den Windows Update-Dienst und öffne die Windows-Update-Einstellungen." />
+                    <Button Content="Windows Update öffnen" Command="{Binding OpenWindowsUpdateCommand}"
+                            Classes="accent" FontSize="12" HorizontalAlignment="Left" />
+                </StackPanel>
+            </Expander>
+
+            <Expander Header="🌐 Internet-Checker: Ein Schritt schlägt fehl">
+                <StackPanel Spacing="8" Margin="4,8,4,4">
+                    <TextBlock TextWrapping="Wrap" FontSize="12" LineHeight="20"
+                               Text="Der Internet-Checker prüft den Weg vom PC bis ins Web in acht Schritten: Adapter, lokale IP, Router, DNS-Server, Namensauflösung, Internet, HTTPS und Download." />
+                    <TextBlock TextWrapping="Wrap" FontSize="12" LineHeight="20"
+                               Text="• Schlägt der Router-Schritt fehl, ist meist die Verbindung zum Router oder WLAN gestört." />
+                    <TextBlock TextWrapping="Wrap" FontSize="12" LineHeight="20"
+                               Text="• Schlägt nur die DNS-Auflösung fehl, hilft oft ein anderer DNS-Server (z. B. 1.1.1.1 oder 8.8.8.8)." />
+                    <TextBlock TextWrapping="Wrap" FontSize="12" LineHeight="20"
+                               Text="• Ein niedriger Download-Wert kann auch am Testserver oder an einer Auslastung im Netz liegen." />
+                    <Button Content="Netzwerkstatus öffnen" Command="{Binding OpenNetworkSettingsCommand}"
+                            Classes="accent" FontSize="12" HorizontalAlignment="Left" />
+                </StackPanel>
+            </Expander>
+
+            <Expander Header="📊 System-Ressourcen und kopierte Systeminformationen">
+                <StackPanel Spacing="8" Margin="4,8,4,4">
+                    <TextBlock TextWrapping="Wrap" FontSize="12" LineHeight="20"
+                               Text="Unter System-Ressourcen findest du CPU, GPU, RAM, Mainboard, Windows-Version, Installationsdatum, Systemlaufzeit und die letzte Startzeit." />
+                    <TextBlock TextWrapping="Wrap" FontSize="12" LineHeight="20"
+                               Text="Mit „Systeminfo kopieren“ landen alle Angaben in der Zwischenablage – praktisch für Support und Fehlerberichte." />
+                    <TextBlock TextWrapping="Wrap" FontSize="11" Classes="muted"
+                               Text="Die Systemlaufzeit bezeichnet hier das Alter der Windows-Installation. Die Laufzeit seit dem letzten Start steht separat bei „Gestartet“." />
+                </StackPanel>
+            </Expander>
+
+            <Expander Header="🔄 App startet nicht, Update hängt oder Einstellungen fehlen">
+                <StackPanel Spacing="8" Margin="4,8,4,4">
+                    <TextBlock TextWrapping="Wrap" FontSize="12" LineHeight="20"
+                               Text="• Beende Gaming Hub vollständig und starte die App erneut." />
+                    <TextBlock TextWrapping="Wrap" FontSize="12" LineHeight="20"
+                               Text="• Bei einem hängenden Update hilft ein Neustart; die neue Version wird danach automatisch aktiv." />
+                    <TextBlock TextWrapping="Wrap" FontSize="12" LineHeight="20"
+                               Text="• Der Portable-Build aktualisiert sich nicht selbst – lade dort die neue Version manuell herunter." />
+                    <TextBlock TextWrapping="Wrap" FontSize="12" LineHeight="20"
+                               Text="• Einstellungen, Profile und Logs liegen im Datenordner. Eine Sicherungskopie kann vor einer Neuinstallation helfen." />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="Log-Ordner öffnen" Command="{Binding OpenLogFolderCommand}"
+                                FontSize="12" Padding="12,7" />
+                        <Button Content="Datenordner öffnen" Command="{Binding OpenDataFolderCommand}"
+                                FontSize="12" Padding="12,7" />
+                    </StackPanel>
+                </StackPanel>
+            </Expander>
+
+            <Border Classes="card">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Problem nicht gelöst?" FontWeight="SemiBold" FontSize="15" />
+                    <TextBlock TextWrapping="Wrap" FontSize="12" LineHeight="20"
+                               Text="Nutze den Bugreport-Tab für eine ausführliche Meldung oder schreibe direkt eine E-Mail. Kopiere vorher am besten die Diagnose – dann können Fehler schneller zugeordnet werden." />
+                    <TextBlock FontSize="11" Classes="muted">
+                        <Run Text="Kontakt: " /><Run Text="{Binding ContactEmail}" FontFamily="Consolas" />
+                    </TextBlock>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="📋 Diagnose kopieren" Command="{Binding CopyDiagnosticsCommand}"
+                                Classes="accent" FontSize="12" Padding="12,7" />
+                        <Button Content="✉ E-Mail schreiben" Command="{Binding OpenContactEmailCommand}"
+                                FontSize="12" Padding="12,7" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

@@ -53,7 +53,8 @@ public sealed class RegistryAppScanner
                     string? icon = sub.GetValue("DisplayIcon") as string;
                     string? exe = ResolveExecutable(icon, installLocation);
                     if (string.IsNullOrWhiteSpace(exe) && !string.IsNullOrWhiteSpace(installLocation))
-                        exe = GameExecutableLocator.Find(installLocation, displayName);
+                        exe = GameExecutableLocator.Find(installLocation, displayName) ??
+                              GameExecutableLocator.FindRecursive(installLocation, displayName);
                     if (string.IsNullOrWhiteSpace(installLocation) && !string.IsNullOrWhiteSpace(exe))
                         installLocation = Path.GetDirectoryName(exe);
 
