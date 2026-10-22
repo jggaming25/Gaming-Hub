@@ -209,6 +209,7 @@ public sealed class SeriesToPointsConverter : IValueConverter
 public static class CommonConverters
 {
     public static readonly BoolToOpacityConverter BadgeOpacity = new() { True = 1.0, False = 0.4 };
+    public static readonly BoolToOpacityConverter LockedOpacity = new() { True = 0.5, False = 1.0 };
     public static readonly StringNotEmptyConverter NotEmpty = new();
     public static readonly FirstCharConverter FirstChar = new();
     public static readonly BoolToAlignmentConverter MessageAlign = new();

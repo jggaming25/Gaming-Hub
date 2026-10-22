@@ -8,6 +8,12 @@ public static class Changelog
 {
     public static readonly ChangelogEntry[] Entries =
     {
+        new("0.5.31", "22.10.2026 02:35", new[]
+        {
+            "Premium: Treiber und Beleuchtung bleiben jetzt auch ohne Premium in der Navigation sichtbar, sind aber mit einem Schloss markiert.",
+            "Premium: Wird ein gesperrter Bereich geöffnet, erscheint ein ausgegrauter Bereich mit dem Hinweis „Nur mit Premium nutzbar“ und einem direkten Link zum Profil.",
+            "Premium: Die eigentlichen Funktionen bleiben ohne aktives Premium weiterhin deaktiviert; Admins behalten vollen Zugriff."
+        }),
         new("0.5.30", "22.10.2026 02:20", new[]
         {
             "Premium: Der Treiber-Tab und der Beleuchtungs-Tab sind jetzt nur noch mit aktivem Premium nutzbar. Admins behalten weiterhin Zugriff.",

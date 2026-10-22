@@ -22,6 +22,15 @@ const FEATURES = [
 
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   {
+    version: "0.5.31",
+    date: "22.10.2026 02:35",
+    items: [
+      "Premium: Treiber und Beleuchtung bleiben jetzt auch ohne Premium in der Navigation sichtbar, sind aber mit einem Schloss markiert.",
+      "Premium: Wird ein gesperrter Bereich geöffnet, erscheint ein ausgegrauter Bereich mit dem Hinweis \"Nur mit Premium nutzbar\" und einem direkten Link zum Profil.",
+      "Premium: Die eigentlichen Funktionen bleiben ohne aktives Premium weiterhin deaktiviert; Admins behalten vollen Zugriff."
+    ]
+  },
+  {
     version: "0.5.30",
     date: "22.10.2026 02:20",
     items: [

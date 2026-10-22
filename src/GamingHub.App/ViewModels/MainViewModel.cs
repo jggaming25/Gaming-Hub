@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Linq;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -6,7 +7,7 @@ using GamingHub.App.Services;
 
 namespace GamingHub.App.ViewModels;
 
-public sealed class NavItem
+public sealed partial class NavItem : ObservableObject
 {
     public string Title { get; init; } = string.Empty;
     public string Glyph { get; init; } = string.Empty;
@@ -14,6 +15,8 @@ public sealed class NavItem
     public bool AdminOnly { get; init; }
     public bool PremiumOnly { get; init; }
     public ViewModelBase ViewModel { get; init; } = null!;
+
+    [ObservableProperty] private bool _isLocked;
 }
 
 public partial class MainViewModel : ViewModelBase
@@ -40,6 +43,10 @@ public partial class MainViewModel : ViewModelBase
     public string AppName => AppInfo.AppName;
     public string Tagline => AppInfo.Tagline;
     public string VersionDisplay => AppInfo.VersionDisplay;
+
+    public bool IsSelectedPremiumLocked => SelectedNav?.IsLocked == true;
+    public string PremiumLockTitle => $"„{SelectedNav?.Title}“ ist nur mit Premium nutzbar";
+    public string PremiumLockText => "Dieser Bereich steht ausschließlich Nutzern mit aktivem Premium zur Verfügung. Im Profil kannst du Premium freischalten und den Bereich sofort nutzen.";
 
     public bool HasUpdate => AppServices.Updater.LastCheck?.HasUpdate == true;
     public string? UpdateVersion => AppServices.Updater.LastCheck?.Version;
@@ -217,8 +224,8 @@ public partial class MainViewModel : ViewModelBase
         {
             if (item.AdminOnly && !isAdmin)
                 continue;
-            if (item.PremiumOnly && !isPremium && !isAdmin)
-                continue;
+
+            item.IsLocked = item.PremiumOnly && !isPremium && !isAdmin;
 
             bool enabled = item.FlagKey is null
                            || isAdmin
@@ -232,6 +239,15 @@ public partial class MainViewModel : ViewModelBase
         SelectedNav = _lastSelected is not null && NavItems.Contains(_lastSelected)
             ? _lastSelected
             : NavItems.FirstOrDefault();
+
+        NotifyPremiumLockChanged();
+    }
+
+    private void NotifyPremiumLockChanged()
+    {
+        OnPropertyChanged(nameof(IsSelectedPremiumLocked));
+        OnPropertyChanged(nameof(PremiumLockTitle));
+        OnPropertyChanged(nameof(PremiumLockText));
     }
 
     private static bool HasActivePremiumAccess =>
@@ -240,6 +256,7 @@ public partial class MainViewModel : ViewModelBase
     partial void OnSelectedNavChanged(NavItem? value)
     {
         SelectedView = value?.ViewModel;
+        NotifyPremiumLockChanged();
 
         if (value?.ViewModel is ResourcesViewModel res)
         {
@@ -262,5 +279,13 @@ public partial class MainViewModel : ViewModelBase
     {
         if (item is not null)
             SelectedNav = item;
+    }
+
+    [RelayCommand]
+    private void OpenPremium()
+    {
+        var profile = _allNav.FirstOrDefault(item => item.ViewModel is ProfileViewModel);
+        if (profile is not null)
+            SelectedNav = profile;
     }
 }
