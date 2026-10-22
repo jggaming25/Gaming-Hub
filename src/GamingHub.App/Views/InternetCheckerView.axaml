@@ -36,11 +36,11 @@
                                 <TextBlock Text="Paketverlust" FontSize="10" Classes="muted" />
                                 <TextBlock Text="{Binding PacketLossText}" FontSize="13" FontWeight="SemiBold" />
                             </StackPanel>
-                            <StackPanel>
+                            <StackPanel IsVisible="{Binding ShowFullDetails}">
                                 <TextBlock Text="Download" FontSize="10" Classes="muted" />
                                 <TextBlock Text="{Binding DownloadSpeedText}" FontSize="13" FontWeight="SemiBold" Foreground="#38BDF8" />
                             </StackPanel>
-                            <StackPanel>
+                            <StackPanel IsVisible="{Binding ShowFullDetails}">
                                 <TextBlock Text="Ø 7 Tage" FontSize="10" Classes="muted" />
                                 <TextBlock Text="{Binding AverageDownloadText}" FontSize="13" FontWeight="SemiBold" Classes="muted" />
                             </StackPanel>
@@ -69,14 +69,14 @@
                 <Border Classes="card" Padding="16" IsVisible="{Binding ShowPremiumHint}"
                         Background="#141A33" BorderBrush="#22D3EE55" BorderThickness="1">
                     <StackPanel Spacing="6">
-                        <TextBlock Text="🔒 Vollständiger Verbindungspfad mit Premium" FontWeight="SemiBold" FontSize="14" />
-                        <TextBlock Text="In der Basisversion siehst du den Online-Status, die Latenz und die wichtigsten Live-Werte. Der komplette Pfad bis zum Download-Test, die Ausfall-Einschätzung und der Verlauf sind mit Premium verfügbar."
+                        <TextBlock Text="🔒 Pfad-Details mit Premium" FontWeight="SemiBold" FontSize="14" />
+                        <TextBlock Text="Adapter, Router, Internet und Web sind für alle sichtbar. Lokale IP, DNS-Details, Download-Test, Ausfall-Einschätzung und Verlauf sind mit Premium verfügbar."
                                    Classes="muted" FontSize="12" TextWrapping="Wrap" />
                     </StackPanel>
                 </Border>
 
                 <!-- Visual path test (gerahmtes Diagramm) -->
-                <Border Padding="16" CornerRadius="12" IsVisible="{Binding ShowFullDetails}"
+                <Border Padding="16" CornerRadius="12"
                         Background="#0A0E1F" BorderBrush="#22D3EE66" BorderThickness="1">
                     <StackPanel Spacing="12">
                         <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
@@ -111,8 +111,9 @@
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="vm:InternetStep">
                                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                            <Border Width="196" Padding="12" CornerRadius="10"
-                                                    Background="#101528" BorderBrush="#2A3350" BorderThickness="1">
+                                            <Border Width="196" MinHeight="132" Padding="12" CornerRadius="10"
+                                                    Background="#101528" BorderBrush="#2A3350" BorderThickness="1"
+                                                    IsVisible="{Binding IsUnlocked}">
                                                 <StackPanel Spacing="6">
                                                     <Grid ColumnDefinitions="Auto,*,Auto">
                                                         <Border Grid.Column="0" Width="34" Height="34" CornerRadius="17"
@@ -136,6 +137,25 @@
                                                                IsVisible="{Binding DetailText, Converter={x:Static vm:CommonConverters.NotEmpty}}" />
                                                 </StackPanel>
                                             </Border>
+
+                                            <Border Width="196" MinHeight="132" Padding="12" CornerRadius="10"
+                                                    Background="#0B0D1A" BorderBrush="#2A3350" BorderThickness="1"
+                                                    IsVisible="{Binding !IsUnlocked}">
+                                                <StackPanel Spacing="6" VerticalAlignment="Center">
+                                                    <TextBlock Text="🔒" FontSize="20" HorizontalAlignment="Center" />
+                                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13"
+                                                               TextWrapping="Wrap" HorizontalAlignment="Center" TextAlignment="Center" />
+                                                    <TextBlock Text="Detail nur mit Premium sichtbar."
+                                                               FontSize="10" Classes="muted" TextWrapping="Wrap"
+                                                               HorizontalAlignment="Center" TextAlignment="Center" />
+                                                    <Border Background="#22D3EE22" CornerRadius="6" Padding="8,3"
+                                                            HorizontalAlignment="Center">
+                                                        <TextBlock Text="PREMIUM" FontSize="9" FontWeight="SemiBold"
+                                                                   Foreground="#22D3EE" />
+                                                    </Border>
+                                                </StackPanel>
+                                            </Border>
+
                                             <TextBlock Text="→" FontSize="20" Foreground="#3A3F5E"
                                                        VerticalAlignment="Center" Margin="6,0" />
                                         </StackPanel>

@@ -289,19 +289,19 @@ public sealed class ScreenTimeService : IDisposable
     {
         if (_disposed) return;
 
-        bool allowed;
         bool enabled;
         bool enforce;
         bool disabledToday;
+        bool canEnforce;
         lock (_gate)
         {
             enabled = _data.Enabled;
             enforce = _data.Enforce;
             disabledToday = _data.DisabledForDate == TodayKey;
-            allowed = HasAccess();
+            canEnforce = HasAccess();
         }
 
-        if (!allowed || !enabled)
+        if (!enabled)
         {
             SetBlock(null);
             return;
@@ -309,9 +309,10 @@ public sealed class ScreenTimeService : IDisposable
 
         string? process = null;
         bool foregroundIsSelf = false;
-        if (!disabledToday && !IsUserIdle())
+        if (!IsUserIdle())
             process = GetForegroundProcessName(out foregroundIsSelf);
 
+        // Nutzung wird für alle erfasst – Limits/Sperren nur mit Premium/Admin.
         if (process is not null)
         {
             lock (_gate)
@@ -328,7 +329,7 @@ public sealed class ScreenTimeService : IDisposable
         // laufende Sperre nicht sofort wieder aufgehoben werden.
         if (foregroundIsSelf) return;
 
-        if (enforce && !disabledToday && process is not null)
+        if (canEnforce && enforce && !disabledToday && process is not null)
             EvaluateBlock(process);
         else
             SetBlock(null);

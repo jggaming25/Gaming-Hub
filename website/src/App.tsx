@@ -26,6 +26,15 @@ const FEATURES = [
 
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   {
+    version: "0.5.34",
+    date: "22.10.2026 15:35",
+    items: [
+      "Bildschirmzeit: Die Nutzung insgesamt und pro App ist jetzt für alle Nutzer sichtbar und wird in Minuten angezeigt.",
+      "Bildschirmzeit: Der Tab ist nicht mehr komplett gesperrt – nur Limits, erlaubte Zeiten, Profile und Sperren sind Premium-Funktionen.",
+      "Internet-Checker: Der Verbindungspfad ist jetzt auch ohne Premium sichtbar. Adapter, Router, Internet und Web bleiben frei; lokale IP, DNS-Details, Download-Test, Ausfall-Einschätzung und Verlauf sind Premium."
+    ]
+  },
+  {
     version: "0.5.33",
     date: "22.10.2026 15:00",
     items: [

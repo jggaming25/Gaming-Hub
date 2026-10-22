@@ -18,7 +18,9 @@ public sealed partial class InternetStep : ObservableObject
     public string Name { get; init; } = string.Empty;
     public string Glyph { get; init; } = string.Empty;
     public string Description { get; init; } = string.Empty;
+    public bool IsPremiumOnly { get; init; }
 
+    [ObservableProperty] private bool _isUnlocked = true;
     [ObservableProperty] private bool _isActive;
     [ObservableProperty] private bool _isComplete;
     [ObservableProperty] private bool _isFailed;
@@ -53,13 +55,13 @@ public partial class InternetCheckerViewModel : ViewModelBase
     public ObservableCollection<InternetStep> Steps { get; } = new()
     {
         new InternetStep { Name = "Netzwerkadapter", Glyph = "🔌", Description = "Aktiver LAN-/WLAN-Adapter vorhanden" },
-        new InternetStep { Name = "Lokale IP-Adresse", Glyph = "📍", Description = "IP-Adresse vom Router (DHCP) erhalten" },
+        new InternetStep { Name = "Lokale IP-Adresse", Glyph = "📍", Description = "IP-Adresse vom Router (DHCP) erhalten", IsPremiumOnly = true },
         new InternetStep { Name = "Gateway (Router)", Glyph = "🏠", Description = "Router im lokalen Netz erreichen" },
-        new InternetStep { Name = "DNS-Server", Glyph = "🔍", Description = "DNS-Server antwortet auf Ping" },
-        new InternetStep { Name = "DNS-Auflösung", Glyph = "🧭", Description = "Domainname wird in eine IP übersetzt" },
+        new InternetStep { Name = "DNS-Server", Glyph = "🔍", Description = "DNS-Server antwortet auf Ping", IsPremiumOnly = true },
+        new InternetStep { Name = "DNS-Auflösung", Glyph = "🧭", Description = "Domainname wird in eine IP übersetzt", IsPremiumOnly = true },
         new InternetStep { Name = "Internet (8.8.8.8)", Glyph = "🌐", Description = "Öffentliches Internet erreichbar" },
         new InternetStep { Name = "HTTPS / Web", Glyph = "🔒", Description = "Google → YouTube → Cloudflare (Fallback)" },
-        new InternetStep { Name = "Download-Test", Glyph = "⬇", Description = "1 MB Testdatei von Cloudflare laden" }
+        new InternetStep { Name = "Download-Test", Glyph = "⬇", Description = "1 MB Testdatei von Cloudflare laden", IsPremiumOnly = true }
     };
 
     [ObservableProperty] private bool _isTesting;
@@ -124,6 +126,7 @@ public partial class InternetCheckerViewModel : ViewModelBase
 
         AppServices.Internet.Changed += () => Dispatcher.UIThread.Post(UpdateLiveValues);
         UpdateLiveValues();
+        UpdateStepLocks();
         ReloadHistory();
     }
 
@@ -135,6 +138,25 @@ public partial class InternetCheckerViewModel : ViewModelBase
         OnPropertyChanged(nameof(ShowHistory));
         OnPropertyChanged(nameof(ShowNoHistory));
         OnPropertyChanged(nameof(CanUse));
+        UpdateStepLocks();
+    }
+
+    private void UpdateStepLocks()
+    {
+        foreach (var step in Steps)
+        {
+            step.IsUnlocked = !step.IsPremiumOnly || IsPremiumUser;
+            if (!step.IsUnlocked)
+            {
+                step.IsActive = false;
+                step.IsComplete = false;
+                step.IsFailed = false;
+                step.LatencyText = "–";
+                step.StatusText = "Premium";
+                step.StatusColor = "#8B91AC";
+                step.DetailText = string.Empty;
+            }
+        }
     }
 
     partial void OnHasHistoryChanged(bool value)
@@ -212,6 +234,12 @@ public partial class InternetCheckerViewModel : ViewModelBase
         }
 
         var step = Steps[_testStepIndex];
+        if (!step.IsUnlocked)
+        {
+            _testStepIndex++;
+            return;
+        }
+
         step.IsActive = true;
         step.StatusText = "Prüfe…";
         step.StatusColor = "#FACC15";
@@ -313,10 +341,11 @@ public partial class InternetCheckerViewModel : ViewModelBase
 
     private void EvaluateResult()
     {
-        int completed = Steps.Count(s => s.IsComplete);
-        if (completed == Steps.Count)
+        int total = Steps.Count(s => s.IsUnlocked);
+        int completed = Steps.Count(s => s.IsUnlocked && s.IsComplete);
+        if (completed == total)
         {
-            OverallStatus = "Alle Schritte OK – Internet funktioniert.";
+            OverallStatus = "Alle sichtbaren Schritte OK – Internet funktioniert.";
             OverallStatusColor = "#4ADE80";
         }
         else if (completed == 0)
@@ -326,7 +355,7 @@ public partial class InternetCheckerViewModel : ViewModelBase
         }
         else
         {
-            OverallStatus = $"{completed}/{Steps.Count} Schritte OK – teilweise Probleme.";
+            OverallStatus = $"{completed}/{total} Schritte OK – teilweise Probleme.";
             OverallStatusColor = "#FB923C";
         }
 

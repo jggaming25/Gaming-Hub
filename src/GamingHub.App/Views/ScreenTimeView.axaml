@@ -15,13 +15,14 @@
                     <TextBlock Text="⏱" FontSize="24" VerticalAlignment="Center" />
                     <StackPanel VerticalAlignment="Center">
                         <TextBlock Text="Bildschirmzeit" FontSize="20" FontWeight="Bold" />
-                        <TextBlock Text="Nutzung beobachten, Limits und erlaubte Zeiten festlegen."
+                        <TextBlock Text="Nutzung beobachten – Limits und erlaubte Zeiten mit Premium."
                                    Classes="muted" FontSize="12" />
                     </StackPanel>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
                     <CheckBox Content="Erfassung aktiv" IsChecked="{Binding Enabled, Mode=TwoWay}" />
-                    <CheckBox Content="Limits durchsetzen" IsChecked="{Binding Enforce, Mode=TwoWay}" />
+                    <CheckBox Content="Limits durchsetzen" IsChecked="{Binding Enforce, Mode=TwoWay}"
+                              IsVisible="{Binding ShowLimitFeatures}" />
                 </StackPanel>
             </Grid>
         </Border>
@@ -39,18 +40,25 @@
                     </Border>
                     <Border Grid.Column="1" Classes="card" Padding="16">
                         <StackPanel Spacing="4">
-                            <TextBlock Text="Aktives Profil" Classes="muted" FontSize="12" />
-                            <TextBlock Text="{Binding ActiveProfileName}" FontSize="20" FontWeight="Bold" />
-                            <TextBlock Text="{Binding DailyLimitMinutes, StringFormat='Tageslimit: {0} min'}"
-                                       Classes="muted" FontSize="11" />
+                            <TextBlock Text="Meistgenutzte App" Classes="muted" FontSize="12" />
+                            <TextBlock Text="{Binding TopAppName}" FontSize="20" FontWeight="Bold"
+                                       TextTrimming="CharacterEllipsis" />
+                            <TextBlock Text="{Binding TopAppText}" Classes="muted" FontSize="11" />
                         </StackPanel>
                     </Border>
                     <Border Grid.Column="2" Classes="card" Padding="16">
                         <StackPanel Spacing="4">
                             <TextBlock Text="Status" Classes="muted" FontSize="12" />
                             <TextBlock Text="{Binding Enforce, Converter={x:Static vm:CommonConverters.BoolToText}, ConverterParameter=Limits aktiv:Limits aus}"
-                                       FontSize="20" FontWeight="Bold" />
-                            <TextBlock Text="{Binding StatusText}" Classes="muted" FontSize="11" TextWrapping="Wrap" />
+                                       FontSize="20" FontWeight="Bold"
+                                       IsVisible="{Binding ShowLimitFeatures}" />
+                            <TextBlock Text="Basisversion" FontSize="20" FontWeight="Bold"
+                                       IsVisible="{Binding ShowLimitHint}" />
+                            <TextBlock Text="{Binding StatusText}" Classes="muted" FontSize="11" TextWrapping="Wrap"
+                                       IsVisible="{Binding ShowLimitFeatures}" />
+                            <TextBlock Text="Nutzung sichtbar – Limits mit Premium."
+                                       Classes="muted" FontSize="11" TextWrapping="Wrap"
+                                       IsVisible="{Binding ShowLimitHint}" />
                         </StackPanel>
                     </Border>
                 </Grid>
@@ -85,7 +93,8 @@
                         </StackPanel>
                     </Border>
 
-                    <Border Grid.Column="1" Classes="card" Padding="16">
+                    <Border Grid.Column="1" Classes="card" Padding="16"
+                            IsVisible="{Binding ShowLimitFeatures}">
                         <StackPanel Spacing="10">
                             <TextBlock Text="⛔ Limits pro App" FontWeight="SemiBold" FontSize="15" />
                             <TextBlock Text="0 = kein Limit. Änderungen werden sofort gespeichert."
@@ -135,10 +144,23 @@
                             </Grid>
                         </StackPanel>
                     </Border>
+
+                    <Border Grid.Column="1" Classes="card" Padding="20"
+                            IsVisible="{Binding ShowLimitHint}"
+                            Background="#141A33" BorderBrush="#22D3EE55" BorderThickness="1">
+                        <StackPanel Spacing="12" VerticalAlignment="Center">
+                            <TextBlock Text="🔒 Limits mit Premium" FontWeight="SemiBold" FontSize="16" />
+                            <TextBlock Text="{Binding LimitHintText}" Classes="muted" FontSize="12"
+                                       TextWrapping="Wrap" LineHeight="20" />
+                            <TextBlock Text="Die Nutzung insgesamt und pro App bleibt für alle sichtbar."
+                                       FontSize="12" Foreground="#22D3EE" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
                 </Grid>
 
                 <!-- Zeiten + Profile -->
-                <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="12"
+                      IsVisible="{Binding ShowLimitFeatures}">
                     <Border Grid.Column="0" Classes="card" Padding="16">
                         <StackPanel Spacing="10">
                             <TextBlock Text="🕒 Erlaubte Zeiten" FontWeight="SemiBold" FontSize="15" />

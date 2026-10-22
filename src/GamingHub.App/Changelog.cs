@@ -8,6 +8,12 @@ public static class Changelog
 {
     public static readonly ChangelogEntry[] Entries =
     {
+        new("0.5.34", "22.10.2026 15:35", new[]
+        {
+            "Bildschirmzeit: Die Nutzung insgesamt und pro App ist jetzt für alle Nutzer sichtbar und wird in Minuten angezeigt.",
+            "Bildschirmzeit: Der Tab ist nicht mehr komplett gesperrt – nur Limits, erlaubte Zeiten, Profile und Sperren sind Premium-Funktionen.",
+            "Internet-Checker: Der Verbindungspfad ist jetzt auch ohne Premium sichtbar. Adapter, Router, Internet und Web bleiben frei; lokale IP, DNS-Details, Download-Test, Ausfall-Einschätzung und Verlauf sind Premium."
+        }),
         new("0.5.33", "22.10.2026 15:00", new[]
         {
             "Neu: Bildschirmzeit – Nutzung pro App verfolgen, Tages- und Wochenlimits festlegen, erlaubte Zeitfenster definieren und eigene Profile speichern. Bei erreichtem Limit erscheint ein Sperrbildschirm mit „15 Minuten hinzufügen“ und „Für heute ausschalten“.",

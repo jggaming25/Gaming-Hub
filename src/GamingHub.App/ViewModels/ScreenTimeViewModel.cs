@@ -83,6 +83,8 @@ public partial class ScreenTimeViewModel : ViewModelBase
     [ObservableProperty] private string _newProfileName = string.Empty;
     [ObservableProperty] private string _statusText = string.Empty;
     [ObservableProperty] private ScreenTimeProfile? _selectedProfile;
+    [ObservableProperty] private string _topAppName = "–";
+    [ObservableProperty] private string _topAppText = "0 min";
 
     // Aktives Profil
     [ObservableProperty] private int _dailyLimitMinutes;
@@ -95,6 +97,18 @@ public partial class ScreenTimeViewModel : ViewModelBase
     public bool HasTopApps => TopApps.Count > 0;
     public bool HasLimits => Limits.Count > 0;
 
+    /// <summary>Nutzung (Gesamt + pro App) ist für alle sichtbar; Limits nur mit Premium/Admin.</summary>
+    public bool IsPremiumUser =>
+        AppServices.Profile.IsAdmin ||
+        (AppServices.Profile.IsPremium && !AppServices.Profile.PremiumBanned);
+
+    public bool ShowLimitFeatures => IsPremiumUser;
+    public bool ShowLimitHint => !IsPremiumUser;
+
+    public string LimitHintText =>
+        "Die Nutzung wird für alle erfasst. Limits, erlaubte Zeiten und Sperren sind mit " +
+        "Gaming Hub Premium verfügbar.";
+
     public ScreenTimeViewModel()
     {
         AppServices.ScreenTime.EnsureProfile();
@@ -106,6 +120,7 @@ public partial class ScreenTimeViewModel : ViewModelBase
         LoadProcesses();
 
         AppServices.ScreenTime.Changed += OnServiceChanged;
+        AppServices.Profile.Changed += () => Dispatcher.UIThread.Post(NotifyLimitAccessChanged);
 
         _refreshTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
         _refreshTimer.Tick += (_, _) => RefreshUsage();
@@ -118,6 +133,13 @@ public partial class ScreenTimeViewModel : ViewModelBase
         RefreshProfileList();
         RefreshUsage();
     });
+
+    private void NotifyLimitAccessChanged()
+    {
+        OnPropertyChanged(nameof(IsPremiumUser));
+        OnPropertyChanged(nameof(ShowLimitFeatures));
+        OnPropertyChanged(nameof(ShowLimitHint));
+    }
 
     partial void OnEnabledChanged(bool value)
     {
@@ -171,7 +193,7 @@ public partial class ScreenTimeViewModel : ViewModelBase
 
     private void SaveProfileSettings()
     {
-        if (_suppressProfileWrite) return;
+        if (_suppressProfileWrite || !IsPremiumUser) return;
         AppServices.ScreenTime.UpdateActiveProfile(profile =>
         {
             profile.DailyLimitMinutes = Math.Clamp(DailyLimitMinutes, 0, 24 * 60);
@@ -218,6 +240,10 @@ public partial class ScreenTimeViewModel : ViewModelBase
         }
         OnPropertyChanged(nameof(HasTopApps));
 
+        var top = TopApps.FirstOrDefault();
+        TopAppName = top?.DisplayName ?? "–";
+        TopAppText = top?.TodayText ?? "0 min";
+
         foreach (var row in Limits)
         {
             int today = service.GetTodaySeconds(row.ProcessName);
@@ -228,10 +254,8 @@ public partial class ScreenTimeViewModel : ViewModelBase
 
     private static string FormatDuration(int totalSeconds)
     {
-        if (totalSeconds < 60) return $"{totalSeconds} s";
-        int hours = totalSeconds / 3600;
-        int minutes = totalSeconds % 3600 / 60;
-        return hours > 0 ? $"{hours} h {minutes} min" : $"{minutes} min";
+        if (totalSeconds < 60) return "<1 min";
+        return $"{Math.Round(totalSeconds / 60.0):0} min";
     }
 
     private void LoadProcesses()
@@ -261,6 +285,7 @@ public partial class ScreenTimeViewModel : ViewModelBase
     [RelayCommand]
     private void AddLimit()
     {
+        if (!IsPremiumUser) return;
         string process = NewLimitProcess.Trim();
         if (string.IsNullOrWhiteSpace(process))
         {
@@ -278,7 +303,7 @@ public partial class ScreenTimeViewModel : ViewModelBase
     [RelayCommand]
     private void RemoveLimit(ScreenTimeLimitRow? row)
     {
-        if (row is null) return;
+        if (!IsPremiumUser || row is null) return;
         AppServices.ScreenTime.RemoveAppLimit(row.ProcessName);
         PropertyChangedForRows();
         LoadActiveProfileIntoUi();
@@ -294,7 +319,7 @@ public partial class ScreenTimeViewModel : ViewModelBase
     [RelayCommand]
     private void ApplyProfile()
     {
-        if (SelectedProfile is null) return;
+        if (!IsPremiumUser || SelectedProfile is null) return;
         AppServices.ScreenTime.ApplyProfile(SelectedProfile.Id);
         LoadActiveProfileIntoUi();
         RefreshUsage();
@@ -304,6 +329,7 @@ public partial class ScreenTimeViewModel : ViewModelBase
     [RelayCommand]
     private void SaveProfile()
     {
+        if (!IsPremiumUser) return;
         if (string.IsNullOrWhiteSpace(NewProfileName))
         {
             StatusText = "Bitte einen Profilnamen eingeben.";
@@ -320,7 +346,7 @@ public partial class ScreenTimeViewModel : ViewModelBase
     [RelayCommand]
     private void DeleteProfile()
     {
-        if (SelectedProfile is null) return;
+        if (!IsPremiumUser || SelectedProfile is null) return;
         AppServices.ScreenTime.DeleteProfile(SelectedProfile.Id);
         RefreshProfileList();
         LoadActiveProfileIntoUi();
