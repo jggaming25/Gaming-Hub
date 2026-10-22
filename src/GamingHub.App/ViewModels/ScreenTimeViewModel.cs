@@ -427,7 +427,7 @@ public partial class ScreenTimeViewModel : ViewModelBase
                 try
                 {
                     string name = process.ProcessName;
-                    if (!string.IsNullOrWhiteSpace(name))
+                    if (!string.IsNullOrWhiteSpace(name) && !ScreenTimeService.IsGamingHubProcess(name))
                         names.Add(name);
                 }
                 catch { /* Zugriff verweigert */ }
@@ -448,6 +448,12 @@ public partial class ScreenTimeViewModel : ViewModelBase
         if (string.IsNullOrWhiteSpace(process))
         {
             StatusText = "Bitte eine App auswählen oder eingeben.";
+            return;
+        }
+
+        if (ScreenTimeService.IsGamingHubProcess(process))
+        {
+            StatusText = "Gaming Hub kann nicht gesperrt werden.";
             return;
         }
 

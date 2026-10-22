@@ -8,6 +8,13 @@ public static class Changelog
 {
     public static readonly ChangelogEntry[] Entries =
     {
+        new("0.6.3", "22.10.2026 18:36", new[]
+        {
+            "Bildschirmzeit: Die App-Sperre bleibt jetzt dauerhaft über der gesperrten App sichtbar und wird bei minimiertem Fenster wiederhergestellt.",
+            "Bildschirmzeit: Läuft eine App nur im Infobereich oder ohne sichtbares Fenster, erscheint die Sperre als zentriertes Fenster statt unbemerkt zu verschwinden.",
+            "Bildschirmzeit: Gaming Hub selbst kann nicht mehr als App-Limit ausgewählt werden; bereits gespeicherte Selbst-Limits werden entfernt.",
+            "Version 0.6.3"
+        }),
         new("0.6.2", "22.10.2026 18:11", new[]
         {
             "Bildschirmzeit: App-Limits werden jetzt auch dann durchgesetzt, wenn eine Freigabe für das Gesamt-/Zeitlimit aktiv ist.",

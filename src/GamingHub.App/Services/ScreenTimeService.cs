@@ -23,6 +23,24 @@ public sealed class ScreenTimeService : IDisposable
         "runtimebroker", "backgroundtaskhost", "widgets", "widgetservice", "phoneexperiencehost"
     };
 
+    /// <summary>
+    /// Gaming Hub darf sich nicht selbst per App-Limit sperren. Sonst wuerde
+    /// das Overlay die eigene Oberflaeche blockieren und die Sperre liesse sich
+    /// nicht mehr komfortabel aufheben.
+    /// </summary>
+    public static bool IsGamingHubProcess(string? processName)
+    {
+        if (string.IsNullOrWhiteSpace(processName)) return false;
+
+        string name = processName.Trim();
+        if (name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+            name = name[..^4];
+
+        return name.Equals("gaminghub", StringComparison.OrdinalIgnoreCase)
+            || name.Equals("gaminghub.app", StringComparison.OrdinalIgnoreCase)
+            || name.Equals(Process.GetCurrentProcess().ProcessName, StringComparison.OrdinalIgnoreCase);
+    }
+
     private readonly string _dataPath;
     private readonly object _gate = new();
     private readonly Timer _tickTimer;
@@ -80,6 +98,11 @@ public sealed class ScreenTimeService : IDisposable
     }
 
     public string ActiveProfileName => ActiveProfile?.Name ?? "Kein Profil";
+
+    public ScreenTimeBlock? CurrentBlock
+    {
+        get { lock (_gate) return _currentBlock; }
+    }
 
     public string TodayKey => DateTime.Now.ToString("yyyy-MM-dd");
 
@@ -207,7 +230,7 @@ public sealed class ScreenTimeService : IDisposable
 
     public void AddAppLimit(string processName, string displayName)
     {
-        if (string.IsNullOrWhiteSpace(processName)) return;
+        if (string.IsNullOrWhiteSpace(processName) || IsGamingHubProcess(processName)) return;
         lock (_gate)
         {
             var profile = _data.Profiles.FirstOrDefault(p => p.Id == _data.ActiveProfileId)
@@ -588,6 +611,7 @@ public sealed class ScreenTimeService : IDisposable
 
         foreach (var app in apps)
         {
+            if (IsGamingHubProcess(app.ProcessName)) continue;
             if (!string.IsNullOrWhiteSpace(app.ProcessName) && !result.ContainsKey(app.ProcessName))
                 result[app.ProcessName] = app;
         }
@@ -595,6 +619,8 @@ public sealed class ScreenTimeService : IDisposable
         foreach (var limit in profile.AppLimits)
         {
             if (!limit.Enabled || string.IsNullOrWhiteSpace(limit.ProcessName))
+                continue;
+            if (IsGamingHubProcess(limit.ProcessName))
                 continue;
             if (result.ContainsKey(limit.ProcessName) || !IsProcessRunning(limit.ProcessName))
                 continue;
@@ -929,6 +955,8 @@ public sealed class ScreenTimeService : IDisposable
         {
             profile.AppLimits ??= new List<AppLimit>();
             profile.Weekdays ??= new List<ScreenTimeWeekdayRule>();
+            if (profile.AppLimits.RemoveAll(a => IsGamingHubProcess(a.ProcessName)) > 0)
+                MarkDirty();
             EnsureWeekdaysLocked(profile);
         }
         _lastDayKey = TodayKey;

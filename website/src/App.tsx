@@ -26,6 +26,15 @@ const FEATURES = [
 
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   {
+    version: "0.6.3",
+    date: "22.10.2026 18:36",
+    items: [
+      "Bildschirmzeit: Die App-Sperre bleibt dauerhaft über der gesperrten App sichtbar und wird bei minimiertem Fenster wiederhergestellt.",
+      "Bildschirmzeit: Läuft eine App nur im Infobereich oder ohne sichtbares Fenster, erscheint die Sperre als zentriertes Fenster statt unbemerkt zu verschwinden.",
+      "Bildschirmzeit: Gaming Hub selbst kann nicht mehr als App-Limit ausgewählt werden; bereits gespeicherte Selbst-Limits werden entfernt."
+    ]
+  },
+  {
     version: "0.6.2",
     date: "22.10.2026 18:11",
     items: [

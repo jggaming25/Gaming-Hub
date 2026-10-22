@@ -21,6 +21,7 @@ public partial class App : Application
     private static AppLimitWindow? _appLimitWindow;
     private static DispatcherTimer? _appLimitTimer;
     private static string _appLimitProcess = string.Empty;
+    private static PixelRect? _appLimitLastBounds;
 
     public override void Initialize()
     {
@@ -185,6 +186,7 @@ public partial class App : Application
 
             // Bildschirmzeit-Sperre an die Oberfläche binden (Topmost-Fenster).
             AppServices.ScreenTime.BlockChanged += OnScreenTimeBlockChanged;
+            OnScreenTimeBlockChanged(AppServices.ScreenTime.CurrentBlock);
 
             desktop.Exit += (_, _) =>
             {
@@ -336,19 +338,33 @@ public partial class App : Application
         var window = _appLimitWindow;
         if (window is null) return;
 
-        var target = FindAppWindow(_appLimitProcess);
-        if (target == IntPtr.Zero || IsIconic(target) || !GetWindowRect(target, out var rect))
+        if (!IsProcessRunning(_appLimitProcess))
         {
             if (window.IsVisible) window.Hide();
             return;
         }
 
-        bool active = IsForegroundProcess(_appLimitProcess) || IsForegroundOwnProcess();
-        if (!active)
+        var target = FindAppWindow(_appLimitProcess);
+        if (target != IntPtr.Zero && IsIconic(target))
         {
-            if (window.IsVisible) window.Hide();
-            return;
+            // Minimieren darf die App-Sperre nicht aushebeln.
+            ShowWindow(target, SwRestore);
+            target = FindAppWindow(_appLimitProcess);
         }
+
+        PixelRect? bounds = null;
+        if (target != IntPtr.Zero && !IsIconic(target) &&
+            GetWindowRect(target, out var rect) &&
+            rect.Right > rect.Left && rect.Bottom > rect.Top)
+        {
+            bounds = new PixelRect(rect.Left, rect.Top,
+                Math.Max(1, rect.Right - rect.Left), Math.Max(1, rect.Bottom - rect.Top));
+            _appLimitLastBounds = bounds;
+        }
+
+        // Läuft die App nur im Infobereich oder ist ihr Fenster versteckt,
+        // bleibt die Sperre trotzdem sichtbar und kann die App beenden.
+        bounds ??= _appLimitLastBounds ?? GetAppLimitFallbackBounds(window);
 
         if (!window.IsVisible)
         {
@@ -356,8 +372,38 @@ public partial class App : Application
             window.Activate();
         }
 
-        MoveToScreen(window, new PixelRect(rect.Left, rect.Top,
-            Math.Max(1, rect.Right - rect.Left), Math.Max(1, rect.Bottom - rect.Top)));
+        window.Topmost = true;
+        MoveToScreen(window, bounds.Value);
+    }
+
+    private static PixelRect GetAppLimitFallbackBounds(Window window)
+    {
+        var area = window.Screens.Primary?.WorkingArea ?? new PixelRect(0, 0, 1920, 1080);
+        int width = Math.Min(480, Math.Max(1, area.Width));
+        int height = Math.Min(320, Math.Max(1, area.Height));
+        return new PixelRect(
+            area.X + (area.Width - width) / 2,
+            area.Y + (area.Height - height) / 2,
+            width,
+            height);
+    }
+
+    private static bool IsProcessRunning(string processName)
+    {
+        if (string.IsNullOrWhiteSpace(processName)) return false;
+        try
+        {
+            foreach (var process in System.Diagnostics.Process.GetProcessesByName(processName))
+            {
+                try { return true; }
+                finally { process.Dispose(); }
+            }
+            return false;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private static IntPtr FindAppWindow(string processName)
@@ -410,38 +456,6 @@ public partial class App : Application
         return found;
     }
 
-    private static bool IsForegroundOwnProcess()
-    {
-        try
-        {
-            var hwnd = GetForegroundWindow();
-            if (hwnd == IntPtr.Zero) return false;
-            GetWindowThreadProcessId(hwnd, out uint pid);
-            return pid == (uint)Environment.ProcessId;
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    private static bool IsForegroundProcess(string processName)
-    {
-        try
-        {
-            var hwnd = GetForegroundWindow();
-            if (hwnd == IntPtr.Zero) return false;
-            GetWindowThreadProcessId(hwnd, out uint pid);
-            if (pid == 0) return false;
-            using var process = System.Diagnostics.Process.GetProcessById((int)pid);
-            return string.Equals(process.ProcessName, processName, StringComparison.OrdinalIgnoreCase);
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
     private static void CloseAppLimitWindow()
     {
         _appLimitTimer?.Stop();
@@ -452,6 +466,7 @@ public partial class App : Application
         }
         _appLimitWindow = null;
         _appLimitProcess = string.Empty;
+        _appLimitLastBounds = null;
     }
 
     private static void CreateBlockWindow(ScreenTimeBlock block, bool primary, PixelRect? bounds)
@@ -541,7 +556,9 @@ public partial class App : Application
     private static extern bool IsIconic(IntPtr hWnd);
 
     [DllImport("user32.dll")]
-    private static extern IntPtr GetForegroundWindow();
+    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    private const int SwRestore = 9;
 
     [DllImport("user32.dll")]
     private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
