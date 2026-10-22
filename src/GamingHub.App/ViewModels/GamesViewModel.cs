@@ -51,11 +51,14 @@ public partial class GamesViewModel : ViewModelBase
     [ObservableProperty] private CategoryFilterOption _selectedCategory = null!;
     [ObservableProperty] private DriveFilterOption? _selectedDrive;
     [ObservableProperty] private bool _isLoading;
+    [ObservableProperty] private bool _showHidden;
     [ObservableProperty] private string _statusText = "Bibliothek wird geladen…";
+    [ObservableProperty] private string _hiddenInfoText = string.Empty;
 
     partial void OnSearchTextChanged(string value) => ApplyFilter();
     partial void OnSelectedCategoryChanged(CategoryFilterOption value) => ApplyFilter();
     partial void OnSelectedDriveChanged(DriveFilterOption? value) => ApplyFilter();
+    partial void OnShowHiddenChanged(bool value) => ApplyFilter();
 
     public GamesViewModel()
     {
@@ -133,7 +136,7 @@ public partial class GamesViewModel : ViewModelBase
             var games = await AppServices.Games.RefreshAsync();
             _all.Clear();
             foreach (var g in games)
-                _all.Add(new GameItemViewModel(g, AppServices.Games, AppServices.Auth));
+                _all.Add(CreateItem(g));
             ApplyFilter();
             StatusText = usedCache
                 ? $"Bibliothek aus dem Cache geladen: {games.Count} Einträge (nur Änderungen werden angewendet)."
@@ -164,7 +167,7 @@ public partial class GamesViewModel : ViewModelBase
             var games = await AppServices.Games.RefreshAsync(forceRescan: true);
             _all.Clear();
             foreach (var g in games)
-                _all.Add(new GameItemViewModel(g, AppServices.Games, AppServices.Auth));
+                _all.Add(CreateItem(g));
             ApplyFilter();
             StatusText = $"{games.Count} Einträge gefunden (vollständiger Scan).";
             AppServices.Notifications.ShowCompleted(
@@ -267,15 +270,29 @@ public partial class GamesViewModel : ViewModelBase
         }
     }
 
+    private GameItemViewModel CreateItem(GameInfo game)
+    {
+        var item = new GameItemViewModel(game, AppServices.Games, AppServices.Auth);
+        item.HiddenChanged += ApplyFilter;
+        return item;
+    }
+
     private void ApplyFilter()
     {
         Games.Clear();
         string q = SearchText?.Trim() ?? string.Empty;
         GameCategory? category = SelectedCategory?.Category;
         string? driveRoot = SelectedDrive?.Root;
+        int hiddenCount = 0;
 
         foreach (var g in _all)
         {
+            if (g.Model.IsHidden)
+            {
+                hiddenCount++;
+                if (!ShowHidden)
+                    continue;
+            }
             if (q.Length > 0 && !g.Name.Contains(q, StringComparison.OrdinalIgnoreCase))
                 continue;
             if (category is { } cat && g.Model.Category != cat)
@@ -285,5 +302,9 @@ public partial class GamesViewModel : ViewModelBase
                 continue;
             Games.Add(g);
         }
+
+        HiddenInfoText = hiddenCount == 0
+            ? string.Empty
+            : $"{hiddenCount} ausgeblendet";
     }
 }

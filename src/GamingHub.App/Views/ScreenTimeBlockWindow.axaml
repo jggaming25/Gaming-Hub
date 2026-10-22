@@ -5,39 +5,86 @@
         mc:Ignorable="d"
         x:Class="GamingHub.App.Views.ScreenTimeBlockWindow"
         Title="Bildschirmzeit-Limit"
-        Width="560" Height="380"
+        Width="920" Height="700"
         CanResize="False"
         WindowDecorations="None"
         Topmost="True"
-        ShowInTaskbar="True"
-        WindowStartupLocation="CenterScreen"
-        Background="#0B0D1A">
+        ShowInTaskbar="False"
+        WindowStartupLocation="Manual"
+        Background="#6B7280">
 
-    <Border Margin="1" CornerRadius="14" Background="{DynamicResource PanelBrush}"
-            BorderBrush="{DynamicResource AccentGradient}" BorderThickness="1.5">
-        <StackPanel Spacing="16" Margin="30,26">
-            <Border Width="72" Height="72" CornerRadius="36" HorizontalAlignment="Center"
-                    Background="#22F87171" BorderBrush="#55F87171" BorderThickness="1">
-                <TextBlock Text="⏱" FontSize="34" HorizontalAlignment="Center" VerticalAlignment="Center" />
-            </Border>
+    <Grid x:Name="RootGrid" Background="#6B7280">
+        <Border Width="780" MaxHeight="640" Padding="30,26" HorizontalAlignment="Center"
+                VerticalAlignment="Center" CornerRadius="16" Background="#252A34"
+                BorderBrush="#99A1AF" BorderThickness="1">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel Spacing="14">
+                    <Border Width="68" Height="68" CornerRadius="34" HorizontalAlignment="Center"
+                            Background="#33F87171" BorderBrush="#77F87171" BorderThickness="1">
+                        <TextBlock Text="⏱" FontSize="32" HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" />
+                    </Border>
 
-            <TextBlock Text="Bildschirmzeit-Limit erreicht" FontSize="22" FontWeight="Bold"
-                       HorizontalAlignment="Center" TextAlignment="Center" />
-            <TextBlock x:Name="AppNameText" FontSize="15" FontWeight="SemiBold" HorizontalAlignment="Center"
-                       TextAlignment="Center" Foreground="{DynamicResource AccentGradient}" />
-            <TextBlock x:Name="ReasonText" FontSize="13.5" Classes="muted" HorizontalAlignment="Center"
-                       TextAlignment="Center" TextWrapping="Wrap" LineHeight="21" />
+                    <TextBlock Text="Bildschirmzeit-Limit erreicht" FontSize="24" FontWeight="Bold"
+                               HorizontalAlignment="Center" TextAlignment="Center" Foreground="#F3F4F6" />
+                    <TextBlock x:Name="AppNameText" FontSize="15" FontWeight="SemiBold"
+                               HorizontalAlignment="Center" TextAlignment="Center" Foreground="#22D3EE" />
+                    <TextBlock x:Name="ReasonText" FontSize="13.5" Foreground="#C7CBD1"
+                               HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap"
+                               LineHeight="21" />
 
-            <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center" Margin="0,6,0,0">
-                <Button Content="15 Minuten hinzufügen" Classes="accent" Padding="18,11"
-                        Click="OnSnooze" Cursor="Hand" />
-                <Button Content="Für heute ausschalten" Classes="ghost" Padding="18,11"
-                        Click="OnDisable" Cursor="Hand" />
-            </StackPanel>
+                    <TextBlock Text="Zeit freigeben" FontSize="14" FontWeight="SemiBold"
+                               Foreground="#F3F4F6" Margin="0,6,0,0" />
+                    <TextBlock Text="Jede Freigabe muss von einem Administrator bestätigt werden. Nach der Bestätigung wird die Freigabe nach 20 Sekunden aktiv."
+                               FontSize="11" Foreground="#A7ADB8" TextWrapping="Wrap" />
 
-            <TextBlock Text="Du kannst die Limits jederzeit in Gaming Hub unter „Bildschirmzeit“ anpassen."
-                       FontSize="11" Classes="muted" HorizontalAlignment="Center" TextAlignment="Center"
-                       TextWrapping="Wrap" />
-        </StackPanel>
-    </Border>
+                    <StackPanel x:Name="ActionsPanel" Spacing="10">
+                        <WrapPanel Orientation="Horizontal" ItemWidth="118" ItemHeight="36">
+                            <Button Content="15 Min." Tag="15" Click="OnExtensionClick" Margin="0,0,8,8" />
+                            <Button Content="30 Min." Tag="30" Click="OnExtensionClick" Margin="0,0,8,8" />
+                            <Button Content="45 Min." Tag="45" Click="OnExtensionClick" Margin="0,0,8,8" />
+                            <Button Content="60 Min." Tag="60" Click="OnExtensionClick" Margin="0,0,8,8" />
+                            <Button Content="90 Min." Tag="90" Click="OnExtensionClick" Margin="0,0,8,8" />
+                            <Button Content="120 Min." Tag="120" Click="OnExtensionClick" Margin="0,0,8,8" />
+                            <Button Content="180 Min." Tag="180" Click="OnExtensionClick" Margin="0,0,8,8" />
+                            <Button Content="Bis 0 Uhr" Click="OnUntilMidnightClick" Margin="0,0,8,8" />
+                        </WrapPanel>
+
+                        <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8">
+                            <TextBlock Grid.Column="0" Text="Volle Stunden" VerticalAlignment="Center"
+                                       FontSize="12" Foreground="#C7CBD1" />
+                            <ComboBox Grid.Column="1" x:Name="HoursBox" SelectedIndex="0"
+                                      HorizontalAlignment="Stretch">
+                                <ComboBoxItem Content="1 Stunde" Tag="60" />
+                                <ComboBoxItem Content="2 Stunden" Tag="120" />
+                                <ComboBoxItem Content="3 Stunden" Tag="180" />
+                                <ComboBoxItem Content="4 Stunden" Tag="240" />
+                                <ComboBoxItem Content="5 Stunden" Tag="300" />
+                                <ComboBoxItem Content="6 Stunden" Tag="360" />
+                                <ComboBoxItem Content="8 Stunden" Tag="480" />
+                                <ComboBoxItem Content="10 Stunden" Tag="600" />
+                                <ComboBoxItem Content="12 Stunden" Tag="720" />
+                            </ComboBox>
+                            <Button Grid.Column="2" Content="Freigeben" Click="OnHoursClick" />
+                            <Button Grid.Column="3" Content="Abmelden" Classes="ghost" Click="OnLogoutClick" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                            <TextBlock Grid.Column="0" Text="Eigene Minuten" VerticalAlignment="Center"
+                                       FontSize="12" Foreground="#C7CBD1" />
+                            <TextBox Grid.Column="1" x:Name="CustomMinutesBox" PlaceholderText="z. B. 25" />
+                            <Button Grid.Column="2" Content="Freigeben" Click="OnCustomClick" />
+                        </Grid>
+                    </StackPanel>
+
+                    <TextBlock x:Name="StatusText" FontSize="12" Foreground="#FACC15"
+                               TextAlignment="Center" TextWrapping="Wrap" MinHeight="18" />
+
+                    <TextBlock Text="Die Freigabe gilt höchstens bis Mitternacht. Danach greift das Tageslimit wieder."
+                               FontSize="11" Foreground="#8E95A3" TextAlignment="Center"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+    </Grid>
 </Window>

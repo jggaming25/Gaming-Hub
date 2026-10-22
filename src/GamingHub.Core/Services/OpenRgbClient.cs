@@ -167,14 +167,15 @@ internal sealed class OpenRgbClient : IDisposable
         }
     }
 
-    /// <summary>Farbe auf alle LEDs eines Controllers setzen (Custom/Direct-Modus).</summary>
+    /// <summary>Farbe auf alle LEDs eines Controllers setzen. Der Aufrufer muss
+    /// den Controller zuvor in den Custom/Direct-Modus schalten; ein erneutes
+    /// Setzen des Modus bei jedem Farbupdate verursacht Flackern.</summary>
     public void SetColor(uint deviceIndex, int ledCount, RgbColor color)
     {
         if (ledCount <= 0) return;
         lock (_gate)
         {
             EnsureConnected();
-            Send(Packet.SetCustomMode, deviceIndex, Array.Empty<byte>());
 
             var payload = new byte[2 + ledCount * 4];
             BitConverter.GetBytes((ushort)Math.Min(ledCount, ushort.MaxValue)).CopyTo(payload, 0);
@@ -190,14 +191,13 @@ internal sealed class OpenRgbClient : IDisposable
         }
     }
 
-    /// <summary>Farbe auf die LEDs einer Zone setzen.</summary>
+    /// <summary>Farbe auf die LEDs einer Zone setzen (Custom/Direct-Modus vorausgesetzt).</summary>
     public void SetZoneColor(uint deviceIndex, uint zoneIndex, int ledCount, RgbColor color)
     {
         if (ledCount <= 0) return;
         lock (_gate)
         {
             EnsureConnected();
-            Send(Packet.SetCustomMode, deviceIndex, Array.Empty<byte>());
 
             var payload = new byte[4 + 2 + ledCount * 4];
             BitConverter.GetBytes(zoneIndex).CopyTo(payload, 0);

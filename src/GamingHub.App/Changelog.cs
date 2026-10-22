@@ -8,6 +8,17 @@ public static class Changelog
 {
     public static readonly ChangelogEntry[] Entries =
     {
+        new("0.6.0", "22.10.2026 18:00", new[]
+        {
+            "Spielebibliothek: Apps lassen sich dauerhaft ausblenden. Einträge ohne Installationspfad oder ohne EXE werden automatisch ausgeblendet; über „Ausgeblendete“ können sie wieder eingeblendet werden.",
+            "Bildschirmzeit: Für jeden Wochentag lassen sich eigene erlaubte Zeiten und ein eigenes Tageslimit festlegen. Die Tageswerte werden um 00:00 Uhr zurückgesetzt.",
+            "Bildschirmzeit: Ist die Gesamtzeit oder die erlaubte Zeit erreicht, werden alle Monitore und die Taskbar grau. Auf dem Hauptbildschirm erscheinen eine Erklärung und Freigaben für 15–180 Minuten, bis 0 Uhr, volle Stunden oder eigene Minuten.",
+            "Bildschirmzeit: Jede Freigabe erfordert eine Windows-Adminbestätigung und wird erst nach 20 Sekunden aktiv. Zusätzlich gibt es einen Abmelden-Knopf.",
+            "Bildschirmzeit: Bei einem App-Limit wird nur das Fenster der betroffenen App grau. Die einzige Option ist „Jetzt ausschalten“, wodurch die App beendet wird.",
+            "Premium: Neues Diagramm der täglichen PC-Gesamtnutzung der letzten 4 Wochen.",
+            "Beleuchtung: Farben flackern nicht mehr kurz aus und andere Geräte behalten ihre Farbe. Der Keepalive sendet nur noch die Farbe, ohne den Direct-Modus ständig neu zu setzen.",
+            "Version 0.6.0"
+        }),
         new("0.5.34", "22.10.2026 15:35", new[]
         {
             "Bildschirmzeit: Die Nutzung insgesamt und pro App ist jetzt für alle Nutzer sichtbar und wird in Minuten angezeigt.",

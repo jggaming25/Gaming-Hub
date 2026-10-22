@@ -66,6 +66,7 @@ public sealed class GameLibraryService
                 {
                     // EXE/Ordner/Größe für ältere Cache-Einträge nachrüsten.
                     enriched |= EnrichGame(game);
+                    enriched |= ApplyAutoHiding(game);
                     // Icons ggf. auf höhere Auflösung nachrüsten (alte 32×32-Caches).
                     ExtractIconForGame(game);
                     MergePlaytime(game);
@@ -76,6 +77,11 @@ public sealed class GameLibraryService
                 UpdateRunningStates();
                 return cached;
             }
+
+            var hiddenStates = Games
+                .Where(g => g.IsHidden)
+                .GroupBy(g => g.Id, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
             var all = new List<GameInfo>();
             SafeAdd(all, _steam.Scan);
@@ -94,6 +100,13 @@ public sealed class GameLibraryService
             {
                 game.Category = GameClassifier.Classify(game.Name, game.Source);
                 EnrichGame(game);
+                if (hiddenStates.TryGetValue(game.Id, out var hidden))
+                {
+                    game.IsHidden = hidden.IsHidden;
+                    game.AutoHidden = hidden.AutoHidden;
+                    game.HiddenReason = hidden.HiddenReason;
+                }
+                ApplyAutoHiding(game);
                 ExtractIconForGame(game);
                 MergePlaytime(game);
             }
@@ -219,6 +232,48 @@ public sealed class GameLibraryService
         }
 
         return changed;
+    }
+
+    /// <summary>Blendet Einträge aus, bei denen Installationsordner oder EXE fehlen.
+    /// Sobald beide wieder vorhanden sind, wird ein automatisches Ausblenden aufgehoben.</summary>
+    private static bool ApplyAutoHiding(GameInfo game)
+    {
+        // Manuell ausgeblendete Einträge bleiben dauerhaft ausgeblendet.
+        if (game.IsHidden && !game.AutoHidden)
+            return false;
+
+        bool missing = string.IsNullOrWhiteSpace(game.InstallPath) ||
+                       string.IsNullOrWhiteSpace(game.ExecutablePath);
+
+        if (missing)
+        {
+            if (game.IsHidden && game.AutoHidden)
+                return false;
+
+            game.IsHidden = true;
+            game.AutoHidden = true;
+            game.HiddenReason = string.IsNullOrWhiteSpace(game.InstallPath)
+                ? "Installationspfad fehlt"
+                : "Programmdatei (EXE) fehlt";
+            return true;
+        }
+
+        if (!game.AutoHidden)
+            return false;
+
+        game.IsHidden = false;
+        game.AutoHidden = false;
+        game.HiddenReason = null;
+        return true;
+    }
+
+    /// <summary>Blendet einen Eintrag dauerhaft aus oder wieder ein.</summary>
+    public void SetHidden(GameInfo game, bool hidden)
+    {
+        game.IsHidden = hidden;
+        game.AutoHidden = false;
+        game.HiddenReason = hidden ? "Manuell ausgeblendet" : null;
+        SaveCache(Games, _markers);
     }
 
     private static bool IsSharedSystemFolder(string path)

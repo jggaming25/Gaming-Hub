@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text.Json;
@@ -27,9 +28,11 @@ public sealed class ScreenTimeService : IDisposable
     private readonly Timer _tickTimer;
     private readonly Timer _saveTimer;
     private readonly int _ownPid = Environment.ProcessId;
+    private readonly ConcurrentDictionary<string, string> _displayNames = new(StringComparer.OrdinalIgnoreCase);
 
     private ScreenTimeData _data = new();
     private ScreenTimeBlock? _currentBlock;
+    private string _lastDayKey = DateTime.Now.ToString("yyyy-MM-dd");
     private bool _dirty;
     private bool _disposed;
 
@@ -83,6 +86,35 @@ public sealed class ScreenTimeService : IDisposable
     public int TodayTotalSeconds
     {
         get { lock (_gate) return GetDayLocked(TodayKey).TotalSeconds; }
+    }
+
+    public int TodayLimitMinutes
+    {
+        get
+        {
+            lock (_gate)
+            {
+                var profile = ActiveProfileLocked();
+                return profile is null ? 0 : GetTodayRuleLocked(profile, DateTime.Now).TotalLimitMinutes;
+            }
+        }
+    }
+
+    public IReadOnlyList<(DateTime Date, int Seconds)> GetDailyTotals(int days)
+    {
+        days = Math.Clamp(days, 1, 60);
+        lock (_gate)
+        {
+            var list = new List<(DateTime Date, int Seconds)>(days);
+            for (int i = days - 1; i >= 0; i--)
+            {
+                var date = DateTime.Today.AddDays(-i);
+                var key = date.ToString("yyyy-MM-dd");
+                _data.Days.TryGetValue(key, out var day);
+                list.Add((date, day?.TotalSeconds ?? 0));
+            }
+            return list;
+        }
     }
 
     public bool IsDisabledForToday
@@ -153,6 +185,8 @@ public sealed class ScreenTimeService : IDisposable
             if (string.IsNullOrWhiteSpace(_data.ActiveProfileId) ||
                 _data.Profiles.All(p => p.Id != _data.ActiveProfileId))
                 _data.ActiveProfileId = _data.Profiles[0].Id;
+            foreach (var profile in _data.Profiles)
+                EnsureWeekdaysLocked(profile);
             MarkDirty();
         }
         Changed?.Invoke();
@@ -221,6 +255,7 @@ public sealed class ScreenTimeService : IDisposable
                 WeekdayEnd = active?.WeekdayEnd ?? "22:00",
                 WeekendStart = active?.WeekendStart ?? "08:00",
                 WeekendEnd = active?.WeekendEnd ?? "23:00",
+                Weekdays = active?.Weekdays.Select(CloneWeekday).ToList() ?? new List<ScreenTimeWeekdayRule>(),
                 AppLimits = active?.AppLimits.Select(CloneLimit).ToList() ?? new List<AppLimit>()
             };
             _data.Profiles.Add(profile);
@@ -254,19 +289,42 @@ public sealed class ScreenTimeService : IDisposable
         Changed?.Invoke();
     }
 
-    public void GrantSnooze(int minutes)
+    public void GrantSnooze(int minutes) => GrantAccess(minutes);
+
+    /// <summary>
+    /// Gibt die Bildschirmzeit nach Admin-Bestätigung für die angegebenen
+    /// Minuten frei. Die Freigabe endet spätestens um Mitternacht, damit das
+    /// Tageslimit um 00:00 Uhr wieder greift.
+    /// </summary>
+    public void GrantAccess(int minutes)
     {
-        string? process;
         lock (_gate)
         {
-            process = _currentBlock?.ProcessName;
-            if (process is null) return;
-            _data.SnoozeUntil[process] = DateTimeOffset.UtcNow.AddMinutes(Math.Clamp(minutes, 1, 240)).ToUnixTimeSeconds();
-            MarkDirty();
+            var now = DateTime.Now;
+            var end = now.AddMinutes(Math.Clamp(minutes, 1, 24 * 60));
+            var midnight = now.Date.AddDays(1);
+            if (end > midnight) end = midnight;
+            if (end <= now) end = midnight;
+
+            _data.AccessOverrideDate = TodayKey;
+            _data.AccessOverrideUntil = new DateTimeOffset(end).ToUnixTimeSeconds();
             _currentBlock = null;
+            MarkDirty();
         }
         BlockChanged?.Invoke(null);
         Changed?.Invoke();
+    }
+
+    /// <summary>Beendet alle Prozesse einer durch ein App-Limit gesperrten Anwendung.</summary>
+    public void TerminateProcess(string processName)
+    {
+        if (string.IsNullOrWhiteSpace(processName)) return;
+        foreach (var process in Process.GetProcessesByName(processName))
+        {
+            try { process.Kill(entireProcessTree: true); }
+            catch { /* Prozess kann bereits beendet sein. */ }
+            finally { process.Dispose(); }
+        }
     }
 
     public void DisableForToday()
@@ -293,12 +351,15 @@ public sealed class ScreenTimeService : IDisposable
         bool enforce;
         bool disabledToday;
         bool canEnforce;
+        bool fullScreenBlocked;
         lock (_gate)
         {
+            ResetDayLocked();
             enabled = _data.Enabled;
             enforce = _data.Enforce;
             disabledToday = _data.DisabledForDate == TodayKey;
             canEnforce = HasAccess();
+            fullScreenBlocked = _currentBlock?.Kind == ScreenTimeBlockKind.FullScreen;
         }
 
         if (!enabled)
@@ -307,30 +368,37 @@ public sealed class ScreenTimeService : IDisposable
             return;
         }
 
-        string? process = null;
-        bool foregroundIsSelf = false;
-        if (!IsUserIdle())
-            process = GetForegroundProcessName(out foregroundIsSelf);
+        // Während der Vollbild-Sperre ist kein anderer Inhalt nutzbar, also
+        // wird die Zeit auf dem Sperrbildschirm nicht als Nutzung gezählt.
+        // Die Fenster werden trotzdem ermittelt, damit ein App-Limit direkt
+        // nach dem Ende der Vollbild-Sperre ohne Verzögerung greift.
+        bool idle = IsUserIdle();
+        var apps = new List<OpenWindowApp>();
+        if (fullScreenBlocked || !idle)
+            apps = GetOpenWindowApps();
 
         // Nutzung wird für alle erfasst – Limits/Sperren nur mit Premium/Admin.
-        if (process is not null)
+        if (!fullScreenBlocked && apps.Count > 0)
         {
             lock (_gate)
             {
                 var day = GetDayLocked(TodayKey);
-                day.AppSeconds.TryGetValue(process, out var current);
-                day.AppSeconds[process] = current + 1;
+                foreach (var app in apps
+                             .GroupBy(a => a.ProcessName, StringComparer.OrdinalIgnoreCase)
+                             .Select(g => g.First()))
+                {
+                    day.AppSeconds.TryGetValue(app.ProcessName, out var current);
+                    day.AppSeconds[app.ProcessName] = current + 1;
+                    if (!string.IsNullOrWhiteSpace(app.DisplayName))
+                        _data.AppNames[app.ProcessName] = app.DisplayName;
+                }
                 day.TotalSeconds += 1;
                 _dirty = true;
             }
         }
 
-        // Das Sperrfenster gehört zur App. Wenn es den Fokus hat, darf die
-        // laufende Sperre nicht sofort wieder aufgehoben werden.
-        if (foregroundIsSelf) return;
-
-        if (canEnforce && enforce && !disabledToday && process is not null)
-            EvaluateBlock(process);
+        if (canEnforce && enforce && !disabledToday)
+            EvaluateBlock(apps);
         else
             SetBlock(null);
 
@@ -338,7 +406,7 @@ public sealed class ScreenTimeService : IDisposable
             Changed?.Invoke();
     }
 
-    private void EvaluateBlock(string? process)
+    private void EvaluateBlock(IReadOnlyList<OpenWindowApp> apps)
     {
         ScreenTimeBlock? block = null;
         lock (_gate)
@@ -347,61 +415,58 @@ public sealed class ScreenTimeService : IDisposable
             if (profile is not null)
             {
                 var now = DateTime.Now;
-                var display = process is null ? string.Empty : DisplayNameLocked(process);
-                long snoozeUntil = 0;
-                if (process is not null)
-                    _data.SnoozeUntil.TryGetValue(process, out snoozeUntil);
-
-                bool snoozed = process is not null && snoozeUntil > DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-
-                if (!snoozed)
+                if (!IsAccessOverrideActiveLocked(now))
                 {
-                    if (profile.BlockOutsideSchedule && !WithinSchedule(profile, now))
-                    {
-                        string from = IsWeekend(now) ? profile.WeekendStart : profile.WeekdayStart;
-                        string to = IsWeekend(now) ? profile.WeekendEnd : profile.WeekdayEnd;
-                        block = new ScreenTimeBlock
-                        {
-                            ProcessName = process ?? string.Empty,
-                            DisplayName = display,
-                            Reason = $"Außerhalb der erlaubten Bildschirmzeit (erlaubt: {from}–{to} Uhr)."
-                        };
-                    }
-                    else if (profile.DailyLimitMinutes > 0 &&
-                             GetDayLocked(TodayKey).TotalSeconds >= profile.DailyLimitMinutes * 60)
+                    var rule = GetTodayRuleLocked(profile, now);
+
+                    if (profile.BlockOutsideSchedule && !WithinSchedule(rule, now))
                     {
                         block = new ScreenTimeBlock
                         {
-                            ProcessName = process ?? string.Empty,
-                            DisplayName = display,
-                            Reason = $"Das Tageslimit von {profile.DailyLimitMinutes} Minuten ist erreicht."
+                            Reason = $"Außerhalb der erlaubten Bildschirmzeit (heute erlaubt: {rule.AllowedStart}–{rule.AllowedEnd} Uhr)."
                         };
                     }
-                    else if (process is not null)
+                    else if (rule.TotalLimitMinutes > 0 &&
+                             GetDayLocked(TodayKey).TotalSeconds >= rule.TotalLimitMinutes * 60)
                     {
-                        var limit = profile.AppLimits.FirstOrDefault(a =>
-                            a.Enabled && string.Equals(a.ProcessName, process, StringComparison.OrdinalIgnoreCase));
-                        if (limit is not null)
+                        block = new ScreenTimeBlock
                         {
-                            int today = GetTodaySecondsLocked(process);
-                            int week = GetWeekSecondsLocked(process);
+                            Reason = $"Das Tageslimit von {rule.TotalLimitMinutes} Minuten ist erreicht."
+                        };
+                    }
+                    else
+                    {
+                        foreach (var app in apps
+                                     .GroupBy(a => a.ProcessName, StringComparer.OrdinalIgnoreCase)
+                                     .Select(g => g.First()))
+                        {
+                            var limit = profile.AppLimits.FirstOrDefault(a =>
+                                a.Enabled && string.Equals(a.ProcessName, app.ProcessName, StringComparison.OrdinalIgnoreCase));
+                            if (limit is null) continue;
+
+                            int today = GetTodaySecondsLocked(app.ProcessName);
+                            int week = GetWeekSecondsLocked(app.ProcessName);
                             if (limit.DailyMinutes > 0 && today >= limit.DailyMinutes * 60)
                             {
                                 block = new ScreenTimeBlock
                                 {
-                                    ProcessName = process,
-                                    DisplayName = display,
-                                    Reason = $"Für „{display}“ sind {limit.DailyMinutes} Minuten pro Tag erreicht."
+                                    ProcessName = app.ProcessName,
+                                    DisplayName = app.DisplayName,
+                                    Reason = $"Für „{app.DisplayName}“ sind {limit.DailyMinutes} Minuten pro Tag erreicht. Die App muss jetzt beendet werden.",
+                                    Kind = ScreenTimeBlockKind.AppLimit
                                 };
+                                break;
                             }
-                            else if (limit.WeeklyMinutes > 0 && week >= limit.WeeklyMinutes * 60)
+                            if (limit.WeeklyMinutes > 0 && week >= limit.WeeklyMinutes * 60)
                             {
                                 block = new ScreenTimeBlock
                                 {
-                                    ProcessName = process,
-                                    DisplayName = display,
-                                    Reason = $"Für „{display}“ sind {limit.WeeklyMinutes} Minuten pro Woche erreicht."
+                                    ProcessName = app.ProcessName,
+                                    DisplayName = app.DisplayName,
+                                    Reason = $"Für „{app.DisplayName}“ sind {limit.WeeklyMinutes} Minuten pro Woche erreicht. Die App muss jetzt beendet werden.",
+                                    Kind = ScreenTimeBlockKind.AppLimit
                                 };
+                                break;
                             }
                         }
                     }
@@ -419,7 +484,9 @@ public sealed class ScreenTimeService : IDisposable
         {
             changed = (_currentBlock is null) != (block is null) ||
                       (_currentBlock is not null && block is not null &&
-                       (_currentBlock.ProcessName != block.ProcessName || _currentBlock.Reason != block.Reason));
+                       (_currentBlock.Kind != block.Kind ||
+                        _currentBlock.ProcessName != block.ProcessName ||
+                        _currentBlock.Reason != block.Reason));
             _currentBlock = block;
         }
 
@@ -483,15 +550,9 @@ public sealed class ScreenTimeService : IDisposable
         return processName;
     }
 
-    private static bool IsWeekend(DateTime now) =>
-        now.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
-
-    private static bool WithinSchedule(ScreenTimeProfile profile, DateTime now)
+    private static bool WithinSchedule(ScreenTimeWeekdayRule rule, DateTime now)
     {
-        bool weekend = IsWeekend(now);
-        string start = weekend ? profile.WeekendStart : profile.WeekdayStart;
-        string end = weekend ? profile.WeekendEnd : profile.WeekdayEnd;
-        if (!TryParseTime(start, out var s) || !TryParseTime(end, out var e))
+        if (!TryParseTime(rule.AllowedStart, out var s) || !TryParseTime(rule.AllowedEnd, out var e))
             return true;
 
         var current = now.TimeOfDay;
@@ -501,6 +562,53 @@ public sealed class ScreenTimeService : IDisposable
         return current >= s || current <= e;
     }
 
+    private static void EnsureWeekdaysLocked(ScreenTimeProfile profile)
+    {
+        profile.Weekdays ??= new List<ScreenTimeWeekdayRule>();
+        bool migrated = profile.Weekdays.Count == 0;
+
+        foreach (var day in Enum.GetValues<DayOfWeek>())
+        {
+            if (profile.Weekdays.Any(r => r.Day == day))
+                continue;
+
+            bool weekend = day is DayOfWeek.Saturday or DayOfWeek.Sunday;
+            profile.Weekdays.Add(new ScreenTimeWeekdayRule
+            {
+                Day = day,
+                AllowedStart = weekend ? profile.WeekendStart : profile.WeekdayStart,
+                AllowedEnd = weekend ? profile.WeekendEnd : profile.WeekdayEnd,
+                TotalLimitMinutes = migrated ? profile.DailyLimitMinutes : 0
+            });
+        }
+
+        profile.Weekdays.Sort((a, b) => ((int)a.Day + 6) % 7 - ((int)b.Day + 6) % 7);
+    }
+
+    private static ScreenTimeWeekdayRule GetTodayRuleLocked(ScreenTimeProfile profile, DateTime now)
+    {
+        EnsureWeekdaysLocked(profile);
+        return profile.Weekdays.First(r => r.Day == now.DayOfWeek);
+    }
+
+    private bool IsAccessOverrideActiveLocked(DateTime now)
+    {
+        if (_data.AccessOverrideDate != TodayKey) return false;
+        return _data.AccessOverrideUntil > new DateTimeOffset(now).ToUnixTimeSeconds();
+    }
+
+    private void ResetDayLocked()
+    {
+        var today = TodayKey;
+        if (_lastDayKey == today) return;
+
+        _lastDayKey = today;
+        _data.AccessOverrideDate = null;
+        _data.AccessOverrideUntil = 0;
+        _data.SnoozeUntil.Clear();
+        MarkDirty();
+    }
+
     private static bool TryParseTime(string value, out TimeSpan time)
     {
         time = TimeSpan.Zero;
@@ -508,6 +616,14 @@ public sealed class ScreenTimeService : IDisposable
         return TimeSpan.TryParseExact(value.Trim(), new[] { @"h\:mm", @"hh\:mm" },
             System.Globalization.CultureInfo.InvariantCulture, out time);
     }
+
+    private static ScreenTimeWeekdayRule CloneWeekday(ScreenTimeWeekdayRule rule) => new()
+    {
+        Day = rule.Day,
+        AllowedStart = rule.AllowedStart,
+        AllowedEnd = rule.AllowedEnd,
+        TotalLimitMinutes = rule.TotalLimitMinutes
+    };
 
     private static AppLimit CloneLimit(AppLimit limit) => new()
     {
@@ -533,49 +649,76 @@ public sealed class ScreenTimeService : IDisposable
         }
     }
 
-    private string? GetForegroundProcessName(out bool isSelf)
+    private List<OpenWindowApp> GetOpenWindowApps()
     {
-        isSelf = false;
+        var apps = new List<OpenWindowApp>();
+        var ownPid = (uint)_ownPid;
+
         try
         {
-            var hwnd = GetForegroundWindow();
-            if (hwnd == IntPtr.Zero) return null;
-            GetWindowThreadProcessId(hwnd, out uint pid);
-            if (pid == 0) return null;
-
-            using var process = Process.GetProcessById((int)pid);
-            string name = process.ProcessName;
-            if (pid == (uint)_ownPid)
+            EnumWindows((hwnd, _) =>
             {
-                isSelf = true;
-                return null;
-            }
-            if (string.IsNullOrWhiteSpace(name) || SkipProcesses.Contains(name))
-                return null;
-
-            string? display = null;
-            try { display = process.MainModule?.FileVersionInfo?.FileDescription; } catch { /* Zugriff verweigert */ }
-            if (string.IsNullOrWhiteSpace(display))
-            {
-                try { display = process.MainModule?.FileVersionInfo?.ProductName; } catch { /* ignore */ }
-            }
-
-            if (!string.IsNullOrWhiteSpace(display))
-            {
-                lock (_gate)
+                try
                 {
-                    if (!_data.AppNames.TryGetValue(name, out var existing) || existing != display)
-                    {
-                        _data.AppNames[name] = display!;
-                        _dirty = true;
-                    }
+                    if (!IsWindowVisible(hwnd)) return true;
+                    if (GetWindowTextLength(hwnd) == 0) return true;
+                    if ((GetWindowLongPtr(hwnd, -20).ToInt64() & 0x80L) != 0) return true;
+                    if (IsWindowCloaked(hwnd)) return true;
+
+                    GetWindowThreadProcessId(hwnd, out uint pid);
+                    if (pid == 0 || pid == ownPid) return true;
+
+                    using var process = Process.GetProcessById((int)pid);
+                    var name = process.ProcessName;
+                    if (string.IsNullOrWhiteSpace(name) || SkipProcesses.Contains(name)) return true;
+
+                    apps.Add(new OpenWindowApp(name, GetDisplayNameForProcess(name, process)));
                 }
-            }
-            return name;
+                catch
+                {
+                    // Zugriff auf einzelne Prozesse kann verweigert werden.
+                }
+                return true;
+            }, IntPtr.Zero);
         }
         catch
         {
-            return null;
+            // Aufzählung fehlgeschlagen -> keine Nutzung zählen.
+        }
+
+        return apps
+            .GroupBy(a => a.ProcessName, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .ToList();
+    }
+
+    private string GetDisplayNameForProcess(string processName, Process process)
+    {
+        if (_displayNames.TryGetValue(processName, out var cached))
+            return cached;
+
+        string? display = null;
+        try { display = process.MainModule?.FileVersionInfo?.FileDescription; } catch { /* Zugriff verweigert */ }
+        if (string.IsNullOrWhiteSpace(display))
+        {
+            try { display = process.MainModule?.FileVersionInfo?.ProductName; } catch { /* ignore */ }
+        }
+        if (string.IsNullOrWhiteSpace(display))
+            display = processName;
+
+        _displayNames[processName] = display;
+        return display;
+    }
+
+    private static bool IsWindowCloaked(IntPtr hwnd)
+    {
+        try
+        {
+            return DwmGetWindowAttribute(hwnd, 14, out int cloaked, sizeof(int)) == 0 && cloaked != 0;
+        }
+        catch
+        {
+            return false;
         }
     }
 
@@ -614,7 +757,12 @@ public sealed class ScreenTimeService : IDisposable
             _data.ActiveProfileId = _data.Profiles[0].Id;
 
         foreach (var profile in _data.Profiles)
+        {
             profile.AppLimits ??= new List<AppLimit>();
+            profile.Weekdays ??= new List<ScreenTimeWeekdayRule>();
+            EnsureWeekdaysLocked(profile);
+        }
+        _lastDayKey = TodayKey;
     }
 
     public void Save()
@@ -648,6 +796,10 @@ public sealed class ScreenTimeService : IDisposable
         public uint dwTime;
     }
 
+    private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+
+    private sealed record OpenWindowApp(string ProcessName, string DisplayName);
+
     [DllImport("user32.dll")]
     private static extern IntPtr GetForegroundWindow();
 
@@ -656,4 +808,19 @@ public sealed class ScreenTimeService : IDisposable
 
     [DllImport("user32.dll")]
     private static extern bool GetLastInputInfo(ref LASTINPUTINFO plii);
+
+    [DllImport("user32.dll")]
+    private static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    private static extern bool IsWindowVisible(IntPtr hWnd);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern int GetWindowTextLength(IntPtr hWnd);
+
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW")]
+    private static extern IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex);
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, out int pvAttribute, int cbAttribute);
 }

@@ -420,8 +420,6 @@ public partial class LightingViewModel : ViewModelBase
         StopAlternateTimer();
         FillEffects(value);
 
-        AppServices.Rgb.StopColorKeepAlive();
-
         if (value != null)
         {
             // Ist die aktuelle Gerätefarbe schwarz (z. B. frischer Direct-Modus ohne
@@ -513,7 +511,7 @@ public partial class LightingViewModel : ViewModelBase
             if (direct)
                 AppServices.Rgb.StartColorKeepAlive(SelectedDevice.Id, MixedColor);
             else
-                AppServices.Rgb.StopColorKeepAlive();
+                AppServices.Rgb.StopColorKeepAlive(SelectedDevice.Id);
 
             OnPropertyChanged(nameof(SelectedDevice));
         }
@@ -593,7 +591,7 @@ public partial class LightingViewModel : ViewModelBase
             else
             {
                 StopAlternateTimer();
-                AppServices.Rgb.StopColorKeepAlive();
+                AppServices.Rgb.StopColorKeepAlive(device.Id);
             }
         }
         StatusText = ok ? $"Profil „{profile.Name}“ geladen" : "Fehler beim Laden";

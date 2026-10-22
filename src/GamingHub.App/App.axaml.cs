@@ -9,6 +9,7 @@ using GamingHub.App.Services;
 using GamingHub.App.ViewModels;
 using GamingHub.App.Views;
 using GamingHub.Core.Models;
+using System.Runtime.InteropServices;
 using System.Threading;
 
 namespace GamingHub.App;
@@ -16,7 +17,10 @@ namespace GamingHub.App;
 public partial class App : Application
 {
     private EventWaitHandle? _showWindowSignal;
-    private static ScreenTimeBlockWindow? _blockWindow;
+    private static readonly List<ScreenTimeBlockWindow> _blockWindows = new();
+    private static AppLimitWindow? _appLimitWindow;
+    private static DispatcherTimer? _appLimitTimer;
+    private static string _appLimitProcess = string.Empty;
 
     public override void Initialize()
     {
@@ -185,7 +189,11 @@ public partial class App : Application
             desktop.Exit += (_, _) =>
             {
                 AppServices.Games.SavePlaytime();
-                Dispatcher.UIThread.Invoke(() => _blockWindow?.CloseForced());
+                Dispatcher.UIThread.Invoke(() =>
+                {
+                    CloseBlockWindows();
+                    CloseAppLimitWindow();
+                });
                 AppServices.ScreenTime.BlockChanged -= OnScreenTimeBlockChanged;
                 AppServices.Shutdown();
             };
@@ -253,25 +261,293 @@ public partial class App : Application
         {
             if (block is null)
             {
-                if (_blockWindow is { IsVisible: true })
-                    _blockWindow.CloseForced();
-                _blockWindow = null;
+                CloseBlockWindows();
+                CloseAppLimitWindow();
                 return;
             }
 
-            if (_blockWindow is null)
+            if (block.Kind == ScreenTimeBlockKind.AppLimit)
             {
-                var window = new ScreenTimeBlockWindow();
-                window.SnoozeRequested += minutes => AppServices.ScreenTime.GrantSnooze(minutes);
-                window.DisableRequested += AppServices.ScreenTime.DisableForToday;
-                _blockWindow = window;
-                window.Show();
+                CloseBlockWindows();
+                ShowAppLimitWindow(block);
+                return;
             }
 
-            _blockWindow.Update(block);
-            _blockWindow.Activate();
+            CloseAppLimitWindow();
+            ShowFullScreenBlock(block);
         });
     }
+
+    private static void ShowFullScreenBlock(ScreenTimeBlock block)
+    {
+        var screens = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)
+            ?.MainWindow?.Screens.All;
+        int screenCount = Math.Max(1, screens?.Count ?? 1);
+
+        if (_blockWindows.Count != screenCount)
+        {
+            CloseBlockWindows();
+
+            if (screens is null || screens.Count == 0)
+            {
+                CreateBlockWindow(block, true, null);
+            }
+            else
+            {
+                for (int i = 0; i < screens.Count; i++)
+                    CreateBlockWindow(block, i == 0, screens[i].Bounds);
+            }
+        }
+
+        if (_blockWindows.Count > 0)
+        {
+            _blockWindows[0].Update(block);
+            _blockWindows[0].Activate();
+        }
+    }
+
+    private static void ShowAppLimitWindow(ScreenTimeBlock block)
+    {
+        if (_appLimitWindow is null || !string.Equals(_appLimitProcess, block.ProcessName, StringComparison.OrdinalIgnoreCase))
+        {
+            CloseAppLimitWindow();
+            _appLimitProcess = block.ProcessName;
+
+            var window = new AppLimitWindow();
+            window.ShutdownRequested += () => AppServices.ScreenTime.TerminateProcess(_appLimitProcess);
+            _appLimitWindow = window;
+        }
+
+        _appLimitWindow.Update(block);
+        _appLimitTimer ??= CreateAppLimitTimer();
+        _appLimitTimer.Start();
+        TrackAppLimitWindow();
+    }
+
+    private static DispatcherTimer CreateAppLimitTimer()
+    {
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(700) };
+        timer.Tick += (_, _) => TrackAppLimitWindow();
+        return timer;
+    }
+
+    private static void TrackAppLimitWindow()
+    {
+        var window = _appLimitWindow;
+        if (window is null) return;
+
+        var target = FindAppWindow(_appLimitProcess);
+        if (target == IntPtr.Zero || IsIconic(target) || !GetWindowRect(target, out var rect))
+        {
+            if (window.IsVisible) window.Hide();
+            return;
+        }
+
+        bool active = IsForegroundProcess(_appLimitProcess) || IsForegroundOwnProcess();
+        if (!active)
+        {
+            if (window.IsVisible) window.Hide();
+            return;
+        }
+
+        if (!window.IsVisible)
+        {
+            window.Show();
+            window.Activate();
+        }
+
+        MoveToScreen(window, new PixelRect(rect.Left, rect.Top,
+            Math.Max(1, rect.Right - rect.Left), Math.Max(1, rect.Bottom - rect.Top)));
+    }
+
+    private static IntPtr FindAppWindow(string processName)
+    {
+        if (string.IsNullOrWhiteSpace(processName)) return IntPtr.Zero;
+        try
+        {
+            foreach (var process in System.Diagnostics.Process.GetProcessesByName(processName))
+            {
+                try
+                {
+                    var handle = process.MainWindowHandle;
+                    if (handle != IntPtr.Zero && IsWindowVisible(handle))
+                        return handle;
+                }
+                finally
+                {
+                    process.Dispose();
+                }
+            }
+        }
+        catch
+        {
+            // ignore
+        }
+
+        IntPtr found = IntPtr.Zero;
+        var pids = new HashSet<uint>();
+        try
+        {
+            foreach (var process in System.Diagnostics.Process.GetProcessesByName(processName))
+            {
+                try { pids.Add((uint)process.Id); } finally { process.Dispose(); }
+            }
+        }
+        catch
+        {
+            return IntPtr.Zero;
+        }
+
+        if (pids.Count == 0) return IntPtr.Zero;
+        EnumWindows((hwnd, _) =>
+        {
+            if (!IsWindowVisible(hwnd)) return true;
+            GetWindowThreadProcessId(hwnd, out uint pid);
+            if (!pids.Contains(pid)) return true;
+            found = hwnd;
+            return false;
+        }, IntPtr.Zero);
+        return found;
+    }
+
+    private static bool IsForegroundOwnProcess()
+    {
+        try
+        {
+            var hwnd = GetForegroundWindow();
+            if (hwnd == IntPtr.Zero) return false;
+            GetWindowThreadProcessId(hwnd, out uint pid);
+            return pid == (uint)Environment.ProcessId;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool IsForegroundProcess(string processName)
+    {
+        try
+        {
+            var hwnd = GetForegroundWindow();
+            if (hwnd == IntPtr.Zero) return false;
+            GetWindowThreadProcessId(hwnd, out uint pid);
+            if (pid == 0) return false;
+            using var process = System.Diagnostics.Process.GetProcessById((int)pid);
+            return string.Equals(process.ProcessName, processName, StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static void CloseAppLimitWindow()
+    {
+        _appLimitTimer?.Stop();
+        _appLimitTimer = null;
+        if (_appLimitWindow is not null)
+        {
+            try { _appLimitWindow.CloseForced(); } catch { /* ignore */ }
+        }
+        _appLimitWindow = null;
+        _appLimitProcess = string.Empty;
+    }
+
+    private static void CreateBlockWindow(ScreenTimeBlock block, bool primary, PixelRect? bounds)
+    {
+        var window = new ScreenTimeBlockWindow(primary);
+        window.ExtensionRequested += minutes => AppServices.ScreenTime.GrantAccess(minutes);
+        window.LogoutRequested += Logout;
+        window.Show();
+
+        if (primary)
+            window.Update(block);
+
+        if (bounds is { } rect)
+            MoveToScreen(window, rect);
+
+        _blockWindows.Add(window);
+    }
+
+    private static void CloseBlockWindows()
+    {
+        foreach (var window in _blockWindows)
+        {
+            try { window.CloseForced(); } catch { /* ignore */ }
+        }
+        _blockWindows.Clear();
+    }
+
+    private static void Logout()
+    {
+        try
+        {
+            AppServices.ScreenTime.Save();
+            AppServices.Games.SavePlaytime();
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("shutdown.exe", "/l")
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true
+            });
+        }
+        catch
+        {
+            // Abmelden kann von Windows abgelehnt werden.
+        }
+    }
+
+    private static void MoveToScreen(Window window, PixelRect bounds)
+    {
+        try
+        {
+            var handle = window.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+            if (handle == IntPtr.Zero) return;
+            SetWindowPos(handle, HwndTopmost, bounds.X, bounds.Y, bounds.Width, bounds.Height,
+                SwpShowWindow | SwpNoActivate);
+        }
+        catch
+        {
+            // Ohne Win32-Handle bleibt das Fenster auf dem Hauptbildschirm.
+        }
+    }
+
+    private static readonly IntPtr HwndTopmost = new(-1);
+    private const uint SwpShowWindow = 0x0040;
+    private const uint SwpNoActivate = 0x0010;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct RECT
+    {
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
+    }
+
+    private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter,
+        int x, int y, int cx, int cy, uint flags);
+
+    [DllImport("user32.dll")]
+    private static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
+
+    [DllImport("user32.dll")]
+    private static extern bool IsWindowVisible(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern bool IsIconic(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+
+    [DllImport("user32.dll")]
+    private static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
 
     private static void ShowFatal(IClassicDesktopStyleApplicationLifetime desktop, Exception ex)
     {

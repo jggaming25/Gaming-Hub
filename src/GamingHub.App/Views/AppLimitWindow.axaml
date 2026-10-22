@@ -1,0 +1,44 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        x:Class="GamingHub.App.Views.AppLimitWindow"
+        Title="App-Limit erreicht"
+        Width="480" Height="320"
+        CanResize="False"
+        WindowDecorations="None"
+        Topmost="True"
+        ShowInTaskbar="False"
+        WindowStartupLocation="Manual"
+        Background="#6B7280">
+
+    <Border Padding="30" Background="#6B7280">
+        <Border Padding="26,24" CornerRadius="16" Background="#252A34"
+                BorderBrush="#99A1AF" BorderThickness="1">
+            <StackPanel Spacing="14" VerticalAlignment="Center">
+                <Border Width="62" Height="62" CornerRadius="31" HorizontalAlignment="Center"
+                        Background="#33F87171" BorderBrush="#77F87171" BorderThickness="1">
+                    <TextBlock Text="⏱" FontSize="30" HorizontalAlignment="Center"
+                               VerticalAlignment="Center" />
+                </Border>
+
+                <TextBlock Text="App-Limit erreicht" FontSize="23" FontWeight="Bold"
+                           HorizontalAlignment="Center" Foreground="#F3F4F6" />
+                <TextBlock x:Name="AppNameText" FontSize="15" FontWeight="SemiBold"
+                           HorizontalAlignment="Center" TextAlignment="Center" Foreground="#22D3EE"
+                           TextWrapping="Wrap" />
+                <TextBlock x:Name="ReasonText" FontSize="13" Foreground="#C7CBD1"
+                           TextAlignment="Center" TextWrapping="Wrap" LineHeight="20" />
+
+                <Button x:Name="ShutdownButton" Content="Jetzt ausschalten" Click="OnShutdownClick"
+                        HorizontalAlignment="Center" Padding="26,12" Classes="accent"
+                        FontWeight="SemiBold" />
+
+                <TextBlock Text="Diese App kann erst am nächsten Tag bzw. in der nächsten Woche wieder verwendet werden."
+                           FontSize="10.5" Foreground="#8E95A3" TextAlignment="Center"
+                           TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
+    </Border>
+</Window>

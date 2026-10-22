@@ -65,6 +65,15 @@ public sealed class GameInfo
 
     public bool IsRunning { get; set; }
 
+    /// <summary>True, wenn der Eintrag dauerhaft bzw. automatisch ausgeblendet ist.</summary>
+    public bool IsHidden { get; set; }
+
+    /// <summary>True, wenn das Ausblenden automatisch wegen fehlender Pfade erfolgte.</summary>
+    public bool AutoHidden { get; set; }
+
+    /// <summary>Grund für das Ausblenden (z. B. fehlende EXE).</summary>
+    public string? HiddenReason { get; set; }
+
     public bool CanLaunch => !string.IsNullOrWhiteSpace(LaunchUri) || !string.IsNullOrWhiteSpace(ExecutablePath);
 
     /// <summary>Ob die App per Passwort (Account-Passwort) geschützt ist.</summary>

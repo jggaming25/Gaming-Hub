@@ -13,6 +13,8 @@ public partial class GameItemViewModel : ViewModelBase
     private readonly GameLibraryService _library;
     private readonly AuthService _auth;
 
+    public event Action? HiddenChanged;
+
     public GameInfo Model { get; }
 
     public Avalonia.Media.Imaging.Bitmap? Icon => _icon;
@@ -27,6 +29,7 @@ public partial class GameItemViewModel : ViewModelBase
     [ObservableProperty] private bool _isPasswordPromptVisible;
     [ObservableProperty] private string _passwordInput = string.Empty;
     [ObservableProperty] private string _passwordError = string.Empty;
+    [ObservableProperty] private bool _isHidden;
 
     public GameItemViewModel(GameInfo model, GameLibraryService library, AuthService auth)
     {
@@ -37,6 +40,7 @@ public partial class GameItemViewModel : ViewModelBase
         _playtime = model.TotalPlaytime;
         _isRunning = model.IsRunning;
         _isPasswordProtected = model.IsPasswordProtected;
+        _isHidden = model.IsHidden;
 
         // Load icon (small)
         if (!string.IsNullOrWhiteSpace(model.IconPath) && File.Exists(model.IconPath))
@@ -87,6 +91,9 @@ public partial class GameItemViewModel : ViewModelBase
 
     public string RunStateText => IsRunning ? "Läuft" : "Gestoppt";
 
+    public string HiddenActionLabel => IsHidden ? "Einblenden" : "Ausblenden";
+    public string HiddenReasonDisplay => Model.HiddenReason ?? "Ausgeblendet";
+
     public bool HasThumbnail => Thumbnail != null;
 
     public void Refresh()
@@ -107,6 +114,12 @@ public partial class GameItemViewModel : ViewModelBase
     }
 
     partial void OnIsRunningChanged(bool value) => OnPropertyChanged(nameof(RunStateText));
+
+    partial void OnIsHiddenChanged(bool value)
+    {
+        OnPropertyChanged(nameof(HiddenActionLabel));
+        OnPropertyChanged(nameof(HiddenReasonDisplay));
+    }
 
     partial void OnIsExpandedChanged(bool value)
     {
@@ -216,6 +229,14 @@ public partial class GameItemViewModel : ViewModelBase
         IsBusy = true;
         try { await _library.RestartAsync(Model); }
         finally { IsBusy = false; }
+    }
+
+    [RelayCommand]
+    private void ToggleHidden()
+    {
+        _library.SetHidden(Model, !IsHidden);
+        IsHidden = Model.IsHidden;
+        HiddenChanged?.Invoke();
     }
 
     [RelayCommand]

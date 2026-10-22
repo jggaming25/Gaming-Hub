@@ -35,9 +35,8 @@ public sealed class RgbService : IDisposable
     // Sekunden die Farbe, wenn kein neuer Frame gesendet wird. Dieser Keepalive
     // schickt die zuletzt gesetzte Farbe regelmäßig erneut.
     private readonly object _keepAliveLock = new();
+    private readonly Dictionary<string, RgbColor> _keepAliveColors = new(StringComparer.OrdinalIgnoreCase);
     private Timer? _keepAliveTimer;
-    private string? _keepAliveDeviceId;
-    private RgbColor? _keepAliveColor;
     private bool _keepAliveDisposed;
 
     public event Action? DevicesChanged;
@@ -132,6 +131,7 @@ public sealed class RgbService : IDisposable
 
     public void Disconnect()
     {
+        StopColorKeepAlive();
         _client.Disconnect();
         _devices.Clear();
         DevicesChanged?.Invoke();
@@ -313,6 +313,7 @@ public sealed class RgbService : IDisposable
         {
             device.CurrentColor = color;
             device.CurrentEffect = "direct";
+            StartColorKeepAlive(deviceId, color);
             DevicesChanged?.Invoke();
         }
         return ok;
@@ -326,50 +327,59 @@ public sealed class RgbService : IDisposable
         {
             if (_keepAliveDisposed)
                 return;
-            _keepAliveDeviceId = deviceId;
-            _keepAliveColor = color;
+            _keepAliveColors[deviceId] = color;
             _keepAliveTimer ??= new Timer(_ => KeepAliveTick(), null,
                 TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(3));
         }
     }
 
-    /// <summary>Beendet den Keepalive (z. B. bei einem Hardware-Effekt).</summary>
-    public void StopColorKeepAlive()
+    /// <summary>Beendet den Keepalive für ein Gerät oder für alle Geräte.</summary>
+    public void StopColorKeepAlive(string? deviceId = null)
     {
         lock (_keepAliveLock)
         {
-            _keepAliveTimer?.Dispose();
-            _keepAliveTimer = null;
-            _keepAliveDeviceId = null;
-            _keepAliveColor = null;
+            if (deviceId is null)
+                _keepAliveColors.Clear();
+            else
+                _keepAliveColors.Remove(deviceId);
+
+            if (_keepAliveColors.Count == 0)
+            {
+                _keepAliveTimer?.Dispose();
+                _keepAliveTimer = null;
+            }
         }
     }
 
     private void KeepAliveTick()
     {
-        string? deviceId;
-        RgbColor? color;
+        KeyValuePair<string, RgbColor>[] snapshot;
         lock (_keepAliveLock)
         {
-            deviceId = _keepAliveDeviceId;
-            color = _keepAliveColor;
+            snapshot = _keepAliveColors.ToArray();
         }
 
-        if (deviceId is null || color is null || !_client.IsConnected)
-            return;
-        if (!_devices.TryGetValue(deviceId, out var device))
+        if (snapshot.Length == 0 || !_client.IsConnected)
             return;
 
-        try
+        foreach (var (deviceId, color) in snapshot)
         {
-            _client.SetCustomMode((uint)device.ControllerIndex);
-            _client.SetColor((uint)device.ControllerIndex, device.LedCount, color);
-            device.CurrentColor = color;
-            device.CurrentEffect = "direct";
-        }
-        catch
-        {
-            // Beim nächsten Tick erneut versuchen.
+            if (!_devices.TryGetValue(deviceId, out var device))
+                continue;
+
+            try
+            {
+                // Nur die Farbe senden. Ein erneutes SetCustomMode bei jedem Tick
+                // setzt manche Controller kurz zurück und erzeugt das beobachtete
+                // Flackern (kurz aus bzw. alte Effektfarbe).
+                _client.SetColor((uint)device.ControllerIndex, device.LedCount, color);
+                device.CurrentColor = color;
+                device.CurrentEffect = "direct";
+            }
+            catch
+            {
+                // Beim nächsten Tick erneut versuchen.
+            }
         }
     }
 
@@ -445,6 +455,26 @@ public sealed class RgbService : IDisposable
 
         if (ok)
         {
+            bool direct = string.Equals(effectName, "static", StringComparison.OrdinalIgnoreCase) ||
+                          string.Equals(effectName, "direct", StringComparison.OrdinalIgnoreCase);
+            if (direct)
+            {
+                var keepAliveColor = color ?? (palette.Count > 0 ? palette[0] : (RgbColor?)null);
+                if (keepAliveColor is { } kc)
+                {
+                    device.CurrentColor = kc;
+                    StartColorKeepAlive(deviceId, kc);
+                }
+                else
+                {
+                    StopColorKeepAlive(deviceId);
+                }
+            }
+            else
+            {
+                StopColorKeepAlive(deviceId);
+            }
+
             device.CurrentEffect = effectName;
             if (color is { } cc) device.CurrentColor = cc;
             DevicesChanged?.Invoke();
@@ -647,6 +677,7 @@ public sealed class RgbService : IDisposable
             _keepAliveDisposed = true;
             _keepAliveTimer?.Dispose();
             _keepAliveTimer = null;
+            _keepAliveColors.Clear();
         }
         _client.Dispose();
     }

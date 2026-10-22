@@ -17,6 +17,10 @@ sealed class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        // Kurzlebiger, erhöhter Helfer für die Bildschirmzeit-Freigabe.
+        if (Array.IndexOf(args, "--screen-time-approve") >= 0)
+            return;
+
         // Vor dem ersten Fenster: stabile AUMID + Startmenü-Link registrieren,
         // damit Windows native Desktop-Toasts zustellen kann.
         NotificationService.Initialize();

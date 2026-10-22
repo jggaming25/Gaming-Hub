@@ -20,11 +20,23 @@ const FEATURES = [
   { icon: "🐞", title: "Bugtracker", text: "Probleme direkt melden und den Bearbeitungsstatus im Blick behalten." },
   { icon: "💡", title: "RGB-Beleuchtung", text: "Tastatur, Maus, Lüfter und mehr steuern – mit Farben, Effekten, Zonen und eigenen Profilen." },
   { icon: "🔧", title: "Treiber", text: "Installierte Treiber einsehen, nach Updates suchen und gefundene Aktualisierungen installieren." },
-  { icon: "⏱", title: "Bildschirmzeit", text: "Nutzung pro App verfolgen, Tages- und Wochenlimits setzen, erlaubte Zeiten festlegen und Profile speichern." },
+  { icon: "⏱", title: "Bildschirmzeit", text: "Nutzung pro App verfolgen, Tageslimits pro Wochentag setzen, erlaubte Zeiten festlegen und bei Erreichen aller Monitore sperren." },
   { icon: "🛰", title: "Internet-Checker", text: "Verbindung und Latenz live prüfen – vom Netzwerkadapter über den Router bis ins Internet." }
 ];
 
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: "0.6.0",
+    date: "22.10.2026 18:00",
+    items: [
+      "Spielebibliothek: Apps lassen sich dauerhaft ausblenden. Einträge ohne Installationspfad oder EXE werden automatisch ausgeblendet.",
+      "Bildschirmzeit: Eigene Zeiten und Tageslimits pro Wochentag, Reset um 00:00 Uhr sowie ein grauer Sperrbildschirm auf allen Monitoren inklusive Taskbar.",
+      "Bildschirmzeit: Freigaben für 15–180 Minuten, bis 0 Uhr, volle Stunden oder eigene Minuten – jeweils mit Adminbestätigung und 20 Sekunden Wartezeit.",
+      "Bildschirmzeit: Bei einem App-Limit wird das App-Fenster grau und die App kann nur noch ausgeschaltet werden.",
+      "Premium: Diagramm der täglichen PC-Gesamtnutzung der letzten 4 Wochen.",
+      "Beleuchtung: Kein kurzes Ausflackern und keine ungewollten Farben mehr; alle Geräte behalten ihre Farbe."
+    ]
+  },
   {
     version: "0.5.34",
     date: "22.10.2026 15:35",

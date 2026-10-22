@@ -45,13 +45,25 @@ public sealed partial class ScreenTimeLimitRow : ObservableObject
 
     partial void OnDailyMinutesChanged(int value)
     {
-        _model.DailyMinutes = Math.Clamp(value, 0, 24 * 60);
+        int clamped = Math.Clamp(value, 0, 24 * 60);
+        if (value != clamped)
+        {
+            DailyMinutes = clamped;
+            return;
+        }
+        _model.DailyMinutes = clamped;
         _save();
     }
 
     partial void OnWeeklyMinutesChanged(int value)
     {
-        _model.WeeklyMinutes = Math.Clamp(value, 0, 7 * 24 * 60);
+        int clamped = Math.Clamp(value, 0, 7 * 24 * 60);
+        if (value != clamped)
+        {
+            WeeklyMinutes = clamped;
+            return;
+        }
+        _model.WeeklyMinutes = clamped;
         _save();
     }
 
@@ -64,6 +76,71 @@ public sealed partial class ScreenTimeLimitRow : ObservableObject
     public void SetUsage(string text) => UsageText = text;
 }
 
+/// <summary>Bearbeitbare Regel für einen Wochentag.</summary>
+public sealed partial class ScreenTimeWeekdayRow : ObservableObject
+{
+    private readonly ScreenTimeWeekdayRule _model;
+    private readonly Action _save;
+
+    public DayOfWeek Day => _model.Day;
+    public string DayLabel => _model.Day switch
+    {
+        DayOfWeek.Monday => "Montag",
+        DayOfWeek.Tuesday => "Dienstag",
+        DayOfWeek.Wednesday => "Mittwoch",
+        DayOfWeek.Thursday => "Donnerstag",
+        DayOfWeek.Friday => "Freitag",
+        DayOfWeek.Saturday => "Samstag",
+        _ => "Sonntag"
+    };
+
+    [ObservableProperty] private string _allowedStart;
+    [ObservableProperty] private string _allowedEnd;
+    [ObservableProperty] private int _totalLimitMinutes;
+
+    public ScreenTimeWeekdayRow(ScreenTimeWeekdayRule model, Action save)
+    {
+        _model = model;
+        _save = save;
+        _allowedStart = model.AllowedStart;
+        _allowedEnd = model.AllowedEnd;
+        _totalLimitMinutes = model.TotalLimitMinutes;
+    }
+
+    partial void OnAllowedStartChanged(string value)
+    {
+        _model.AllowedStart = value;
+        _save();
+    }
+
+    partial void OnAllowedEndChanged(string value)
+    {
+        _model.AllowedEnd = value;
+        _save();
+    }
+
+    partial void OnTotalLimitMinutesChanged(int value)
+    {
+        int clamped = Math.Clamp(value, 0, 24 * 60);
+        if (value != clamped)
+        {
+            TotalLimitMinutes = clamped;
+            return;
+        }
+        _model.TotalLimitMinutes = clamped;
+        _save();
+    }
+}
+
+/// <summary>Ein Balken im 4-Wochen-Diagramm der allgemeinen PC-Nutzung.</summary>
+public sealed class ScreenTimeChartBar
+{
+    public string DateLabel { get; init; } = string.Empty;
+    public string ValueText { get; init; } = string.Empty;
+    public double BarHeight { get; init; }
+    public bool IsToday { get; init; }
+}
+
 public partial class ScreenTimeViewModel : ViewModelBase
 {
     private readonly DispatcherTimer _refreshTimer;
@@ -71,6 +148,8 @@ public partial class ScreenTimeViewModel : ViewModelBase
 
     public ObservableCollection<ScreenTimeAppRow> TopApps { get; } = new();
     public ObservableCollection<ScreenTimeLimitRow> Limits { get; } = new();
+    public ObservableCollection<ScreenTimeWeekdayRow> Weekdays { get; } = new();
+    public ObservableCollection<ScreenTimeChartBar> UsageChart { get; } = new();
     public ObservableCollection<ScreenTimeProfile> Profiles { get; } = new();
     public ObservableCollection<string> Processes { get; } = new();
 
@@ -85,6 +164,7 @@ public partial class ScreenTimeViewModel : ViewModelBase
     [ObservableProperty] private ScreenTimeProfile? _selectedProfile;
     [ObservableProperty] private string _topAppName = "–";
     [ObservableProperty] private string _topAppText = "0 min";
+    [ObservableProperty] private string _chartSummaryText = string.Empty;
 
     // Aktives Profil
     [ObservableProperty] private int _dailyLimitMinutes;
@@ -139,6 +219,7 @@ public partial class ScreenTimeViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsPremiumUser));
         OnPropertyChanged(nameof(ShowLimitFeatures));
         OnPropertyChanged(nameof(ShowLimitHint));
+        RefreshUsage();
     }
 
     partial void OnEnabledChanged(bool value)
@@ -156,9 +237,17 @@ public partial class ScreenTimeViewModel : ViewModelBase
     private void RefreshProfileList()
     {
         string? selectedId = SelectedProfile?.Id;
-        Profiles.Clear();
-        foreach (var profile in AppServices.ScreenTime.Profiles)
-            Profiles.Add(profile);
+        var profiles = AppServices.ScreenTime.Profiles;
+
+        bool sameProfiles = Profiles.Count == profiles.Count &&
+                            Profiles.Select(p => p.Id).SequenceEqual(profiles.Select(p => p.Id));
+        if (!sameProfiles)
+        {
+            Profiles.Clear();
+            foreach (var profile in profiles)
+                Profiles.Add(profile);
+        }
+
         SelectedProfile = Profiles.FirstOrDefault(p => p.Id == selectedId)
                           ?? Profiles.FirstOrDefault(p => p.Id == AppServices.ScreenTime.ActiveProfile?.Id);
     }
@@ -180,9 +269,20 @@ public partial class ScreenTimeViewModel : ViewModelBase
         Limits.Clear();
         foreach (var limit in profile.AppLimits)
             Limits.Add(new ScreenTimeLimitRow(limit, SaveLimits));
+
+        Weekdays.Clear();
+        foreach (var rule in profile.Weekdays.OrderBy(r => ((int)r.Day + 6) % 7))
+            Weekdays.Add(new ScreenTimeWeekdayRow(rule, SaveWeekdays));
         _suppressProfileWrite = false;
 
         OnPropertyChanged(nameof(HasLimits));
+    }
+
+    private void SaveWeekdays()
+    {
+        if (_suppressProfileWrite || !IsPremiumUser) return;
+        AppServices.ScreenTime.UpdateActiveProfile(_ => { });
+        RefreshUsage();
     }
 
     private void SaveLimits()
@@ -250,10 +350,38 @@ public partial class ScreenTimeViewModel : ViewModelBase
             int week = service.GetWeekSeconds(row.ProcessName);
             row.SetUsage($"Heute {FormatDuration(today)} · Woche {FormatDuration(week)}");
         }
+
+        RefreshUsageChart(service);
+    }
+
+    private void RefreshUsageChart(ScreenTimeService service)
+    {
+        var totals = service.GetDailyTotals(28);
+        int maxSeconds = Math.Max(60, totals.Count == 0 ? 0 : totals.Max(t => t.Seconds));
+        int sumSeconds = totals.Sum(t => t.Seconds);
+
+        UsageChart.Clear();
+        for (int i = 0; i < totals.Count; i++)
+        {
+            var (date, seconds) = totals[i];
+            double height = seconds <= 0 ? 2 : Math.Max(4, 92.0 * seconds / maxSeconds);
+            UsageChart.Add(new ScreenTimeChartBar
+            {
+                DateLabel = date.ToString("dd.MM"),
+                ValueText = $"{date:dd.MM.yyyy}: {FormatDuration(seconds)}",
+                BarHeight = height,
+                IsToday = date.Date == DateTime.Today
+            });
+        }
+
+        ChartSummaryText = totals.Count == 0
+            ? "Noch keine Nutzungsdaten."
+            : $"Letzte 4 Wochen: {FormatDuration(sumSeconds)} gesamt · Ø {FormatDuration(sumSeconds / totals.Count)} pro Tag";
     }
 
     private static string FormatDuration(int totalSeconds)
     {
+        if (totalSeconds <= 0) return "0 min";
         if (totalSeconds < 60) return "<1 min";
         return $"{Math.Round(totalSeconds / 60.0):0} min";
     }
@@ -339,6 +467,7 @@ public partial class ScreenTimeViewModel : ViewModelBase
         AppServices.ScreenTime.SaveProfile(NewProfileName);
         NewProfileName = string.Empty;
         RefreshProfileList();
+        SelectedProfile = Profiles.FirstOrDefault(p => p.Id == AppServices.ScreenTime.ActiveProfile?.Id);
         LoadActiveProfileIntoUi();
         StatusText = "Profil gespeichert und aktiviert.";
     }
@@ -347,6 +476,12 @@ public partial class ScreenTimeViewModel : ViewModelBase
     private void DeleteProfile()
     {
         if (!IsPremiumUser || SelectedProfile is null) return;
+        if (Profiles.Count <= 1)
+        {
+            StatusText = "Mindestens ein Profil muss erhalten bleiben.";
+            return;
+        }
+
         AppServices.ScreenTime.DeleteProfile(SelectedProfile.Id);
         RefreshProfileList();
         LoadActiveProfileIntoUi();
