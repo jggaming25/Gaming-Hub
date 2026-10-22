@@ -22,6 +22,15 @@ const FEATURES = [
 
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   {
+    version: "0.5.30",
+    date: "22.10.2026 02:20",
+    items: [
+      "Premium: Der Treiber-Tab und der Beleuchtungs-Tab sind jetzt nur noch mit aktivem Premium nutzbar. Admins behalten weiterhin Zugriff.",
+      "Premium: Läuft Premium ab, werden beide Tabs automatisch ausgeblendet; im Profil sind die freigeschalteten Vorteile beschrieben.",
+      "Beleuchtung: Ohne Premium wird OpenRGB nicht mehr automatisch im Hintergrund gestartet."
+    ]
+  },
+  {
     version: "0.5.29",
     date: "22.10.2026 02:07",
     items: [

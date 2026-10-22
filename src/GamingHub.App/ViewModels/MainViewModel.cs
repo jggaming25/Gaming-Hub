@@ -12,6 +12,7 @@ public sealed class NavItem
     public string Glyph { get; init; } = string.Empty;
     public string? FlagKey { get; init; }
     public bool AdminOnly { get; init; }
+    public bool PremiumOnly { get; init; }
     public ViewModelBase ViewModel { get; init; } = null!;
 }
 
@@ -19,6 +20,8 @@ public partial class MainViewModel : ViewModelBase
 {
     private readonly List<NavItem> _allNav = new();
     private NavItem? _lastSelected;
+    private readonly DispatcherTimer _premiumAccessTimer;
+    private bool _lastPremiumAccess;
 
     private readonly Dictionary<string, bool> _flags = new()
     {
@@ -158,9 +161,9 @@ public partial class MainViewModel : ViewModelBase
         _allNav.Add(new NavItem { Title = "Spiele", Glyph = "\uE7FC", FlagKey = "games_enabled", ViewModel = games });
         _allNav.Add(new NavItem { Title = "Disk Cleanup", Glyph = "\uE74D", FlagKey = "cleanup_enabled", ViewModel = cleanup });
         _allNav.Add(new NavItem { Title = "System-Ressourcen", Glyph = "\uE9D9", ViewModel = resources });
-        _allNav.Add(new NavItem { Title = "Treiber", Glyph = "\uE90F", ViewModel = drivers });
+        _allNav.Add(new NavItem { Title = "Treiber", Glyph = "\uE90F", PremiumOnly = true, ViewModel = drivers });
         _allNav.Add(new NavItem { Title = "Internet-Checker", Glyph = "\uE727", FlagKey = "internet_checker_enabled", ViewModel = internetChecker });
-        _allNav.Add(new NavItem { Title = "Beleuchtung", Glyph = "\uE7F4", FlagKey = "lighting_enabled", ViewModel = lighting });
+        _allNav.Add(new NavItem { Title = "Beleuchtung", Glyph = "\uE7F4", PremiumOnly = true, ViewModel = lighting });
         _allNav.Add(new NavItem { Title = "Profil", Glyph = "\uE77B", ViewModel = profile });
         _allNav.Add(new NavItem { Title = "Bugreport", Glyph = "\uE7BA", FlagKey = "bugreport_enabled", ViewModel = bug });
         _allNav.Add(new NavItem { Title = "Hilfe", Glyph = "\uE897", ViewModel = help });
@@ -176,6 +179,15 @@ public partial class MainViewModel : ViewModelBase
         };
 
         AppServices.Profile.Changed += () => Dispatcher.UIThread.Post(() => RebuildNav(_flags));
+
+        _premiumAccessTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
+        _premiumAccessTimer.Tick += (_, _) =>
+        {
+            bool hasPremium = HasActivePremiumAccess;
+            if (hasPremium == _lastPremiumAccess) return;
+            RebuildNav(_flags);
+        };
+        _premiumAccessTimer.Start();
 
         _ = LoadFlagsAsync();
     }
@@ -196,13 +208,16 @@ public partial class MainViewModel : ViewModelBase
     private void RebuildNav(Dictionary<string, bool> flags)
     {
         bool isAdmin = AppServices.Profile?.IsAdmin == true;
-        bool isPremium = AppServices.Profile?.IsPremium == true;
+        bool isPremium = HasActivePremiumAccess;
+        _lastPremiumAccess = isPremium;
         _lastSelected = SelectedNav;
 
         NavItems.Clear();
         foreach (var item in _allNav)
         {
             if (item.AdminOnly && !isAdmin)
+                continue;
+            if (item.PremiumOnly && !isPremium && !isAdmin)
                 continue;
 
             bool enabled = item.FlagKey is null
@@ -219,6 +234,9 @@ public partial class MainViewModel : ViewModelBase
             : NavItems.FirstOrDefault();
     }
 
+    private static bool HasActivePremiumAccess =>
+        AppServices.Profile?.IsPremium == true && AppServices.Profile?.PremiumBanned != true;
+
     partial void OnSelectedNavChanged(NavItem? value)
     {
         SelectedView = value?.ViewModel;
@@ -231,6 +249,9 @@ public partial class MainViewModel : ViewModelBase
 
         if (value?.ViewModel is LightingViewModel lighting)
             lighting.Activate();
+
+        if (value?.ViewModel is DriversViewModel drivers)
+            drivers.Activate();
 
         if (value?.ViewModel is AdminStatsViewModel stats)
             stats.EnsureLoaded();

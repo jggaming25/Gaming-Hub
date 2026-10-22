@@ -149,6 +149,10 @@ public partial class LightingViewModel : ViewModelBase
 
     public bool CanControl => SelectedDevice != null && IsConnected;
 
+    private static bool HasAccess =>
+        AppServices.Profile?.IsAdmin == true ||
+        (AppServices.Premium.IsPremium && !AppServices.Premium.IsPremiumBanned);
+
     public LightingViewModel()
     {
         AppServices.Rgb.DevicesChanged += OnDevicesChanged;
@@ -164,21 +168,24 @@ public partial class LightingViewModel : ViewModelBase
         timer.Tick += (_, _) => Refresh();
         timer.Start();
 
-        _ = UpdateOpenRgbAsync();
-
-        // OpenRGB automatisch mit der App einrichten (einmal pro Sitzung).
-        Activate();
+        // OpenRGB automatisch mit der App einrichten (nur mit aktivem Premium).
+        if (HasAccess)
+            Activate();
     }
 
     /// <summary>Wird aufgerufen, sobald der Beleuchtungs-Tab geöffnet wird.</summary>
     public void Activate()
     {
+        if (!HasAccess)
+            return;
+
         if (_activated)
         {
             Refresh();
             return;
         }
         _activated = true;
+        _ = UpdateOpenRgbAsync();
         _ = EnsureAndLaunchAsync();
     }
 

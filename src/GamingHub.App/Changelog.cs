@@ -8,6 +8,12 @@ public static class Changelog
 {
     public static readonly ChangelogEntry[] Entries =
     {
+        new("0.5.30", "22.10.2026 02:20", new[]
+        {
+            "Premium: Der Treiber-Tab und der Beleuchtungs-Tab sind jetzt nur noch mit aktivem Premium nutzbar. Admins behalten weiterhin Zugriff.",
+            "Premium: Läuft Premium ab, werden beide Tabs automatisch ausgeblendet; im Profil sind die freigeschalteten Vorteile beschrieben.",
+            "Beleuchtung: Ohne Premium wird OpenRGB nicht mehr automatisch im Hintergrund gestartet."
+        }),
         new("0.5.29", "22.10.2026 02:07", new[]
         {
             "Benachrichtigungen: Windows-Toasts informieren jetzt, wenn eine Disk-Cleanup-Prüfung, das Löschen oder der Full Auto Clean abgeschlossen ist.",

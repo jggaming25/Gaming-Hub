@@ -45,6 +45,7 @@ public sealed partial class DriverUpdateRow : ObservableObject
 public partial class DriversViewModel : ViewModelBase
 {
     private List<DriverRow> _allDrivers = new();
+    private bool _activated;
 
     public ObservableCollection<DriverRow> Drivers { get; } = new();
     public ObservableCollection<DriverUpdateRow> Updates { get; } = new();
@@ -64,9 +65,23 @@ public partial class DriversViewModel : ViewModelBase
     partial void OnSearchTextChanged(string value) => ApplyFilter();
     partial void OnIsAdministratorChanged(bool value) => OnPropertyChanged(nameof(IsNotAdministrator));
 
+    private static bool HasAccess =>
+        AppServices.Profile?.IsAdmin == true ||
+        (AppServices.Premium.IsPremium && !AppServices.Premium.IsPremiumBanned);
+
     public DriversViewModel()
     {
         IsAdministrator = DriverUpdateService.IsAdministrator;
+        if (HasAccess)
+            Activate();
+    }
+
+    public void Activate()
+    {
+        if (!HasAccess)
+            return;
+        if (_activated) return;
+        _activated = true;
         _ = RefreshAsync();
     }
 
@@ -74,6 +89,11 @@ public partial class DriversViewModel : ViewModelBase
     private async Task RefreshAsync()
     {
         if (IsLoading) return;
+        if (!HasAccess)
+        {
+            StatusText = "Premium erforderlich.";
+            return;
+        }
         IsLoading = true;
         StatusText = "Lese installierte Treiber über WMI…";
         try
@@ -121,6 +141,11 @@ public partial class DriversViewModel : ViewModelBase
     private async Task CheckUpdatesAsync()
     {
         if (IsCheckingUpdates) return;
+        if (!HasAccess)
+        {
+            UpdateStatusText = "Premium erforderlich.";
+            return;
+        }
         IsCheckingUpdates = true;
         UpdateStatusText = "Frage Windows Update nach Treiber-Updates ab…";
         try
@@ -163,6 +188,11 @@ public partial class DriversViewModel : ViewModelBase
     private async Task InstallUpdateAsync(DriverUpdateRow? row)
     {
         if (row is null || row.IsInstalling || IsInstalling) return;
+        if (!HasAccess)
+        {
+            UpdateStatusText = "Premium erforderlich.";
+            return;
+        }
 
         IsInstalling = true;
         row.IsInstalling = true;
