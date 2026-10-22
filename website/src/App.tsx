@@ -523,8 +523,9 @@ export function App() {
             <span className="feature-note-icon">✨</span>
             <p>
               Einige Funktionen sind in der Basisversion eingeschränkt und in vollem Umfang nur mit
-              <strong> Gaming Hub Premium</strong> verfügbar. Premium lässt sich direkt in der App im
-              Profil freischalten.
+              <strong> Gaming Hub Premium</strong> verfügbar. Premium wird nicht verkauft: Du erhältst es
+              über Freischalt-Codes, die in Posts und Ankündigungen versteckt werden – zum Beispiel auf dem
+              Community-Discord. Den Code löst du in der App unter <strong>Profil</strong> ein.
             </p>
           </div>
 
@@ -599,7 +600,9 @@ export function App() {
             <h3>Nur für Premium-Nutzer</h3>
             <p>
               Die Liste der früheren Versionen ist angemeldeten Nutzern mit aktivem Gaming Hub Premium
-              vorbehalten. Melde dich mit Discord an und schalte Premium in der App im Profil frei.
+              vorbehalten. Premium erhältst du über Freischalt-Codes aus Posts und Ankündigungen, zum
+              Beispiel auf dem Community-Discord. Melde dich mit Discord an und löse den Code in der App
+              unter <strong>Profil</strong> ein.
             </p>
             {!userEmail && supabase && (
               <button className="btn primary" style={{ marginTop: 12 }} onClick={signInDiscord}>
