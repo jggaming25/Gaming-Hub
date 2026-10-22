@@ -143,6 +143,14 @@ public partial class DriversViewModel : ViewModelBase
                     : Updates.Count == 0
                         ? "Keine Treiber-Updates verfügbar – alles aktuell."
                         : $"{Updates.Count} Treiber-Update(s) verfügbar.";
+
+                AppServices.Notifications.ShowCompleted(
+                    "Treiberprüfung abgeschlossen",
+                    error is not null
+                        ? "Windows Update konnte nicht abgefragt werden."
+                        : Updates.Count == 0
+                            ? "Keine Treiber-Updates verfügbar – alles aktuell."
+                            : $"{Updates.Count} Treiber-Update(s) verfügbar.");
             });
         }
         finally
@@ -188,6 +196,10 @@ public partial class DriversViewModel : ViewModelBase
                     UpdateStatusText = result.RebootRequired
                         ? "Treiber installiert – bitte Windows neu starten."
                         : "Treiber erfolgreich installiert.";
+
+                AppServices.Notifications.ShowCompleted(
+                    result.Success ? "Treiberinstallation abgeschlossen" : "Treiberinstallation fehlgeschlagen",
+                    result.Message);
             }
 
             await RefreshAsync();

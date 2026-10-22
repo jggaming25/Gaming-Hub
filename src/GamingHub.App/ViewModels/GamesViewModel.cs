@@ -167,6 +167,9 @@ public partial class GamesViewModel : ViewModelBase
                 _all.Add(new GameItemViewModel(g, AppServices.Games, AppServices.Auth));
             ApplyFilter();
             StatusText = $"{games.Count} Einträge gefunden (vollständiger Scan).";
+            AppServices.Notifications.ShowCompleted(
+                "Spielbibliothek aktualisiert",
+                $"{games.Count} Einträge gefunden.");
             _ = ComputeMissingSizesAsync();
             _ = ResearchUnknownAsync();
             if (games.Any(g => g.Category == GameCategory.Game))

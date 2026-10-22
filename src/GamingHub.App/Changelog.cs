@@ -8,6 +8,12 @@ public static class Changelog
 {
     public static readonly ChangelogEntry[] Entries =
     {
+        new("0.5.29", "22.10.2026 02:07", new[]
+        {
+            "Benachrichtigungen: Windows-Toasts informieren jetzt, wenn eine Disk-Cleanup-Prüfung, das Löschen oder der Full Auto Clean abgeschlossen ist.",
+            "Benachrichtigungen: Auch Treiberprüfung, Treiberinstallation und ein vollständiger Spielbibliothek-Scan melden ihren Abschluss als Windows-Toast.",
+            "Einstellungen: Die Beschreibung der Desktop-Benachrichtigungen nennt jetzt auch abgeschlossene Aufgaben."
+        }),
         new("0.5.28", "22.10.2026 01:39", new[]
         {
             "System-Ressourcen: Die große Laufzeit zählt jetzt seit der letzten Aktivierung – also seit dem letzten Start oder Aufwachen aus dem Standby.",

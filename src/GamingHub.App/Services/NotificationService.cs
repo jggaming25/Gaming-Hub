@@ -19,7 +19,8 @@ public enum NotificationKind
 {
     NewMessage,
     IncomingCall,
-    MissedCall
+    MissedCall,
+    Completed
 }
 
 /// <summary>
@@ -419,6 +420,10 @@ public sealed class NotificationService
     public void Show(string title, string body)
         => Enqueue(NotificationKind.NewMessage, title, body);
 
+    /// <summary>Benachrichtigung, wenn eine längere Aufgabe abgeschlossen ist.</summary>
+    public void ShowCompleted(string title, string body)
+        => Enqueue(NotificationKind.Completed, title, body);
+
     private void Enqueue(NotificationKind kind, string title, string body)
     {
         if (!AppServices.Settings.Settings.DesktopNotificationsEnabled)
@@ -489,6 +494,7 @@ public sealed class NotificationService
             {
                 NotificationKind.NewMessage => "#22D3EE",
                 NotificationKind.IncomingCall => "#4ADE80",
+                NotificationKind.Completed => "#4ADE80",
                 _ => "#F87171"
             };
             var accent = new SolidColorBrush(Color.Parse(winsColors));
@@ -496,6 +502,7 @@ public sealed class NotificationService
             {
                 NotificationKind.IncomingCall => 15,
                 NotificationKind.MissedCall => 8,
+                NotificationKind.Completed => 7,
                 _ => 6
             };
 

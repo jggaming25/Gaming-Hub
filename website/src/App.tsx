@@ -22,6 +22,15 @@ const FEATURES = [
 
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   {
+    version: "0.5.29",
+    date: "22.10.2026 02:07",
+    items: [
+      "Benachrichtigungen: Windows-Toasts informieren jetzt, wenn eine Disk-Cleanup-Prüfung, das Löschen oder der Full Auto Clean abgeschlossen ist.",
+      "Benachrichtigungen: Auch Treiberprüfung, Treiberinstallation und ein vollständiger Spielbibliothek-Scan melden ihren Abschluss als Windows-Toast.",
+      "Einstellungen: Die Beschreibung der Desktop-Benachrichtigungen nennt jetzt auch abgeschlossene Aufgaben."
+    ]
+  },
+  {
     version: "0.5.28",
     date: "22.10.2026 01:39",
     items: [

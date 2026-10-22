@@ -259,6 +259,11 @@ public partial class CleanupViewModel : ViewModelBase
             StatusText = groups.Count == 0
                 ? $"Keine doppelten Dateien gefunden (Dauer: {ElapsedDisplay})."
                 : $"{groups.Count} Gruppen doppelter Dateien gefunden (Dauer: {ElapsedDisplay}).";
+            AppServices.Notifications.ShowCompleted(
+                "Disk-Cleanup abgeschlossen",
+                groups.Count == 0
+                    ? $"Keine doppelten Dateien gefunden · Dauer: {ElapsedDisplay}."
+                    : $"{groups.Count} Gruppen · {WastedDisplay} freigebbar · Dauer: {ElapsedDisplay}.");
         }
         catch (OperationCanceledException)
         {
@@ -296,7 +301,9 @@ public partial class CleanupViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private async Task DeleteSelectedAsync()
+    private Task DeleteSelectedAsync() => DeleteSelectedCoreAsync(fullAuto: false);
+
+    private async Task DeleteSelectedCoreAsync(bool fullAuto)
     {
         var toDelete = new List<string>();
         foreach (var g in Groups)
@@ -319,10 +326,15 @@ public partial class CleanupViewModel : ViewModelBase
         var result = await Task.Run(() =>
             AppServices.FileDeletion.Delete(toDelete, UseRecycleBin));
 
-        StatusText = $"{result.Deleted} Datei(en) gelöscht, {Format.Bytes(result.BytesFreed)} freigegeben." +
-                     (result.Failed > 0 ? $" {result.Failed} fehlgeschlagen." : string.Empty);
+        var summary = $"{result.Deleted} Datei(en) gelöscht, {Format.Bytes(result.BytesFreed)} freigegeben." +
+                      (result.Failed > 0 ? $" {result.Failed} fehlgeschlagen." : string.Empty);
+        StatusText = summary;
         RemoveResolvedGroups();
         UpdateStats();
+
+        AppServices.Notifications.ShowCompleted(
+            fullAuto ? "Full Auto Clean abgeschlossen" : "Disk-Cleanup abgeschlossen",
+            summary);
     }
 
     [RelayCommand]
@@ -337,7 +349,7 @@ public partial class CleanupViewModel : ViewModelBase
         foreach (var g in Groups)
             g.SelectAllButOne();
 
-        await DeleteSelectedAsync();
+        await DeleteSelectedCoreAsync(fullAuto: true);
         StatusText = "Full Auto Clean abgeschlossen. " + StatusText;
     }
 
