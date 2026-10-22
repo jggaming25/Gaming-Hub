@@ -120,7 +120,10 @@
                                         <TextBox Text="{Binding ColorB, Mode=TwoWay}" Width="60" />
                                     </StackPanel>
                                 </Grid>
-                                <TextBlock Grid.Column="2" Text="{Binding ColorHex}" FontSize="13" FontFamily="Consolas" VerticalAlignment="Center" Margin="12,0,0,0" />
+                                <StackPanel Grid.Column="2" Spacing="4" Width="92" Margin="12,0,0,0" VerticalAlignment="Center">
+                                    <TextBlock Text="Hex" FontSize="11" Classes="muted" />
+                                    <TextBox Text="{Binding ColorHexInput, Mode=TwoWay}" FontFamily="Consolas" />
+                                </StackPanel>
                             </Grid>
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <Button Width="26" Height="26" Padding="0" CornerRadius="13" Background="#FF3B3B" BorderThickness="0" Command="{Binding ApplyPresetCommand}" CommandParameter="#FF3B3B" ToolTip.Tip="Rot" />
@@ -135,7 +138,8 @@
                             </StackPanel>
                             <CheckBox Content="Zwei Farben mischen (Verlauf)" IsChecked="{Binding MixEnabled, Mode=TwoWay}" />
 
-                            <StackPanel Spacing="6" IsVisible="{Binding ShowSecondColorControls}">
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="Zweitfarbe" FontWeight="SemiBold" FontSize="13" Margin="0,4,0,0" />
                                 <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
                                     <Border Grid.Column="0" Width="36" Height="36" CornerRadius="8"
                                             Background="{Binding SecondaryColor, Converter={x:Static vm:CommonConverters.ColorToBrush}}" />
@@ -153,8 +157,22 @@
                                             <TextBox Text="{Binding SecondaryB, Mode=TwoWay}" Width="60" />
                                         </StackPanel>
                                     </Grid>
-                                    <TextBlock Grid.Column="2" Text="{Binding SecondaryColorHex}" FontSize="13" FontFamily="Consolas" VerticalAlignment="Center" Margin="12,0,0,0" />
+                                    <StackPanel Grid.Column="2" Spacing="4" Width="92" Margin="12,0,0,0" VerticalAlignment="Center">
+                                        <TextBlock Text="Hex" FontSize="11" Classes="muted" />
+                                        <TextBox Text="{Binding SecondaryColorHexInput, Mode=TwoWay}" FontFamily="Consolas" />
+                                    </StackPanel>
                                 </Grid>
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <Button Width="26" Height="26" Padding="0" CornerRadius="13" Background="#FF3B3B" BorderThickness="0" Command="{Binding ApplySecondaryPresetCommand}" CommandParameter="#FF3B3B" ToolTip.Tip="Rot" />
+                                    <Button Width="26" Height="26" Padding="0" CornerRadius="13" Background="#FF8A00" BorderThickness="0" Command="{Binding ApplySecondaryPresetCommand}" CommandParameter="#FF8A00" ToolTip.Tip="Orange" />
+                                    <Button Width="26" Height="26" Padding="0" CornerRadius="13" Background="#FFD400" BorderThickness="0" Command="{Binding ApplySecondaryPresetCommand}" CommandParameter="#FFD400" ToolTip.Tip="Gelb" />
+                                    <Button Width="26" Height="26" Padding="0" CornerRadius="13" Background="#3DFF7A" BorderThickness="0" Command="{Binding ApplySecondaryPresetCommand}" CommandParameter="#3DFF7A" ToolTip.Tip="Grün" />
+                                    <Button Width="26" Height="26" Padding="0" CornerRadius="13" Background="#00E5FF" BorderThickness="0" Command="{Binding ApplySecondaryPresetCommand}" CommandParameter="#00E5FF" ToolTip.Tip="Cyan" />
+                                    <Button Width="26" Height="26" Padding="0" CornerRadius="13" Background="#3D7BFF" BorderThickness="0" Command="{Binding ApplySecondaryPresetCommand}" CommandParameter="#3D7BFF" ToolTip.Tip="Blau" />
+                                    <Button Width="26" Height="26" Padding="0" CornerRadius="13" Background="#A855F7" BorderThickness="0" Command="{Binding ApplySecondaryPresetCommand}" CommandParameter="#A855F7" ToolTip.Tip="Violett" />
+                                    <Button Width="26" Height="26" Padding="0" CornerRadius="13" Background="#FF3DAE" BorderThickness="0" Command="{Binding ApplySecondaryPresetCommand}" CommandParameter="#FF3DAE" ToolTip.Tip="Pink" />
+                                    <Button Width="26" Height="26" Padding="0" CornerRadius="13" Background="#FFFFFF" BorderThickness="0" Command="{Binding ApplySecondaryPresetCommand}" CommandParameter="#FFFFFF" ToolTip.Tip="Weiß" />
+                                </StackPanel>
 
                                 <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                                     <TextBlock Text="Mischung" FontSize="11" Classes="muted" VerticalAlignment="Center" />

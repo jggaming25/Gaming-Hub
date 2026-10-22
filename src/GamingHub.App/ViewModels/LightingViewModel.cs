@@ -39,10 +39,13 @@ public partial class LightingViewModel : ViewModelBase
     [ObservableProperty] private byte _secondaryR = 0;
     [ObservableProperty] private byte _secondaryG = 128;
     [ObservableProperty] private byte _secondaryB = 255;
+    [ObservableProperty] private string _colorHexInput = "#FF0000";
+    [ObservableProperty] private string _secondaryColorHexInput = "#0080FF";
     [ObservableProperty] private int _colorMix = 50;
     [ObservableProperty] private bool _mixEnabled;
     [ObservableProperty] private int _alternateSeconds = 10;
     private bool _syncingColor;
+    private bool _syncingHex;
 
     public string ColorHex => SelectedColor.ToHex();
     public string SecondaryColorHex => SecondaryColor.ToHex();
@@ -69,6 +72,26 @@ public partial class LightingViewModel : ViewModelBase
     partial void OnSecondaryGChanged(byte value) => NotifySecondaryColorChanged();
     partial void OnSecondaryBChanged(byte value) => NotifySecondaryColorChanged();
     partial void OnColorMixChanged(int value) => NotifySecondaryColorChanged();
+
+    partial void OnColorHexInputChanged(string value)
+    {
+        if (_syncingHex || !TryParseHex(value, out var color)) return;
+        if (string.Equals(color.ToHex(), ColorHex, StringComparison.OrdinalIgnoreCase)) return;
+
+        _syncingHex = true;
+        try { SetColorChannels(color); }
+        finally { _syncingHex = false; }
+    }
+
+    partial void OnSecondaryColorHexInputChanged(string value)
+    {
+        if (_syncingHex || !TryParseHex(value, out var color)) return;
+        if (string.Equals(color.ToHex(), SecondaryColorHex, StringComparison.OrdinalIgnoreCase)) return;
+
+        _syncingHex = true;
+        try { SetSecondaryChannels(color); }
+        finally { _syncingHex = false; }
+    }
 
     partial void OnMixEnabledChanged(bool value)
     {
@@ -99,6 +122,7 @@ public partial class LightingViewModel : ViewModelBase
         if (_syncingColor) return;
         SelectedColor = new RgbColor(ColorR, ColorG, ColorB);
         OnPropertyChanged(nameof(ColorHex));
+        SyncColorHexInput();
         NotifySecondaryColorChanged();
     }
 
@@ -106,6 +130,7 @@ public partial class LightingViewModel : ViewModelBase
     {
         OnPropertyChanged(nameof(SecondaryColor));
         OnPropertyChanged(nameof(SecondaryColorHex));
+        SyncSecondaryColorHexInput();
         OnPropertyChanged(nameof(MixedColor));
         OnPropertyChanged(nameof(MixedColorHex));
         OnPropertyChanged(nameof(HasSecondColor));
@@ -120,6 +145,7 @@ public partial class LightingViewModel : ViewModelBase
         _syncingColor = false;
         SelectedColor = color;
         OnPropertyChanged(nameof(ColorHex));
+        SyncColorHexInput();
         NotifySecondaryColorChanged();
     }
 
@@ -128,6 +154,43 @@ public partial class LightingViewModel : ViewModelBase
         SecondaryR = color.R;
         SecondaryG = color.G;
         SecondaryB = color.B;
+        SyncSecondaryColorHexInput();
+    }
+
+    private void SyncColorHexInput()
+    {
+        if (_syncingHex) return;
+        _syncingHex = true;
+        try { ColorHexInput = ColorHex; }
+        finally { _syncingHex = false; }
+    }
+
+    private void SyncSecondaryColorHexInput()
+    {
+        if (_syncingHex) return;
+        _syncingHex = true;
+        try { SecondaryColorHexInput = SecondaryColorHex; }
+        finally { _syncingHex = false; }
+    }
+
+    private static bool TryParseHex(string? value, out RgbColor color)
+    {
+        color = new RgbColor();
+        if (string.IsNullOrWhiteSpace(value)) return false;
+
+        var hex = value.Trim();
+        if (hex.StartsWith('#')) hex = hex[1..];
+        if (hex.Length != 6) return false;
+
+        try
+        {
+            color = RgbColor.FromHex(hex);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private List<RgbColor> BuildPalette()

@@ -459,7 +459,9 @@ public sealed class NotificationService
                 .GetToastContent();
             var toast = new ToastNotification(content.GetXml())
             {
-                Tag = "gaminghub",
+                // Eindeutiger Tag: Mehrere Limit-Warnungen gleichzeitig sollen
+                // sich nicht gegenseitig in der Windows-Aktionscenter ersetzen.
+                Tag = "gaminghub-" + Guid.NewGuid().ToString("N"),
                 Group = "gaminghub"
             };
             notifier.Show(toast);

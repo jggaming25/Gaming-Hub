@@ -26,6 +26,15 @@ const FEATURES = [
 
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   {
+    version: "0.6.2",
+    date: "22.10.2026 18:11",
+    items: [
+      "Bildschirmzeit: App-Limits greifen auch während einer aktiven Gesamt-/Zeitfreigabe und bei Apps, die nur im Infobereich laufen.",
+      "Bildschirmzeit: 15 und 2 Minuten vor jedem Tages-, Wochen- oder App-Limit erscheint eine einmalige Warnung.",
+      "Beleuchtung: Primär- und Zweitfarbe lassen sich frei per RGB oder Hex wählen; die Vorgabefarben gibt es jetzt auch für die Zweitfarbe."
+    ]
+  },
+  {
     version: "0.6.1",
     date: "22.10.2026 17:34",
     items: [

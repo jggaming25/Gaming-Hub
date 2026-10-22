@@ -29,6 +29,12 @@ public sealed class ScreenTimeData
 
     /// <summary>Anzeigenamen zu Prozessnamen.</summary>
     public Dictionary<string, string> AppNames { get; set; } = new();
+
+    /// <summary>Tag, für den die Limit-Warnungen gespeichert sind (yyyy-MM-dd).</summary>
+    public string? LimitWarningsDate { get; set; }
+
+    /// <summary>Bereits gesendete 15-/2-Minuten-Warnungen des aktuellen Tages.</summary>
+    public List<string> LimitWarningsSent { get; set; } = new();
 }
 
 public sealed class ScreenTimeDay

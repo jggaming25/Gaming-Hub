@@ -8,6 +8,14 @@ public static class Changelog
 {
     public static readonly ChangelogEntry[] Entries =
     {
+        new("0.6.2", "22.10.2026 18:11", new[]
+        {
+            "Bildschirmzeit: App-Limits werden jetzt auch dann durchgesetzt, wenn eine Freigabe für das Gesamt-/Zeitlimit aktiv ist.",
+            "Bildschirmzeit: App-Limits greifen auch bei Apps, die nur im Infobereich oder ohne sichtbares Fenster laufen.",
+            "Bildschirmzeit: 15 und 2 Minuten vor jedem Tages-, Wochen- oder App-Limit erscheint eine einmalige Warnung.",
+            "Beleuchtung: Primär- und Zweitfarbe lassen sich frei über RGB-Werte oder Hex-Code wählen; alle Vorgabefarben gibt es jetzt auch für die Zweitfarbe.",
+            "Version 0.6.2"
+        }),
         new("0.6.1", "22.10.2026 17:34", new[]
         {
             "Bildschirmzeit: App-Limits werden wieder zuverlässig durchgesetzt. Eine alte, nicht mehr sichtbare Tages-Deaktivierung blockiert die Limits nicht mehr.",

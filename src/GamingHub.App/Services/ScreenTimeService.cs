@@ -396,9 +396,14 @@ public sealed class ScreenTimeService : IDisposable
         }
 
         if (canEnforce && enforce)
+        {
             EvaluateBlock(apps);
+            CheckLimitWarnings(apps);
+        }
         else
+        {
             SetBlock(null);
+        }
 
         if (DateTime.Now.Second % 10 == 0)
             Changed?.Invoke();
@@ -413,10 +418,12 @@ public sealed class ScreenTimeService : IDisposable
             if (profile is not null)
             {
                 var now = DateTime.Now;
+                var rule = GetTodayRuleLocked(profile, now);
+
+                // Eine Freigabe gilt nur für die Gesamt-/Zeitlimits. App-Limits
+                // müssen unabhängig davon weiter durchgesetzt werden.
                 if (!IsAccessOverrideActiveLocked(now))
                 {
-                    var rule = GetTodayRuleLocked(profile, now);
-
                     if (profile.BlockOutsideSchedule && !WithinSchedule(rule, now))
                     {
                         block = new ScreenTimeBlock
@@ -432,40 +439,42 @@ public sealed class ScreenTimeService : IDisposable
                             Reason = $"Das Tageslimit von {rule.TotalLimitMinutes} Minuten ist erreicht."
                         };
                     }
-                    else
-                    {
-                        foreach (var app in apps
-                                     .GroupBy(a => a.ProcessName, StringComparer.OrdinalIgnoreCase)
-                                     .Select(g => g.First()))
-                        {
-                            var limit = profile.AppLimits.FirstOrDefault(a =>
-                                a.Enabled && string.Equals(a.ProcessName, app.ProcessName, StringComparison.OrdinalIgnoreCase));
-                            if (limit is null) continue;
+                }
 
-                            int today = GetTodaySecondsLocked(app.ProcessName);
-                            int week = GetWeekSecondsLocked(app.ProcessName);
-                            if (limit.DailyMinutes > 0 && today >= limit.DailyMinutes * 60)
+                if (block is null)
+                {
+                    foreach (var app in GetLimitCandidatesLocked(profile, apps))
+                    {
+                        var limit = profile.AppLimits.FirstOrDefault(a =>
+                            a.Enabled && string.Equals(a.ProcessName, app.ProcessName, StringComparison.OrdinalIgnoreCase));
+                        if (limit is null) continue;
+
+                        var displayName = string.IsNullOrWhiteSpace(app.DisplayName)
+                            ? DisplayNameLocked(app.ProcessName)
+                            : app.DisplayName;
+                        int today = GetTodaySecondsLocked(app.ProcessName);
+                        int week = GetWeekSecondsLocked(app.ProcessName);
+                        if (limit.DailyMinutes > 0 && today >= limit.DailyMinutes * 60)
+                        {
+                            block = new ScreenTimeBlock
                             {
-                                block = new ScreenTimeBlock
-                                {
-                                    ProcessName = app.ProcessName,
-                                    DisplayName = app.DisplayName,
-                                    Reason = $"Für „{app.DisplayName}“ sind {limit.DailyMinutes} Minuten pro Tag erreicht. Die App muss jetzt beendet werden.",
-                                    Kind = ScreenTimeBlockKind.AppLimit
-                                };
-                                break;
-                            }
-                            if (limit.WeeklyMinutes > 0 && week >= limit.WeeklyMinutes * 60)
+                                ProcessName = app.ProcessName,
+                                DisplayName = displayName,
+                                Reason = $"Für „{displayName}“ sind {limit.DailyMinutes} Minuten pro Tag erreicht. Die App muss jetzt beendet werden.",
+                                Kind = ScreenTimeBlockKind.AppLimit
+                            };
+                            break;
+                        }
+                        if (limit.WeeklyMinutes > 0 && week >= limit.WeeklyMinutes * 60)
+                        {
+                            block = new ScreenTimeBlock
                             {
-                                block = new ScreenTimeBlock
-                                {
-                                    ProcessName = app.ProcessName,
-                                    DisplayName = app.DisplayName,
-                                    Reason = $"Für „{app.DisplayName}“ sind {limit.WeeklyMinutes} Minuten pro Woche erreicht. Die App muss jetzt beendet werden.",
-                                    Kind = ScreenTimeBlockKind.AppLimit
-                                };
-                                break;
-                            }
+                                ProcessName = app.ProcessName,
+                                DisplayName = displayName,
+                                Reason = $"Für „{displayName}“ sind {limit.WeeklyMinutes} Minuten pro Woche erreicht. Die App muss jetzt beendet werden.",
+                                Kind = ScreenTimeBlockKind.AppLimit
+                            };
+                            break;
                         }
                     }
                 }
@@ -473,6 +482,148 @@ public sealed class ScreenTimeService : IDisposable
         }
 
         SetBlock(block);
+    }
+
+    /// <summary>
+    /// Prüft alle Limits und zeigt je Limit einmal eine Warnung bei weniger als
+    /// 15 Minuten und einmal bei weniger als 2 Minuten Restzeit. Ist ein Limit
+    /// bereits näher, wird nur die noch sinnvolle Warnung gesendet.
+    /// </summary>
+    private void CheckLimitWarnings(IReadOnlyList<OpenWindowApp> apps)
+    {
+        var warnings = new List<(string Title, string Body)>();
+        lock (_gate)
+        {
+            if (_currentBlock?.Kind == ScreenTimeBlockKind.FullScreen)
+                return;
+
+            var profile = ActiveProfileLocked();
+            if (profile is null)
+                return;
+
+            var now = DateTime.Now;
+            var rule = GetTodayRuleLocked(profile, now);
+
+            if (!IsAccessOverrideActiveLocked(now) && rule.TotalLimitMinutes > 0)
+            {
+                int remaining = rule.TotalLimitMinutes * 60 - GetDayLocked(TodayKey).TotalSeconds;
+                AddLimitWarningLocked(warnings,
+                    $"total:{rule.TotalLimitMinutes}",
+                    remaining,
+                    $"Tageslimit {rule.TotalLimitMinutes} Min.",
+                    "Bildschirmzeit");
+            }
+
+            foreach (var app in GetLimitCandidatesLocked(profile, apps))
+            {
+                var limit = profile.AppLimits.FirstOrDefault(a =>
+                    a.Enabled && string.Equals(a.ProcessName, app.ProcessName, StringComparison.OrdinalIgnoreCase));
+                if (limit is null) continue;
+
+                string displayName = string.IsNullOrWhiteSpace(app.DisplayName)
+                    ? DisplayNameLocked(app.ProcessName)
+                    : app.DisplayName;
+
+                if (limit.DailyMinutes > 0)
+                {
+                    int remaining = limit.DailyMinutes * 60 - GetTodaySecondsLocked(app.ProcessName);
+                    AddLimitWarningLocked(warnings,
+                        $"app:{app.ProcessName}:daily:{limit.DailyMinutes}",
+                        remaining,
+                        $"Tageslimit {limit.DailyMinutes} Min.",
+                        displayName);
+                }
+
+                if (limit.WeeklyMinutes > 0)
+                {
+                    int remaining = limit.WeeklyMinutes * 60 - GetWeekSecondsLocked(app.ProcessName);
+                    AddLimitWarningLocked(warnings,
+                        $"app:{app.ProcessName}:weekly:{limit.WeeklyMinutes}",
+                        remaining,
+                        $"Wochenlimit {limit.WeeklyMinutes} Min.",
+                        displayName);
+                }
+            }
+        }
+
+        foreach (var (title, body) in warnings)
+            AppServices.Notifications.Show(title, body);
+    }
+
+    private void AddLimitWarningLocked(List<(string Title, string Body)> warnings,
+        string key, int remainingSeconds, string limitLabel, string title)
+    {
+        if (remainingSeconds <= 0) return;
+
+        int threshold = remainingSeconds <= 120 ? 2 : remainingSeconds <= 900 ? 15 : 0;
+        if (threshold == 0) return;
+
+        if (_data.LimitWarningsDate != TodayKey)
+        {
+            _data.LimitWarningsDate = TodayKey;
+            _data.LimitWarningsSent.Clear();
+        }
+
+        string sentKey = $"{key}:{threshold}";
+        if (_data.LimitWarningsSent.Contains(sentKey, StringComparer.OrdinalIgnoreCase))
+            return;
+
+        _data.LimitWarningsSent.Add(sentKey);
+        MarkDirty();
+
+        string body = threshold == 2
+            ? $"{limitLabel}: In weniger als 2 Minuten ist das Limit erreicht."
+            : $"{limitLabel}: In weniger als 15 Minuten ist das Limit erreicht.";
+        warnings.Add((title, body));
+    }
+
+    /// <summary>
+    /// Liefert alle Apps, für die ein Limit gelten kann: sichtbare Fenster und
+    /// zusätzlich laufende Prozesse, die z. B. nur im Infobereich laufen.
+    /// </summary>
+    private List<OpenWindowApp> GetLimitCandidatesLocked(ScreenTimeProfile profile,
+        IReadOnlyList<OpenWindowApp> apps)
+    {
+        var result = new Dictionary<string, OpenWindowApp>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var app in apps)
+        {
+            if (!string.IsNullOrWhiteSpace(app.ProcessName) && !result.ContainsKey(app.ProcessName))
+                result[app.ProcessName] = app;
+        }
+
+        foreach (var limit in profile.AppLimits)
+        {
+            if (!limit.Enabled || string.IsNullOrWhiteSpace(limit.ProcessName))
+                continue;
+            if (result.ContainsKey(limit.ProcessName) || !IsProcessRunning(limit.ProcessName))
+                continue;
+
+            string displayName = string.IsNullOrWhiteSpace(limit.DisplayName)
+                ? DisplayNameLocked(limit.ProcessName)
+                : limit.DisplayName;
+            result[limit.ProcessName] = new OpenWindowApp(limit.ProcessName, displayName);
+        }
+
+        return result.Values.ToList();
+    }
+
+    private static bool IsProcessRunning(string processName)
+    {
+        try
+        {
+            var processes = Process.GetProcessesByName(processName);
+            try { return processes.Length > 0; }
+            finally
+            {
+                foreach (var process in processes)
+                    process.Dispose();
+            }
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private void SetBlock(ScreenTimeBlock? block)
@@ -605,6 +756,8 @@ public sealed class ScreenTimeService : IDisposable
         _data.AccessOverrideUntil = 0;
         _data.DisabledForDate = null;
         _data.SnoozeUntil.Clear();
+        _data.LimitWarningsDate = today;
+        _data.LimitWarningsSent.Clear();
         MarkDirty();
     }
 
@@ -748,6 +901,12 @@ public sealed class ScreenTimeService : IDisposable
         _data.Days ??= new Dictionary<string, ScreenTimeDay>();
         _data.SnoozeUntil ??= new Dictionary<string, long>();
         _data.AppNames ??= new Dictionary<string, string>();
+        _data.LimitWarningsSent ??= new List<string>();
+        if (_data.LimitWarningsDate != TodayKey)
+        {
+            _data.LimitWarningsDate = TodayKey;
+            _data.LimitWarningsSent.Clear();
+        }
 
         // Frühere Versionen konnten die Bildschirmzeit für den Rest des Tages
         // deaktivieren. Diese Option gibt es in der UI nicht mehr; ein alter
