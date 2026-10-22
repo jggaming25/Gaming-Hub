@@ -25,12 +25,14 @@ public static class AppServices
     public static PremiumService Premium { get; }
     public static BadgeService Badges { get; }
     public static BugService Bugs { get; }
+    public static ScreenTimeService ScreenTime { get; }
     public static NotificationService Notifications { get; } = new();
 
     public static void Shutdown()
     {
         Internet.Stop();
         History.Stop();
+        ScreenTime.Stop();
         Rgb.Disconnect();
         Auth.Stop();
         Notifications.Shutdown();
@@ -50,6 +52,19 @@ public static class AppServices
         {
             // ignore
         }
+    }
+
+    /// <summary>Öffnet die Gmail-Weboberfläche zum Verfassen einer E-Mail.
+    /// So wird nicht der Standard-Mailclient (z. B. Opera) geöffnet.</summary>
+    public static void OpenEmail(string address, string subject = "", string? body = null)
+    {
+        string url = "https://mail.google.com/mail/?view=cm&fs=1&to=" +
+                     Uri.EscapeDataString(address);
+        if (!string.IsNullOrWhiteSpace(subject))
+            url += "&su=" + Uri.EscapeDataString(subject);
+        if (!string.IsNullOrWhiteSpace(body))
+            url += "&body=" + Uri.EscapeDataString(body);
+        OpenBrowser(url);
     }
 
     static AppServices()
@@ -72,6 +87,8 @@ public static class AppServices
         Badges.EvaluateAutomatic(Settings.Settings.FirstEverLaunchUtc);
         Premium = new PremiumService();
         Bugs = new BugService();
+        ScreenTime = new ScreenTimeService(Settings.DataDirectory);
         Internet.Start();
+        ScreenTime.Start();
     }
 }

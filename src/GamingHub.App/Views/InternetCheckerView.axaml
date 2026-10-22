@@ -65,8 +65,18 @@
         <!-- Main content -->
         <ScrollViewer Grid.Row="1" Padding="0,0,8,0">
             <StackPanel Spacing="12">
+                <!-- Basis-Hinweis -->
+                <Border Classes="card" Padding="16" IsVisible="{Binding ShowPremiumHint}"
+                        Background="#141A33" BorderBrush="#22D3EE55" BorderThickness="1">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="🔒 Vollständiger Verbindungspfad mit Premium" FontWeight="SemiBold" FontSize="14" />
+                        <TextBlock Text="In der Basisversion siehst du den Online-Status, die Latenz und die wichtigsten Live-Werte. Der komplette Pfad bis zum Download-Test, die Ausfall-Einschätzung und der Verlauf sind mit Premium verfügbar."
+                                   Classes="muted" FontSize="12" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+
                 <!-- Visual path test (gerahmtes Diagramm) -->
-                <Border Padding="16" CornerRadius="12"
+                <Border Padding="16" CornerRadius="12" IsVisible="{Binding ShowFullDetails}"
                         Background="#0A0E1F" BorderBrush="#22D3EE66" BorderThickness="1">
                     <StackPanel Spacing="12">
                         <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
@@ -142,7 +152,7 @@
                 </Border>
 
                 <!-- Assessment -->
-                <Border Classes="card" Padding="16" Background="#0C1120">
+                <Border Classes="card" Padding="16" Background="#0C1120" IsVisible="{Binding ShowFullDetails}">
                     <StackPanel Spacing="6">
                         <TextBlock Text="📊 Ausfall-Einschätzung (letzte 24 h)" FontWeight="SemiBold" FontSize="14" />
                         <TextBlock Text="{Binding AssessmentText}" TextWrapping="Wrap" FontSize="13" LineHeight="22" />
@@ -150,7 +160,7 @@
                 </Border>
 
                 <!-- History charts (scrollbar: 1 Woche frei, 4 Wochen Premium) -->
-                <Border Classes="card" Padding="16" IsVisible="{Binding HasHistory}">
+                <Border Classes="card" Padding="16" IsVisible="{Binding ShowHistory}">
                     <StackPanel Spacing="12">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <TextBlock Text="Verlauf (scrollbar)" FontWeight="SemiBold" FontSize="14" VerticalAlignment="Center" />
@@ -272,7 +282,7 @@
                 </Border>
 
                 <!-- No history -->
-                <Border Classes="card" Padding="24" IsVisible="{Binding !HasHistory}">
+                <Border Classes="card" Padding="24" IsVisible="{Binding ShowNoHistory}">
                     <StackPanel Spacing="8" HorizontalAlignment="Center">
                         <TextBlock Text="📭" FontSize="32" />
                         <TextBlock Text="Noch keine Internet-Daten aufgezeichnet." FontSize="14" HorizontalAlignment="Center" />

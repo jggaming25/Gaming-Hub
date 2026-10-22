@@ -5,6 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Gaming Hub – Dein Gaming-Dashboard</title>
     <meta name="description" content="Gaming Hub – Spielebibliothek, Disk-Cleanup, System-Check und Bugtracker. Von Gamern für Gamer." />
+    <script>
+      (function () {
+        var params = new URLSearchParams(window.location.search);
+        if (params.get("gh_oauth") !== "1") return;
+        params.delete("gh_oauth");
+        var query = params.toString();
+        window.location.replace(
+          "http://localhost:51555/callback" + (query ? "?" + query : "")
+        );
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

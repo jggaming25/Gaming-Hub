@@ -163,12 +163,14 @@ public partial class MainViewModel : ViewModelBase
         InternetCheckerViewModel = internetChecker;
         var drivers = new DriversViewModel();
         var lighting = new LightingViewModel();
+        var screenTime = new ScreenTimeViewModel();
         var adminStats = new AdminStatsViewModel();
 
         _allNav.Add(new NavItem { Title = "Spiele", Glyph = "\uE7FC", FlagKey = "games_enabled", ViewModel = games });
-        _allNav.Add(new NavItem { Title = "Disk Cleanup", Glyph = "\uE74D", FlagKey = "cleanup_enabled", ViewModel = cleanup });
         _allNav.Add(new NavItem { Title = "System-Ressourcen", Glyph = "\uE9D9", ViewModel = resources });
+        _allNav.Add(new NavItem { Title = "Disk Cleanup", Glyph = "\uE74D", FlagKey = "cleanup_enabled", ViewModel = cleanup });
         _allNav.Add(new NavItem { Title = "Treiber", Glyph = "\uE90F", PremiumOnly = true, ViewModel = drivers });
+        _allNav.Add(new NavItem { Title = "Bildschirmzeit", Glyph = "\uE916", PremiumOnly = true, ViewModel = screenTime });
         _allNav.Add(new NavItem { Title = "Internet-Checker", Glyph = "\uE727", FlagKey = "internet_checker_enabled", ViewModel = internetChecker });
         _allNav.Add(new NavItem { Title = "Beleuchtung", Glyph = "\uE7F4", PremiumOnly = true, ViewModel = lighting });
         _allNav.Add(new NavItem { Title = "Profil", Glyph = "\uE77B", ViewModel = profile });

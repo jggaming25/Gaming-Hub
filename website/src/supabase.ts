@@ -2,7 +2,14 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { SUPABASE_URL, SUPABASE_ANON_KEY, isSupabaseConfigured } from "./config";
 
 export const supabase: SupabaseClient | null = isSupabaseConfigured
-  ? createClient(SUPABASE_URL as string, SUPABASE_ANON_KEY as string)
+  ? createClient(SUPABASE_URL as string, SUPABASE_ANON_KEY as string, {
+      auth: {
+        flowType: "pkce",
+        detectSessionInUrl: true,
+        persistSession: true,
+        autoRefreshToken: true
+      }
+    })
   : null;
 
 export type BugStatus = "open" | "in_progress" | "done" | "rejected";
@@ -103,6 +110,28 @@ export async function isCurrentUserAdmin(): Promise<boolean> {
     .eq("id", uid)
     .maybeSingle();
   return Boolean(profile?.is_admin);
+}
+
+/// <summary>Prüft, ob der angemeldete Nutzer aktives Premium hat (inkl. unbegrenzt).</summary>
+export async function isCurrentUserPremium(): Promise<boolean> {
+  if (!supabase) return false;
+  const { data: userData } = await supabase.auth.getUser();
+  const uid = userData.user?.id;
+  if (!uid) return false;
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("premium_until,premium_banned")
+    .eq("id", uid)
+    .maybeSingle();
+
+  if (!profile || profile.premium_banned) return false;
+  const until = profile.premium_until as string | null;
+  if (!until) return false;
+  if (until.toLowerCase() === "infinity") return true;
+
+  const date = new Date(until);
+  return !Number.isNaN(date.getTime()) && date.getTime() > Date.now();
 }
 
 export async function fetchProfiles(): Promise<{ profiles: Profile[]; error?: string }> {

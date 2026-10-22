@@ -8,6 +8,7 @@ using Avalonia.Threading;
 using GamingHub.App.Services;
 using GamingHub.App.ViewModels;
 using GamingHub.App.Views;
+using GamingHub.Core.Models;
 using System.Threading;
 
 namespace GamingHub.App;
@@ -15,6 +16,7 @@ namespace GamingHub.App;
 public partial class App : Application
 {
     private EventWaitHandle? _showWindowSignal;
+    private static ScreenTimeBlockWindow? _blockWindow;
 
     public override void Initialize()
     {
@@ -176,9 +178,15 @@ public partial class App : Application
             var main = new MainWindow { DataContext = new MainViewModel() };
             desktop.MainWindow = main;
             main.Show();
+
+            // Bildschirmzeit-Sperre an die Oberfläche binden (Topmost-Fenster).
+            AppServices.ScreenTime.BlockChanged += OnScreenTimeBlockChanged;
+
             desktop.Exit += (_, _) =>
             {
                 AppServices.Games.SavePlaytime();
+                Dispatcher.UIThread.Invoke(() => _blockWindow?.CloseForced());
+                AppServices.ScreenTime.BlockChanged -= OnScreenTimeBlockChanged;
                 AppServices.Shutdown();
             };
 
@@ -237,6 +245,32 @@ public partial class App : Application
             LogService.Info($"Startsequenz abgebrochen oder zu langsam – Hauptfenster wird trotzdem geöffnet ({ex.GetType().Name}).");
             return new UpdateCheckResult(false, null, null, null);
         }
+    }
+
+    private static void OnScreenTimeBlockChanged(ScreenTimeBlock? block)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (block is null)
+            {
+                if (_blockWindow is { IsVisible: true })
+                    _blockWindow.CloseForced();
+                _blockWindow = null;
+                return;
+            }
+
+            if (_blockWindow is null)
+            {
+                var window = new ScreenTimeBlockWindow();
+                window.SnoozeRequested += minutes => AppServices.ScreenTime.GrantSnooze(minutes);
+                window.DisableRequested += AppServices.ScreenTime.DisableForToday;
+                _blockWindow = window;
+                window.Show();
+            }
+
+            _blockWindow.Update(block);
+            _blockWindow.Activate();
+        });
     }
 
     private static void ShowFatal(IClassicDesktopStyleApplicationLifetime desktop, Exception ex)

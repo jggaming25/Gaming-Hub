@@ -8,6 +8,16 @@ public static class Changelog
 {
     public static readonly ChangelogEntry[] Entries =
     {
+        new("0.5.33", "22.10.2026 15:00", new[]
+        {
+            "Neu: Bildschirmzeit – Nutzung pro App verfolgen, Tages- und Wochenlimits festlegen, erlaubte Zeitfenster definieren und eigene Profile speichern. Bei erreichtem Limit erscheint ein Sperrbildschirm mit „15 Minuten hinzufügen“ und „Für heute ausschalten“.",
+            "Premium: Bildschirmzeit ist exklusiv für Premium-Nutzer; Admins behalten vollen Zugriff. Das Internet-Checker-Diagramm, die Bewertung und der Verlauf sind jetzt ebenfalls Premium-Funktionen.",
+            "Beleuchtung: Geräte werden beim Aktualisieren nicht mehr zurückgesetzt; die Auswahl bleibt stabil. „Farbwechsel“ ist jetzt direkt als Effekt wählbar, und Farben werden erst mit „Farbe anwenden“ bzw. „Effekt anwenden“ übernommen.",
+            "Beleuchtung: Die Zweitfarbe bleibt beim Wechsel des Effekts erhalten und wird zusammen mit Farbwechsel-Profilen gespeichert.",
+            "Anmeldung: Der Discord-Login nutzt eine zuverlässige Weiterleitung über die Website sowie IPv6- und IPv4-Unterstützung am lokalen Rückkehr-Port.",
+            "E-Mail: Support- und Bugreport-Links öffnen jetzt zuverlässig einen vorbereiteten Gmail-Entwurf statt eines möglicherweise fehlenden Standard-Mailprogramms.",
+            "Navigation: Die Tabs sind jetzt logisch sortiert – von Spiele und System über Wartung und Premium-Funktionen bis zu Hilfe, Einstellungen und Statistik."
+        }),
         new("0.5.32", "22.10.2026 02:50", new[]
         {
             "Update-Suche: Die App nutzt jetzt den offiziellen Release-Feed statt der GitHub-API. Dadurch funktioniert die Suche auch dann zuverlässig, wenn das GitHub-API-Limit erreicht ist (Fehler 403).",

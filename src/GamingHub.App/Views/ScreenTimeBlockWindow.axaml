@@ -1,0 +1,43 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        x:Class="GamingHub.App.Views.ScreenTimeBlockWindow"
+        Title="Bildschirmzeit-Limit"
+        Width="560" Height="380"
+        CanResize="False"
+        WindowDecorations="None"
+        Topmost="True"
+        ShowInTaskbar="True"
+        WindowStartupLocation="CenterScreen"
+        Background="#0B0D1A">
+
+    <Border Margin="1" CornerRadius="14" Background="{DynamicResource PanelBrush}"
+            BorderBrush="{DynamicResource AccentGradient}" BorderThickness="1.5">
+        <StackPanel Spacing="16" Margin="30,26">
+            <Border Width="72" Height="72" CornerRadius="36" HorizontalAlignment="Center"
+                    Background="#22F87171" BorderBrush="#55F87171" BorderThickness="1">
+                <TextBlock Text="⏱" FontSize="34" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+
+            <TextBlock Text="Bildschirmzeit-Limit erreicht" FontSize="22" FontWeight="Bold"
+                       HorizontalAlignment="Center" TextAlignment="Center" />
+            <TextBlock x:Name="AppNameText" FontSize="15" FontWeight="SemiBold" HorizontalAlignment="Center"
+                       TextAlignment="Center" Foreground="{DynamicResource AccentGradient}" />
+            <TextBlock x:Name="ReasonText" FontSize="13.5" Classes="muted" HorizontalAlignment="Center"
+                       TextAlignment="Center" TextWrapping="Wrap" LineHeight="21" />
+
+            <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center" Margin="0,6,0,0">
+                <Button Content="15 Minuten hinzufügen" Classes="accent" Padding="18,11"
+                        Click="OnSnooze" Cursor="Hand" />
+                <Button Content="Für heute ausschalten" Classes="ghost" Padding="18,11"
+                        Click="OnDisable" Cursor="Hand" />
+            </StackPanel>
+
+            <TextBlock Text="Du kannst die Limits jederzeit in Gaming Hub unter „Bildschirmzeit“ anpassen."
+                       FontSize="11" Classes="muted" HorizontalAlignment="Center" TextAlignment="Center"
+                       TextWrapping="Wrap" />
+        </StackPanel>
+    </Border>
+</Window>

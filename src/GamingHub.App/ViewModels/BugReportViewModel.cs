@@ -93,17 +93,14 @@ $@"### Kategorie
     private void OpenEmailReport()
     {
         string subject = "[Gaming Hub Bug] " + Title;
-        string url = $"mailto:genzmannjann@gmail.com" +
-                     $"?subject={Uri.EscapeDataString(subject)}" +
-                     $"&body={Uri.EscapeDataString(BuildBody())}";
         try
         {
-            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
-            StatusText = "E-Mail mit dem Bugreport wurde zum Absenden geöffnet.";
+            AppServices.OpenEmail("genzmannjann@gmail.com", subject, BuildBody());
+            StatusText = "E-Mail mit dem Bugreport wurde in Gmail zum Absenden geöffnet.";
         }
         catch (Exception ex)
         {
-            StatusText = "Konnte E-Mail-Programm nicht öffnen: " + ex.Message;
+            StatusText = "Konnte die E-Mail nicht öffnen: " + ex.Message;
         }
     }
 

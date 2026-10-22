@@ -365,7 +365,8 @@ public partial class SettingsViewModel : ViewModelBase
     private void OpenReleases() => Open(AppInfo.ReleasesUrl);
 
     [RelayCommand]
-    private void OpenContactEmail() => Open($"mailto:{ContactEmail}");
+    private void OpenContactEmail() =>
+        AppServices.OpenEmail(ContactEmail, "Gaming Hub Kontakt");
 
     [RelayCommand]
     private void OpenLicense() => Open(AppInfo.LicenseUrl);

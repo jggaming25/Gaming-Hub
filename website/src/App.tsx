@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { supabase, isCurrentUserAdmin, isDownloadsEnabled } from "./supabase";
+import { supabase, isCurrentUserAdmin, isCurrentUserPremium, isDownloadsEnabled } from "./supabase";
 import { BugTracker } from "./BugTracker";
 import { Admin } from "./Admin";
 import {
@@ -17,10 +17,27 @@ const FEATURES = [
   { icon: "🧹", title: "Disk Cleanup", text: "Doppelte Dateien finden und mit einem Klick aufräumen – sicher über den Papierkorb." },
   { icon: "📊", title: "System-Check", text: "Live CPU-, RAM-, Netzwerk- und Festplatten-Auslastung plus Einschätzung, welche Spiele auf deinem PC laufen." },
   { icon: "🏆", title: "Abzeichen", text: "Sammle Erfolge, z. B. das Early-Bird-Abzeichen für frühe Nutzer 2026." },
-  { icon: "🐞", title: "Bugtracker", text: "Probleme direkt melden und den Bearbeitungsstatus im Blick behalten." }
+  { icon: "🐞", title: "Bugtracker", text: "Probleme direkt melden und den Bearbeitungsstatus im Blick behalten." },
+  { icon: "💡", title: "RGB-Beleuchtung", text: "Tastatur, Maus, Lüfter und mehr steuern – mit Farben, Effekten, Zonen und eigenen Profilen." },
+  { icon: "🔧", title: "Treiber", text: "Installierte Treiber einsehen, nach Updates suchen und gefundene Aktualisierungen installieren." },
+  { icon: "⏱", title: "Bildschirmzeit", text: "Nutzung pro App verfolgen, Tages- und Wochenlimits setzen, erlaubte Zeiten festlegen und Profile speichern." },
+  { icon: "🛰", title: "Internet-Checker", text: "Verbindung und Latenz live prüfen – vom Netzwerkadapter über den Router bis ins Internet." }
 ];
 
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: "0.5.33",
+    date: "22.10.2026 15:00",
+    items: [
+      "Neu: Bildschirmzeit – Nutzung pro App verfolgen, Tages- und Wochenlimits festlegen, erlaubte Zeitfenster definieren und eigene Profile speichern. Bei erreichtem Limit erscheint ein Sperrbildschirm mit \"15 Minuten hinzufügen\" und \"Für heute ausschalten\".",
+      "Premium: Bildschirmzeit ist exklusiv für Premium-Nutzer; Admins behalten vollen Zugriff. Das Internet-Checker-Diagramm, die Bewertung und der Verlauf sind jetzt ebenfalls Premium-Funktionen.",
+      "Beleuchtung: Geräte werden beim Aktualisieren nicht mehr zurückgesetzt; die Auswahl bleibt stabil. \"Farbwechsel\" ist jetzt direkt als Effekt wählbar, und Farben werden erst mit \"Farbe anwenden\" bzw. \"Effekt anwenden\" übernommen.",
+      "Beleuchtung: Die Zweitfarbe bleibt beim Wechsel des Effekts erhalten und wird zusammen mit Farbwechsel-Profilen gespeichert.",
+      "Anmeldung: Der Discord-Login nutzt eine zuverlässige Weiterleitung über die Website sowie IPv6- und IPv4-Unterstützung am lokalen Rückkehr-Port.",
+      "E-Mail: Support- und Bugreport-Links öffnen jetzt zuverlässig einen vorbereiteten Gmail-Entwurf statt eines möglicherweise fehlenden Standard-Mailprogramms.",
+      "Navigation: Die Tabs sind jetzt logisch sortiert – von Spiele und System über Wartung und Premium-Funktionen bis zu Hilfe, Einstellungen und Statistik."
+    ]
+  },
   {
     version: "0.5.32",
     date: "22.10.2026 02:50",
@@ -339,6 +356,7 @@ function parseHash(): Page {
 export function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isPremium, setIsPremium] = useState(false);
   const [page, setPage] = useState<Page>(parseHash());
   const [downloadsEnabled, setDownloadsEnabled] = useState(true);
   const [releases, setReleases] = useState<ReleaseInfo[]>([]);
@@ -358,8 +376,13 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (session) void isCurrentUserAdmin().then(setIsAdmin);
-    else setIsAdmin(false);
+    if (session) {
+      void isCurrentUserAdmin().then(setIsAdmin);
+      void isCurrentUserPremium().then(setIsPremium);
+    } else {
+      setIsAdmin(false);
+      setIsPremium(false);
+    }
   }, [session]);
 
   useEffect(() => {
@@ -371,6 +394,7 @@ export function App() {
   }, []);
 
   const userEmail = session?.user?.email;
+  const canViewVersions = Boolean(session) && (isPremium || isAdmin);
 
   const signInDiscord = () => {
     void supabase?.auth.signInWithOAuth({
@@ -397,9 +421,11 @@ export function App() {
           <button className={"navlink" + (page === "changelog" ? " active" : "")} onClick={() => go("changelog")}>
             Änderungsverlauf
           </button>
-          <button className={"navlink" + (page === "versionen" ? " active" : "")} onClick={() => go("versionen")}>
-            Frühere Versionen
-          </button>
+          {canViewVersions && (
+            <button className={"navlink" + (page === "versionen" ? " active" : "")} onClick={() => go("versionen")}>
+              Frühere Versionen
+            </button>
+          )}
           <button className={"navlink" + (page === "bugtracker" ? " active" : "")} onClick={() => go("bugtracker")}>
             Bugtracker
           </button>
@@ -484,6 +510,15 @@ export function App() {
             ))}
           </section>
 
+          <div className="feature-note">
+            <span className="feature-note-icon">✨</span>
+            <p>
+              Einige Funktionen sind in der Basisversion eingeschränkt und in vollem Umfang nur mit
+              <strong> Gaming Hub Premium</strong> verfügbar. Premium lässt sich direkt in der App im
+              Profil freischalten.
+            </p>
+          </div>
+
           <section className="wide" id="neu" style={{ margin: "30px 0" }}>
             <h2 className="section-title">Zuletzt dazugekommen</h2>
             <div className="changelog">
@@ -548,7 +583,25 @@ export function App() {
         </section>
       )}
 
-{page === "versionen" && (
+      {page === "versionen" && !canViewVersions && (
+        <section id="versionen" style={{ marginTop: "24px" }}>
+          <h2 className="section-title">Frühere Versionen</h2>
+          <div className="card">
+            <h3>Nur für Premium-Nutzer</h3>
+            <p>
+              Die Liste der früheren Versionen ist angemeldeten Nutzern mit aktivem Gaming Hub Premium
+              vorbehalten. Melde dich mit Discord an und schalte Premium in der App im Profil frei.
+            </p>
+            {!userEmail && supabase && (
+              <button className="btn primary" style={{ marginTop: 12 }} onClick={signInDiscord}>
+                Mit Discord anmelden
+              </button>
+            )}
+          </div>
+        </section>
+      )}
+
+      {page === "versionen" && canViewVersions && (
         <section id="versionen" style={{ marginTop: "24px" }}>
           <h2 className="section-title">Frühere Versionen</h2>
           <p className="muted small">

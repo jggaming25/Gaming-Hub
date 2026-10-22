@@ -1,0 +1,191 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:GamingHub.App.ViewModels"
+             xmlns:models="using:GamingHub.Core.Models"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="1100" d:DesignHeight="700"
+             x:Class="GamingHub.App.Views.ScreenTimeView"
+             x:DataType="vm:ScreenTimeViewModel">
+
+    <Grid RowDefinitions="Auto,*" Margin="8">
+        <Border Grid.Row="0" Classes="card" Padding="16" Margin="0,0,0,8">
+            <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <TextBlock Text="⏱" FontSize="24" VerticalAlignment="Center" />
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="Bildschirmzeit" FontSize="20" FontWeight="Bold" />
+                        <TextBlock Text="Nutzung beobachten, Limits und erlaubte Zeiten festlegen."
+                                   Classes="muted" FontSize="12" />
+                    </StackPanel>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
+                    <CheckBox Content="Erfassung aktiv" IsChecked="{Binding Enabled, Mode=TwoWay}" />
+                    <CheckBox Content="Limits durchsetzen" IsChecked="{Binding Enforce, Mode=TwoWay}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <ScrollViewer Grid.Row="1" Padding="0,0,8,0">
+            <StackPanel Spacing="12">
+                <!-- Übersicht -->
+                <Grid ColumnDefinitions="*,*,*" ColumnSpacing="12">
+                    <Border Grid.Column="0" Classes="card" Padding="16">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Heute insgesamt" Classes="muted" FontSize="12" />
+                            <TextBlock Text="{Binding TodayTotalText}" FontSize="26" FontWeight="Bold" />
+                            <TextBlock Text="{Binding TodayDateText}" Classes="muted" FontSize="11" />
+                        </StackPanel>
+                    </Border>
+                    <Border Grid.Column="1" Classes="card" Padding="16">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Aktives Profil" Classes="muted" FontSize="12" />
+                            <TextBlock Text="{Binding ActiveProfileName}" FontSize="20" FontWeight="Bold" />
+                            <TextBlock Text="{Binding DailyLimitMinutes, StringFormat='Tageslimit: {0} min'}"
+                                       Classes="muted" FontSize="11" />
+                        </StackPanel>
+                    </Border>
+                    <Border Grid.Column="2" Classes="card" Padding="16">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Status" Classes="muted" FontSize="12" />
+                            <TextBlock Text="{Binding Enforce, Converter={x:Static vm:CommonConverters.BoolToText}, ConverterParameter=Limits aktiv:Limits aus}"
+                                       FontSize="20" FontWeight="Bold" />
+                            <TextBlock Text="{Binding StatusText}" Classes="muted" FontSize="11" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <!-- Nutzung + Limits -->
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                    <Border Grid.Column="0" Classes="card" Padding="16">
+                        <StackPanel Spacing="10">
+                            <TextBlock Text="📊 Meistgenutzte Apps (heute)" FontWeight="SemiBold" FontSize="15" />
+                            <TextBlock Text="Noch keine Nutzung erfasst." Classes="muted" FontSize="12"
+                                       IsVisible="{Binding !HasTopApps}" />
+                            <ItemsControl ItemsSource="{Binding TopApps}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:ScreenTimeAppRow">
+                                        <Border Classes="card" Background="#0B0D1A" Padding="10" Margin="0,3">
+                                            <Grid ColumnDefinitions="*,Auto,Auto" VerticalAlignment="Center">
+                                                <StackPanel Grid.Column="0" Spacing="2">
+                                                    <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="13" />
+                                                    <TextBlock Text="{Binding ProcessName}" Classes="muted" FontSize="10" />
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="1" Spacing="2" Margin="12,0">
+                                                    <TextBlock Text="{Binding TodayText}" FontSize="13" FontWeight="Bold" />
+                                                    <TextBlock Text="{Binding LimitText}" FontSize="10" Foreground="#FACC15" />
+                                                </StackPanel>
+                                                <TextBlock Grid.Column="2" Text="{Binding WeekText}" Classes="muted"
+                                                           FontSize="11" VerticalAlignment="Center" ToolTip.Tip="Nutzung der letzten 7 Tage" />
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Column="1" Classes="card" Padding="16">
+                        <StackPanel Spacing="10">
+                            <TextBlock Text="⛔ Limits pro App" FontWeight="SemiBold" FontSize="15" />
+                            <TextBlock Text="0 = kein Limit. Änderungen werden sofort gespeichert."
+                                       Classes="muted" FontSize="11" />
+
+                            <ItemsControl ItemsSource="{Binding Limits}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:ScreenTimeLimitRow">
+                                        <Border Classes="card" Background="#0B0D1A" Padding="10" Margin="0,3">
+                                            <StackPanel Spacing="6">
+                                                <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
+                                                    <CheckBox Grid.Column="0" IsChecked="{Binding Enabled, Mode=TwoWay}" />
+                                                    <StackPanel Grid.Column="1" Margin="6,0">
+                                                        <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="13" />
+                                                        <TextBlock Text="{Binding UsageText}" Classes="muted" FontSize="10" />
+                                                    </StackPanel>
+                                                    <Button Grid.Column="2" Content="🗑" Padding="8,4"
+                                                            Classes="ghost"
+                                                            Command="{Binding $parent[UserControl].((vm:ScreenTimeViewModel)DataContext).RemoveLimitCommand}"
+                                                            CommandParameter="{Binding }" />
+                                                </Grid>
+                                                <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                                                    <StackPanel Grid.Column="0" Spacing="2">
+                                                        <TextBlock Text="Minuten / Tag" Classes="muted" FontSize="10" />
+                                                        <TextBox Text="{Binding DailyMinutes, Mode=TwoWay}" />
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Column="1" Spacing="2">
+                                                        <TextBlock Text="Minuten / Woche" Classes="muted" FontSize="10" />
+                                                        <TextBox Text="{Binding WeeklyMinutes, Mode=TwoWay}" />
+                                                    </StackPanel>
+                                                </Grid>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
+                                <ComboBox Grid.Column="0" IsEditable="True"
+                                          ItemsSource="{Binding Processes}"
+                                          Text="{Binding NewLimitProcess, Mode=TwoWay}"
+                                          PlaceholderText="App/Prozess wählen…" />
+                                <Button Grid.Column="1" Content="Hinzufügen" Classes="accent"
+                                        Command="{Binding AddLimitCommand}" />
+                                <Button Grid.Column="2" Content="↻" Classes="ghost"
+                                        Command="{Binding ReloadProcessesCommand}" ToolTip.Tip="Prozessliste aktualisieren" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <!-- Zeiten + Profile -->
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                    <Border Grid.Column="0" Classes="card" Padding="16">
+                        <StackPanel Spacing="10">
+                            <TextBlock Text="🕒 Erlaubte Zeiten" FontWeight="SemiBold" FontSize="15" />
+                            <CheckBox Content="Außerhalb der erlaubten Zeiten sperren" IsChecked="{Binding BlockOutsideSchedule, Mode=TwoWay}" />
+                            <Grid ColumnDefinitions="Auto,*,*,*" ColumnSpacing="8" RowDefinitions="Auto,Auto" RowSpacing="8">
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Wochentags" VerticalAlignment="Center" FontSize="12" />
+                                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding WeekdayStart, Mode=TwoWay}" PlaceholderText="07:00" />
+                                <TextBlock Grid.Row="0" Grid.Column="2" Text="bis" VerticalAlignment="Center" HorizontalAlignment="Center" Classes="muted" />
+                                <TextBox Grid.Row="0" Grid.Column="3" Text="{Binding WeekdayEnd, Mode=TwoWay}" PlaceholderText="22:00" />
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Wochenende" VerticalAlignment="Center" FontSize="12" />
+                                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding WeekendStart, Mode=TwoWay}" PlaceholderText="08:00" />
+                                <TextBlock Grid.Row="1" Grid.Column="2" Text="bis" VerticalAlignment="Center" HorizontalAlignment="Center" Classes="muted" />
+                                <TextBox Grid.Row="1" Grid.Column="3" Text="{Binding WeekendEnd, Mode=TwoWay}" PlaceholderText="23:00" />
+                            </Grid>
+                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <TextBlock Text="Tageslimit gesamt" VerticalAlignment="Center" FontSize="12" />
+                                <TextBox Text="{Binding DailyLimitMinutes, Mode=TwoWay}" Width="80" />
+                                <TextBlock Text="Minuten (0 = kein Limit)" Classes="muted" FontSize="11" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Column="1" Classes="card" Padding="16">
+                        <StackPanel Spacing="10">
+                            <TextBlock Text="💾 Profile" FontWeight="SemiBold" FontSize="15" />
+                            <ComboBox ItemsSource="{Binding Profiles}" SelectedItem="{Binding SelectedProfile, Mode=TwoWay}"
+                                      HorizontalAlignment="Stretch">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="models:ScreenTimeProfile">
+                                        <TextBlock Text="{Binding Name}" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Content="Profil anwenden" Classes="accent" Command="{Binding ApplyProfileCommand}" />
+                                <Button Content="Löschen" Classes="ghost" Command="{Binding DeleteProfileCommand}" />
+                            </StackPanel>
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <TextBox Grid.Column="0" Text="{Binding NewProfileName, Mode=TwoWay}" PlaceholderText="Neuer Profilname" />
+                                <Button Grid.Column="1" Content="Aktuelles speichern" Classes="accent" Command="{Binding SaveProfileCommand}" />
+                            </Grid>
+                            <TextBlock Text="Speichert die aktuellen Einstellungen (Limit, Zeiten und App-Limits) als neues Profil."
+                                       Classes="muted" FontSize="11" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

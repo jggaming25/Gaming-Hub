@@ -12,7 +12,12 @@ public partial class LightingViewModel : ViewModelBase
     private static readonly string[] FallbackEffects =
         { "static", "direct", "breathing", "wave", "rainbow", "color_cycle", "strobe", "pulse" };
 
+    /// <summary>Lokaler Effekt: wechselt zwischen den beiden gewählten Farben,
+    /// ohne einen Gerätemodus zu benötigen.</summary>
+    public const string ColorAlternateEffect = "Farbwechsel";
+
     private bool _activated;
+    private bool _activating;
     private bool _busy;
 
     public ObservableCollection<RgbDevice> Devices { get; } = new();
@@ -36,7 +41,6 @@ public partial class LightingViewModel : ViewModelBase
     [ObservableProperty] private byte _secondaryB = 255;
     [ObservableProperty] private int _colorMix = 50;
     [ObservableProperty] private bool _mixEnabled;
-    [ObservableProperty] private bool _alternateEnabled;
     [ObservableProperty] private int _alternateSeconds = 10;
     private bool _syncingColor;
     private bool _alternateToSecondary;
@@ -50,6 +54,16 @@ public partial class LightingViewModel : ViewModelBase
         : SelectedColor;
     public string MixedColorHex => MixedColor.ToHex();
 
+    /// <summary>True, wenn der lokale Farbwechsel als Effekt ausgewählt ist.</summary>
+    public bool IsColorAlternateSelected =>
+        string.Equals(SelectedEffect, ColorAlternateEffect, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Ein Farbwechsel braucht zwei unterschiedliche Farben.</summary>
+    public bool HasSecondColor => !string.Equals(SecondaryColorHex, ColorHex, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Zweitfarbe anzeigen, wenn gemischt oder ein Farbwechsel gewählt ist.</summary>
+    public bool ShowSecondColorControls => MixEnabled || IsColorAlternateSelected;
+
     partial void OnColorRChanged(byte value) => SyncColorFromChannels();
     partial void OnColorGChanged(byte value) => SyncColorFromChannels();
     partial void OnColorBChanged(byte value) => SyncColorFromChannels();
@@ -57,39 +71,50 @@ public partial class LightingViewModel : ViewModelBase
     partial void OnSecondaryGChanged(byte value) => NotifySecondaryColorChanged();
     partial void OnSecondaryBChanged(byte value) => NotifySecondaryColorChanged();
     partial void OnColorMixChanged(int value) => NotifySecondaryColorChanged();
-    partial void OnMixEnabledChanged(bool value) => NotifySecondaryColorChanged();
 
-    partial void OnAlternateEnabledChanged(bool value)
+    partial void OnMixEnabledChanged(bool value)
     {
-        if (value)
-        {
-            _alternateToSecondary = false;
-            _alternateTimer.Interval = TimeSpan.FromSeconds(Math.Clamp(AlternateSeconds, 2, 120));
-            _alternateTimer.Start();
-            StatusText = $"Farbwechsel aktiv – alle {AlternateSeconds} s zwischen beiden Farben.";
-        }
-        else
-        {
-            _alternateTimer.Stop();
-            StatusText = "Farbwechsel gestoppt.";
-            if (SelectedDevice is { } device && IsConnected)
-                _ = AppServices.Rgb.SetColorAsync(device.Id, SelectedColor);
-        }
+        NotifySecondaryColorChanged();
+        OnPropertyChanged(nameof(ShowSecondColorControls));
+    }
+
+    partial void OnSelectedEffectChanged(string value)
+    {
+        OnPropertyChanged(nameof(IsColorAlternateSelected));
+        OnPropertyChanged(nameof(ShowSecondColorControls));
+        if (!IsColorAlternateSelected)
+            StopAlternateTimer();
     }
 
     partial void OnAlternateSecondsChanged(int value)
     {
-        if (!AlternateEnabled) return;
         value = Math.Clamp(value, 2, 120);
+        if (!_alternateTimer.IsEnabled) return;
         _alternateTimer.Interval = TimeSpan.FromSeconds(value);
         _alternateTimer.Start();
         StatusText = $"Farbwechsel aktiv – alle {value} s.";
     }
 
+    private void StartAlternateTimer()
+    {
+        _alternateToSecondary = true;
+        _alternateTimer.Interval = TimeSpan.FromSeconds(Math.Clamp(AlternateSeconds, 2, 120));
+        _alternateTimer.Start();
+    }
+
+    private void StopAlternateTimer()
+    {
+        if (!_alternateTimer.IsEnabled) return;
+        _alternateTimer.Stop();
+    }
+
     private async void AlternateTick()
     {
-        if (!AlternateEnabled || SelectedDevice is not { } device || !IsConnected)
+        if (!IsColorAlternateSelected || SelectedDevice is not { } device || !IsConnected)
+        {
+            StopAlternateTimer();
             return;
+        }
 
         var color = _alternateToSecondary ? SecondaryColor : SelectedColor;
         _alternateToSecondary = !_alternateToSecondary;
@@ -111,6 +136,7 @@ public partial class LightingViewModel : ViewModelBase
         OnPropertyChanged(nameof(SecondaryColorHex));
         OnPropertyChanged(nameof(MixedColor));
         OnPropertyChanged(nameof(MixedColorHex));
+        OnPropertyChanged(nameof(HasSecondColor));
     }
 
     private void SetColorChannels(RgbColor color)
@@ -159,7 +185,7 @@ public partial class LightingViewModel : ViewModelBase
         AppServices.Rgb.ProfilesChanged += OnProfilesChanged;
         AppServices.Rgb.ProfileApplied += OnProfileApplied;
 
-        foreach (var e in FallbackEffects) AvailableEffects.Add(e);
+        FillEffects(null);
         OnProfilesChanged();
 
         _alternateTimer.Tick += (_, _) => AlternateTick();
@@ -184,28 +210,75 @@ public partial class LightingViewModel : ViewModelBase
             Refresh();
             return;
         }
+
         _activated = true;
-        _ = UpdateOpenRgbAsync();
-        _ = EnsureAndLaunchAsync();
+        _ = InitializeAsync();
+    }
+
+    private async Task InitializeAsync()
+    {
+        if (_activating) return;
+        _activating = true;
+        try
+        {
+            // Erst ein eventuell vorhandenes Update abschließen, dann starten und
+            // verbinden. Beides gleichzeitig konnte die Geräteliste kurz leeren.
+            if (AppServices.Rgb.IsOpenRgbInstalled)
+                await UpdateOpenRgbAsync();
+
+            if (!AppServices.Rgb.IsConnected)
+                await EnsureAndLaunchAsync();
+            else
+                await RefreshConnectionAsync();
+        }
+        finally
+        {
+            _activating = false;
+        }
     }
 
     private void OnDevicesChanged() => Dispatcher.UIThread.Post(() =>
     {
-        Devices.Clear();
-        foreach (var d in AppServices.Rgb.Devices.Values)
-            Devices.Add(d);
+        var incoming = AppServices.Rgb.Devices.Values.ToList();
+        string? selectedId = SelectedDevice?.Id;
+
+        // Bestehende Einträge wiederverwenden, statt die ganze Liste zu leeren.
+        // Das verhindert, dass die Auswahl (und damit die Farbe/der Effekt)
+        // scheinbar zufällig auf ein anderes Gerät springt.
+        for (int i = Devices.Count - 1; i >= 0; i--)
+        {
+            if (!incoming.Any(d => d.Id == Devices[i].Id))
+                Devices.RemoveAt(i);
+        }
+
+        foreach (var device in incoming)
+        {
+            var existing = Devices.FirstOrDefault(d => d.Id == device.Id);
+            if (existing is null)
+            {
+                Devices.Add(device);
+                continue;
+            }
+
+            existing.Name = device.Name;
+            existing.Vendor = device.Vendor;
+            existing.Type = device.Type;
+            existing.LedCount = device.LedCount;
+            existing.CurrentColor = device.CurrentColor;
+            existing.CurrentEffect = device.CurrentEffect;
+            existing.Modes = device.Modes;
+            existing.Zones = device.Zones;
+        }
 
         HasDevices = Devices.Count > 0;
 
-        if (SelectedDevice != null)
-        {
-            var match = Devices.FirstOrDefault(d => d.Id == SelectedDevice.Id);
-            SelectedDevice = match ?? Devices.FirstOrDefault();
-        }
-        else
-        {
+        var match = selectedId is null
+            ? null
+            : Devices.FirstOrDefault(d => d.Id == selectedId);
+        if (match is not null)
+            SelectedDevice = match;
+        else if (SelectedDevice is null || !Devices.Contains(SelectedDevice))
             SelectedDevice = Devices.FirstOrDefault();
-        }
     });
 
     private void OnProfilesChanged() => Dispatcher.UIThread.Post(() =>
@@ -246,6 +319,16 @@ public partial class LightingViewModel : ViewModelBase
             // IsServerRunning() ist eine blockierende TCP-Prüfung → im Hintergrund.
             bool serverRunning = IsConnected || await Task.Run(() => RgbService.IsServerRunning());
             OpenRgbNotRunning = !IsConnected && !serverRunning;
+
+            // Wurde OpenRGB zwischenzeitlich gestartet, die Geräte erneut laden.
+            if (!IsConnected && serverRunning && !_busy && !_activating)
+            {
+                if (await AppServices.Rgb.ConnectAsync(launchIfMissing: false))
+                {
+                    IsConnected = true;
+                    HasDevices = Devices.Count > 0;
+                }
+            }
 
             // Nur setzen, wenn (noch) keine Aktion-Rückmeldung angezeigt wird –
             // sonst würde der 5-Sekunden-Refresh Meldungen wie „Farbe gesetzt“
@@ -317,17 +400,30 @@ public partial class LightingViewModel : ViewModelBase
         await StartOpenRgbAsync();
     }
 
+    private void FillEffects(RgbDevice? device)
+    {
+        AvailableEffects.Clear();
+        var effects = device?.Modes.Count > 0
+            ? device.Modes.ToList()
+            : FallbackEffects.ToList();
+
+        if (!effects.Contains(ColorAlternateEffect, StringComparer.OrdinalIgnoreCase))
+            effects.Insert(Math.Min(1, effects.Count), ColorAlternateEffect);
+
+        foreach (var e in effects)
+            AvailableEffects.Add(e);
+    }
+
     partial void OnSelectedDeviceChanged(RgbDevice? value)
     {
         OnPropertyChanged(nameof(CanControl));
-        AvailableEffects.Clear();
+        StopAlternateTimer();
+        FillEffects(value);
 
         AppServices.Rgb.StopColorKeepAlive();
 
         if (value != null)
         {
-            var effects = value.Modes.Count > 0 ? value.Modes : FallbackEffects.ToList();
-            foreach (var e in effects) AvailableEffects.Add(e);
             // Ist die aktuelle Gerätefarbe schwarz (z. B. frischer Direct-Modus ohne
             // Farbe), eine sichtbare Standardfarbe verwenden – sonst würde
             // „Farbe anwenden“ die LEDs ausschalten.
@@ -337,10 +433,6 @@ public partial class LightingViewModel : ViewModelBase
                 string.Equals(e, value.CurrentEffect, StringComparison.OrdinalIgnoreCase))
                 ?? AvailableEffects.FirstOrDefault() ?? "static";
         }
-        else
-        {
-            foreach (var e in FallbackEffects) AvailableEffects.Add(e);
-        }
     }
 
     private static bool IsBlack(RgbColor c) => c.R <= 1 && c.G <= 1 && c.B <= 1;
@@ -349,6 +441,7 @@ public partial class LightingViewModel : ViewModelBase
     private async Task ApplyColorAsync()
     {
         if (SelectedDevice == null) return;
+        StopAlternateTimer();
         StatusText = "Setze Farbe…";
         var color = MixedColor;
         var ok = await AppServices.Rgb.SetColorAsync(SelectedDevice.Id, color);
@@ -365,26 +458,50 @@ public partial class LightingViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private async Task ApplyPresetAsync(string? hex)
+    private void ApplyPreset(string? hex)
     {
         if (string.IsNullOrWhiteSpace(hex)) return;
+        // Nur auswählen – erst „Farbe anwenden“ überträgt sie auf das Gerät.
         SetColorChannels(RgbColor.FromHex(hex));
-        await ApplyColorAsync();
+        StatusText = $"Farbe {ColorHex} ausgewählt – mit „Farbe anwenden“ übernehmen.";
     }
 
     [RelayCommand]
-    private async Task ApplySecondaryPresetAsync(string? hex)
+    private void ApplySecondaryPreset(string? hex)
     {
         if (string.IsNullOrWhiteSpace(hex)) return;
         SetSecondaryChannels(RgbColor.FromHex(hex));
         MixEnabled = true;
-        await ApplyColorAsync();
+        StatusText = $"Zweitfarbe {SecondaryColorHex} ausgewählt – mit „Farbe anwenden“ übernehmen.";
     }
 
     [RelayCommand]
     private async Task ApplyEffectAsync()
     {
         if (SelectedDevice == null) return;
+
+        if (IsColorAlternateSelected)
+        {
+            if (!HasSecondColor)
+            {
+                StatusText = "Bitte zuerst eine abweichende Zweitfarbe auswählen.";
+                return;
+            }
+
+            StatusText = "Starte Farbwechsel…";
+            if (!await AppServices.Rgb.SetColorAsync(SelectedDevice.Id, SelectedColor))
+            {
+                StatusText = "Fehler beim Starten des Farbwechsels – ist OpenRGB im Direct-Modus?";
+                return;
+            }
+
+            AppServices.Rgb.StartColorKeepAlive(SelectedDevice.Id, SelectedColor);
+            StartAlternateTimer();
+            StatusText = $"Farbwechsel aktiv – alle {AlternateSeconds} s zwischen den beiden Farben.";
+            return;
+        }
+
+        StopAlternateTimer();
         StatusText = "Setze Effekt…";
         var ok = await AppServices.Rgb.SetEffectAsync(
             SelectedDevice.Id, SelectedEffect, MixedColor, EffectSpeed, BuildPalette());
@@ -429,12 +546,13 @@ public partial class LightingViewModel : ViewModelBase
         foreach (var dev in AppServices.Rgb.Devices.Values)
         {
             bool selected = SelectedDevice?.Id == dev.Id;
+            bool keepSecond = selected && (MixEnabled || IsColorAlternateSelected);
             profile.DeviceStates[dev.Id] = new DeviceProfileState
             {
                 Color = selected ? SelectedColor : dev.CurrentColor,
                 Effect = selected ? SelectedEffect : dev.CurrentEffect,
                 EffectColor = selected ? MixedColor : dev.CurrentColor,
-                SecondaryColor = selected && MixEnabled ? SecondaryColor : null,
+                SecondaryColor = keepSecond ? SecondaryColor : null,
                 MixPercent = selected && MixEnabled ? ColorMix : 0,
                 Colors = selected ? BuildPalette() : new List<RgbColor>(),
                 Speed = selected ? EffectSpeed : dev.EffectSpeed
@@ -458,13 +576,25 @@ public partial class LightingViewModel : ViewModelBase
         if (ok && SelectedDevice is { } device &&
             profile.DeviceStates.TryGetValue(device.Id, out var state))
         {
+            bool alternate = string.Equals(state.Effect, ColorAlternateEffect, StringComparison.OrdinalIgnoreCase);
             bool direct = string.IsNullOrWhiteSpace(state.Effect) ||
                           string.Equals(state.Effect, "direct", StringComparison.OrdinalIgnoreCase) ||
                           string.Equals(state.Effect, "static", StringComparison.OrdinalIgnoreCase);
-            if (direct)
+            if (alternate)
+            {
                 AppServices.Rgb.StartColorKeepAlive(device.Id, state.Color ?? SelectedColor);
+                StartAlternateTimer();
+            }
+            else if (direct)
+            {
+                StopAlternateTimer();
+                AppServices.Rgb.StartColorKeepAlive(device.Id, state.Color ?? SelectedColor);
+            }
             else
+            {
+                StopAlternateTimer();
                 AppServices.Rgb.StopColorKeepAlive();
+            }
         }
         StatusText = ok ? $"Profil „{profile.Name}“ geladen" : "Fehler beim Laden";
     }
@@ -536,8 +666,7 @@ public partial class LightingViewModel : ViewModelBase
     [RelayCommand]
     private void Disconnect()
     {
-        _alternateTimer.Stop();
-        AlternateEnabled = false;
+        StopAlternateTimer();
         AppServices.Rgb.StopColorKeepAlive();
         AppServices.Rgb.Disconnect();
         IsConnected = false;

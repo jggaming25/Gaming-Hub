@@ -130,49 +130,90 @@ public sealed class AuthService
     {
         if (Client is null) return (false, "Supabase ist nicht konfiguriert.");
 
-        var (verifier, challenge) = SupabaseClient.CreatePkce();
-        string redirect = GetOAuthRedirectUrl();
-        string url = Client.BuildOAuthUrl(provider, redirect, challenge);
+        string localRedirect = GetOAuthRedirectUrl();
+        // Viele Supabase-Projekte erlauben nur die Website als Redirect. Die
+        // Website leitet den Code dann an den lokalen Loopback-Port weiter.
+        string relayRedirect = AppInfo.WebsiteUrl + "?gh_oauth=1";
 
-        using var listener = new TcpListener(IPAddress.Loopback, OAuthPort);
+        string? timeoutMessage = null;
+        foreach (string redirect in new[] { relayRedirect, localRedirect })
+        {
+            var (verifier, challenge) = SupabaseClient.CreatePkce();
+            string url = Client.BuildOAuthUrl(provider, redirect, challenge);
+
+            TcpListener? listener = StartLoopbackListener(out string? listenError);
+            if (listener is null)
+                return (false, listenError ?? "Loopback-Port belegt.");
+
+            using (listener)
+            {
+                OpenBrowser(url);
+
+                string? code = null;
+                string? error = null;
+                try
+                {
+                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(90));
+                    using var tcp = await listener.AcceptTcpClientAsync(cts.Token);
+                    using var stream = tcp.GetStream();
+                    string requestLine = await ReadRequestLineAsync(stream);
+                    (code, error) = ParseCallback(requestLine);
+                    await WriteResponseAsync(stream, error is null);
+                }
+                catch (OperationCanceledException)
+                {
+                    timeoutMessage =
+                        "Zeitüberschreitung bei der Discord-Anmeldung. Erlaubte Redirect-URLs " +
+                        $"im Supabase-Projekt prüfen: {relayRedirect} und {localRedirect}.";
+                    continue;
+                }
+                catch (Exception ex)
+                {
+                    LogService.Warn("Discord-OAuth fehlgeschlagen.", ex);
+                    return (false, "OAuth abgebrochen: " + ex.Message);
+                }
+
+                if (error is not null) return (false, error);
+                if (string.IsNullOrEmpty(code)) continue;
+
+                var (session, exchangeError) = await Client.ExchangePkceAsync(code, verifier);
+                if (session is not null) PersistSession();
+                Changed?.Invoke();
+                return (session is not null, exchangeError);
+            }
+        }
+
+        return (false, timeoutMessage ?? "Kein Autorisierungs-Code erhalten.");
+    }
+
+    private static TcpListener? StartLoopbackListener(out string? error)
+    {
+        // Windows löst „localhost“ oft zuerst auf IPv6 (::1) auf. Ein reiner
+        // IPv4-Listener führte dann zu einem Verbindungsfehler im Browser.
+        // Dual-Stack versucht beides; bei fehlendem IPv6 bleibt IPv4 als Fallback.
         try
         {
+            var listener = new TcpListener(IPAddress.IPv6Any, OAuthPort);
+            listener.Server.DualMode = true;
             listener.Start();
+            error = null;
+            return listener;
         }
-        catch (Exception ex)
+        catch
         {
-            return (false, "Loopback-Port belegt: " + ex.Message);
+            try
+            {
+                var listener = new TcpListener(IPAddress.Loopback, OAuthPort);
+                listener.Start();
+                error = null;
+                return listener;
+            }
+            catch (Exception ex)
+            {
+                error = "Loopback-Port belegt: " + ex.Message;
+                return null;
+            }
         }
-
-        OpenBrowser(url);
-
-        string? code = null;
-        string? error = null;
-        try
-        {
-            using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(3));
-            using var tcp = await listener.AcceptTcpClientAsync(cts.Token);
-            using var stream = tcp.GetStream();
-            string requestLine = await ReadRequestLineAsync(stream);
-            (code, error) = ParseCallback(requestLine);
-            await WriteResponseAsync(stream, error is null);
-        }
-        catch (Exception ex)
-        {
-            return (false, "OAuth abgebrochen: " + ex.Message);
-        }
-        finally
-        {
-            listener.Stop();
-        }
-
-        if (error is not null) return (false, error);
-        if (string.IsNullOrEmpty(code)) return (false, "Kein Autorisierungs-Code erhalten.");
-
-        var (session, exchangeError) = await Client.ExchangePkceAsync(code, verifier);
-        if (session is not null) PersistSession();
-        Changed?.Invoke();
-        return (session is not null, exchangeError);
     }
 
     private static async Task<string> ReadRequestLineAsync(NetworkStream stream)

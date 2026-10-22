@@ -99,10 +99,22 @@ public partial class InternetCheckerViewModel : ViewModelBase
     [ObservableProperty] private bool _showOfflineHint;
 
     public bool CanUse => AppServices.Profile.IsPremium || AppServices.Profile.IsAdmin;
+
+    /// <summary>Premium/Admin sehen den kompletten Verbindungspfad inkl. Verlauf.</summary>
+    public bool IsPremiumUser =>
+        AppServices.Profile.IsAdmin ||
+        (AppServices.Profile.IsPremium && !AppServices.Profile.PremiumBanned);
+
+    public bool ShowFullDetails => IsPremiumUser;
+    public bool ShowPremiumHint => !IsPremiumUser;
+    public bool ShowHistory => HasHistory && IsPremiumUser;
+    public bool ShowNoHistory => !HasHistory && IsPremiumUser;
     public bool ShowOfflineMode => AppServices.Internet.OfflineMode;
 
     public InternetCheckerViewModel()
     {
+        AppServices.Profile.Changed += () => Dispatcher.UIThread.Post(NotifyAccessChanged);
+
         _refreshTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(10) };
         _refreshTimer.Tick += async (_, _) => await RefreshAsync();
         _refreshTimer.Start();
@@ -113,6 +125,22 @@ public partial class InternetCheckerViewModel : ViewModelBase
         AppServices.Internet.Changed += () => Dispatcher.UIThread.Post(UpdateLiveValues);
         UpdateLiveValues();
         ReloadHistory();
+    }
+
+    private void NotifyAccessChanged()
+    {
+        OnPropertyChanged(nameof(IsPremiumUser));
+        OnPropertyChanged(nameof(ShowFullDetails));
+        OnPropertyChanged(nameof(ShowPremiumHint));
+        OnPropertyChanged(nameof(ShowHistory));
+        OnPropertyChanged(nameof(ShowNoHistory));
+        OnPropertyChanged(nameof(CanUse));
+    }
+
+    partial void OnHasHistoryChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ShowHistory));
+        OnPropertyChanged(nameof(ShowNoHistory));
     }
 
     private void UpdateLiveValues()

@@ -573,7 +573,13 @@ public sealed class RgbService : IDisposable
                 ? state.Colors
                 : BuildPalette(primary, state.SecondaryColor, state.MixPercent);
 
-            if (state.Effect is { } e)
+            if (string.Equals(state.Effect, "Farbwechsel", StringComparison.OrdinalIgnoreCase))
+            {
+                // Lokaler Farbwechsel: Farbe setzen; das Abwechseln übernimmt die UI.
+                if (primary is { } alternateColor)
+                    await SetColorAsync(deviceId, alternateColor).ConfigureAwait(false);
+            }
+            else if (state.Effect is { } e)
                 await SetEffectAsync(deviceId, e, mixed, state.Speed, colors).ConfigureAwait(false);
             else if (state.Color is { } c)
                 await SetColorAsync(deviceId, c).ConfigureAwait(false);

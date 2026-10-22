@@ -56,7 +56,7 @@ public partial class HelpViewModel : ViewModelBase
 
     [RelayCommand]
     private void OpenContactEmail() =>
-        Open($"mailto:{ContactEmail}?subject=Gaming%20Hub%20Hilfe");
+        AppServices.OpenEmail(ContactEmail, "Gaming Hub Hilfe");
 
     [RelayCommand]
     private async Task CopyDiagnosticsAsync()
