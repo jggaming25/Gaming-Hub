@@ -349,7 +349,6 @@ public sealed class ScreenTimeService : IDisposable
 
         bool enabled;
         bool enforce;
-        bool disabledToday;
         bool canEnforce;
         bool fullScreenBlocked;
         lock (_gate)
@@ -357,7 +356,6 @@ public sealed class ScreenTimeService : IDisposable
             ResetDayLocked();
             enabled = _data.Enabled;
             enforce = _data.Enforce;
-            disabledToday = _data.DisabledForDate == TodayKey;
             canEnforce = HasAccess();
             fullScreenBlocked = _currentBlock?.Kind == ScreenTimeBlockKind.FullScreen;
         }
@@ -397,7 +395,7 @@ public sealed class ScreenTimeService : IDisposable
             }
         }
 
-        if (canEnforce && enforce && !disabledToday)
+        if (canEnforce && enforce)
             EvaluateBlock(apps);
         else
             SetBlock(null);
@@ -605,6 +603,7 @@ public sealed class ScreenTimeService : IDisposable
         _lastDayKey = today;
         _data.AccessOverrideDate = null;
         _data.AccessOverrideUntil = 0;
+        _data.DisabledForDate = null;
         _data.SnoozeUntil.Clear();
         MarkDirty();
     }
@@ -750,6 +749,17 @@ public sealed class ScreenTimeService : IDisposable
         _data.SnoozeUntil ??= new Dictionary<string, long>();
         _data.AppNames ??= new Dictionary<string, string>();
 
+        // Frühere Versionen konnten die Bildschirmzeit für den Rest des Tages
+        // deaktivieren. Diese Option gibt es in der UI nicht mehr; ein alter
+        // gespeicherter Wert darf Limits deshalb nicht dauerhaft aushebeln.
+        _data.DisabledForDate = null;
+
+        _data.AppNames = NormalizeMap(_data.AppNames);
+        _data.SnoozeUntil = NormalizeMap(_data.SnoozeUntil);
+
+        foreach (var day in _data.Days.Values)
+            day.AppSeconds = NormalizeCounts(day.AppSeconds);
+
         if (_data.Profiles.Count == 0)
             _data.Profiles.Add(new ScreenTimeProfile { Name = "Standard" });
         if (string.IsNullOrWhiteSpace(_data.ActiveProfileId) ||
@@ -763,6 +773,59 @@ public sealed class ScreenTimeService : IDisposable
             EnsureWeekdaysLocked(profile);
         }
         _lastDayKey = TodayKey;
+    }
+
+    private static Dictionary<string, int> NormalizeCounts(Dictionary<string, int>? source)
+    {
+        var result = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        if (source is null) return result;
+
+        foreach (var (key, value) in source)
+        {
+            if (string.IsNullOrWhiteSpace(key)) continue;
+            result[key] = result.TryGetValue(key, out var existing) ? existing + value : value;
+        }
+        return result;
+    }
+
+    private static Dictionary<string, string> NormalizeMap(Dictionary<string, string>? source)
+    {
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (source is null) return result;
+
+        foreach (var (key, value) in source)
+        {
+            if (string.IsNullOrWhiteSpace(key)) continue;
+            if (!result.TryGetValue(key, out var existing) || IsBetterDisplayName(value, existing))
+                result[key] = value;
+        }
+        return result;
+    }
+
+    private static bool IsBetterDisplayName(string? candidate, string? current)
+    {
+        if (string.IsNullOrWhiteSpace(candidate)) return false;
+        if (string.IsNullOrWhiteSpace(current)) return true;
+
+        bool candidateHasUpper = candidate.Any(char.IsUpper);
+        bool currentHasUpper = current.Any(char.IsUpper);
+        if (candidateHasUpper != currentHasUpper)
+            return candidateHasUpper;
+
+        return candidate.Length > current.Length;
+    }
+
+    private static Dictionary<string, long> NormalizeMap(Dictionary<string, long>? source)
+    {
+        var result = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
+        if (source is null) return result;
+
+        foreach (var (key, value) in source)
+        {
+            if (!string.IsNullOrWhiteSpace(key))
+                result[key] = value;
+        }
+        return result;
     }
 
     public void Save()

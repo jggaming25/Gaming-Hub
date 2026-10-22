@@ -55,7 +55,8 @@
                         <Button Content="Prüfung starten" Command="{Binding ScanCommand}" Classes="accent" />
                         <Button Content="Abbrechen" Command="{Binding CancelCommand}" />
                         <Button Content="Scan löschen" Command="{Binding ClearScanCommand}" />
-                        <Button Content="Alle außer Original markieren" Command="{Binding SelectAllGroupsCommand}" />
+                        <Button Content="Alle Dateien auswählen (je 1 Original bleibt)"
+                                Command="{Binding SelectAllGroupsCommand}" />
                         <Button Content="Auswahl aufheben" Command="{Binding DeselectAllGroupsCommand}" />
                         <Button Content="Ausgewählte löschen" Command="{Binding DeleteSelectedCommand}" />
                         <Button Content="Full Auto Clean" Command="{Binding FullAutoCleanCommand}" Classes="accent" />
@@ -95,10 +96,18 @@
                     <DataTemplate x:DataType="vm:DuplicateGroupViewModel">
                         <Expander HorizontalAlignment="Stretch" Margin="0,0,0,8">
                             <Expander.Header>
-                                <StackPanel Orientation="Horizontal" Spacing="14">
-                                    <TextBlock Text="{Binding Header}" FontWeight="SemiBold" />
-                                    <TextBlock Text="{Binding ReclaimText}" Classes="muted" FontSize="12" VerticalAlignment="Center" />
-                                </StackPanel>
+                                <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
+                                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="14">
+                                        <TextBlock Text="{Binding Header}" FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding ReclaimText}" Classes="muted" FontSize="12" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                                        <Button Content="Gruppe auswählen" Classes="ghost" FontSize="10" Padding="7,3"
+                                                Command="{Binding SelectAllButOneFilesCommand}" />
+                                        <Button Content="Gruppe leeren" Classes="ghost" FontSize="10" Padding="7,3"
+                                                Command="{Binding SelectNoFilesCommand}" />
+                                    </StackPanel>
+                                </Grid>
                             </Expander.Header>
                             <ItemsControl ItemsSource="{Binding Files}">
                                 <ItemsControl.ItemTemplate>

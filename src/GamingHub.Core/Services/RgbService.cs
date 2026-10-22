@@ -36,8 +36,20 @@ public sealed class RgbService : IDisposable
     // schickt die zuletzt gesetzte Farbe regelmäßig erneut.
     private readonly object _keepAliveLock = new();
     private readonly Dictionary<string, RgbColor> _keepAliveColors = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, ColorAlternateState> _colorAlternates = new(StringComparer.OrdinalIgnoreCase);
     private Timer? _keepAliveTimer;
+    private Timer? _colorAlternateTimer;
     private bool _keepAliveDisposed;
+
+    private sealed class ColorAlternateState
+    {
+        public RgbColor Primary { get; init; } = new(255, 0, 0);
+        public RgbColor Secondary { get; init; } = new(0, 128, 255);
+        public int Seconds { get; init; } = 10;
+        public bool UseSecondary { get; set; }
+        public DateTime NextSwitchUtc { get; set; }
+        public bool Busy { get; set; }
+    }
 
     public event Action? DevicesChanged;
     public event Action? ProfilesChanged;
@@ -132,6 +144,7 @@ public sealed class RgbService : IDisposable
     public void Disconnect()
     {
         StopColorKeepAlive();
+        StopColorAlternate();
         _client.Disconnect();
         _devices.Clear();
         DevicesChanged?.Invoke();
@@ -312,7 +325,7 @@ public sealed class RgbService : IDisposable
         if (ok)
         {
             device.CurrentColor = color;
-            device.CurrentEffect = "direct";
+            device.CurrentEffect = IsColorAlternateActive(deviceId) ? "Farbwechsel" : "direct";
             StartColorKeepAlive(deviceId, color);
             DevicesChanged?.Invoke();
         }
@@ -329,7 +342,7 @@ public sealed class RgbService : IDisposable
                 return;
             _keepAliveColors[deviceId] = color;
             _keepAliveTimer ??= new Timer(_ => KeepAliveTick(), null,
-                TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(3));
+                TimeSpan.FromMilliseconds(500), TimeSpan.FromMilliseconds(500));
         }
     }
 
@@ -347,6 +360,103 @@ public sealed class RgbService : IDisposable
             {
                 _keepAliveTimer?.Dispose();
                 _keepAliveTimer = null;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Startet einen lokalen Farbwechsel als Hintergrund-Timer. Der Wechsel läuft
+    /// dadurch auch weiter, wenn das Gaming-Hub-Fenster minimiert oder im Tray ist.
+    /// </summary>
+    public void StartColorAlternate(string deviceId, RgbColor primary, RgbColor secondary, int seconds)
+    {
+        if (string.IsNullOrWhiteSpace(deviceId)) return;
+        seconds = Math.Clamp(seconds, 2, 120);
+
+        lock (_keepAliveLock)
+        {
+            if (_keepAliveDisposed) return;
+            _colorAlternates[deviceId] = new ColorAlternateState
+            {
+                Primary = primary,
+                Secondary = secondary,
+                Seconds = seconds,
+                UseSecondary = false,
+                NextSwitchUtc = DateTime.UtcNow.AddSeconds(seconds)
+            };
+            _colorAlternateTimer ??= new Timer(_ => ColorAlternateTick(), null,
+                TimeSpan.FromMilliseconds(500), TimeSpan.FromMilliseconds(500));
+        }
+
+        if (_devices.TryGetValue(deviceId, out var device))
+        {
+            device.CurrentEffect = "Farbwechsel";
+            DevicesChanged?.Invoke();
+        }
+    }
+
+    public bool IsColorAlternateActive(string deviceId)
+    {
+        lock (_keepAliveLock)
+            return _colorAlternates.ContainsKey(deviceId);
+    }
+
+    /// <summary>Beendet den Farbwechsel für ein Gerät oder für alle Geräte.</summary>
+    public void StopColorAlternate(string? deviceId = null)
+    {
+        lock (_keepAliveLock)
+        {
+            if (deviceId is null)
+                _colorAlternates.Clear();
+            else
+                _colorAlternates.Remove(deviceId);
+
+            if (_colorAlternates.Count == 0)
+            {
+                _colorAlternateTimer?.Dispose();
+                _colorAlternateTimer = null;
+            }
+        }
+    }
+
+    private void ColorAlternateTick()
+    {
+        var due = new List<(string DeviceId, RgbColor Color)>();
+        lock (_keepAliveLock)
+        {
+            if (_colorAlternates.Count == 0) return;
+            var now = DateTime.UtcNow;
+
+            foreach (var (deviceId, state) in _colorAlternates)
+            {
+                if (state.Busy || now < state.NextSwitchUtc) continue;
+                state.UseSecondary = !state.UseSecondary;
+                state.NextSwitchUtc = now.AddSeconds(state.Seconds);
+                state.Busy = true;
+                due.Add((deviceId, state.UseSecondary ? state.Secondary : state.Primary));
+            }
+        }
+
+        foreach (var (deviceId, color) in due)
+            _ = ApplyAlternateColorAsync(deviceId, color);
+    }
+
+    private async Task ApplyAlternateColorAsync(string deviceId, RgbColor color)
+    {
+        try
+        {
+            await SetColorAsync(deviceId, color).ConfigureAwait(false);
+        }
+        catch
+        {
+            // Beim nächsten Tick erneut versuchen.
+        }
+        finally
+        {
+            lock (_keepAliveLock)
+            {
+                if (_colorAlternates.TryGetValue(deviceId, out var state))
+                    state.Busy = false;
             }
         }
     }
@@ -374,7 +484,7 @@ public sealed class RgbService : IDisposable
                 // Flackern (kurz aus bzw. alte Effektfarbe).
                 _client.SetColor((uint)device.ControllerIndex, device.LedCount, color);
                 device.CurrentColor = color;
-                device.CurrentEffect = "direct";
+                device.CurrentEffect = IsColorAlternateActive(deviceId) ? "Farbwechsel" : "direct";
             }
             catch
             {
@@ -605,9 +715,15 @@ public sealed class RgbService : IDisposable
 
             if (string.Equals(state.Effect, "Farbwechsel", StringComparison.OrdinalIgnoreCase))
             {
-                // Lokaler Farbwechsel: Farbe setzen; das Abwechseln übernimmt die UI.
                 if (primary is { } alternateColor)
+                {
                     await SetColorAsync(deviceId, alternateColor).ConfigureAwait(false);
+                    if (state.SecondaryColor is { } secondary)
+                    {
+                        StartColorAlternate(deviceId, alternateColor, secondary,
+                            state.AlternateSeconds > 0 ? state.AlternateSeconds : 10);
+                    }
+                }
             }
             else if (state.Effect is { } e)
                 await SetEffectAsync(deviceId, e, mixed, state.Speed, colors).ConfigureAwait(false);
@@ -678,6 +794,9 @@ public sealed class RgbService : IDisposable
             _keepAliveTimer?.Dispose();
             _keepAliveTimer = null;
             _keepAliveColors.Clear();
+            _colorAlternateTimer?.Dispose();
+            _colorAlternateTimer = null;
+            _colorAlternates.Clear();
         }
         _client.Dispose();
     }
@@ -771,5 +890,6 @@ public sealed class DeviceProfileState
     public int MixPercent { get; set; }
     public List<RgbColor> Colors { get; set; } = new();
     public int Speed { get; set; } = 50;
+    public int AlternateSeconds { get; set; } = 10;
     public Dictionary<int, RgbColor> ZoneColors { get; set; } = new();
 }

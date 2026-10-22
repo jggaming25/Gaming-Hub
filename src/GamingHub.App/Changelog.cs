@@ -8,6 +8,16 @@ public static class Changelog
 {
     public static readonly ChangelogEntry[] Entries =
     {
+        new("0.6.1", "22.10.2026 17:34", new[]
+        {
+            "Bildschirmzeit: App-Limits werden wieder zuverlässig durchgesetzt. Eine alte, nicht mehr sichtbare Tages-Deaktivierung blockiert die Limits nicht mehr.",
+            "Bildschirmzeit: App-Namen werden unabhängig von Groß-/Kleinschreibung erkannt, damit erfasste Nutzung und festgelegte Limits sicher zusammenpassen.",
+            "Premium: In den meistgenutzten Apps werden Tages- und Wochenlimit sowie ein erreichtes Limit direkt angezeigt.",
+            "Cleanup: Dateien lassen sich weiterhin einzeln markieren; zusätzlich gibt es eine Auswahl für die ganze Gruppe und für alle Gruppen (je ein Original bleibt erhalten).",
+            "Beleuchtung: Der Farbwechsel läuft jetzt als Hintergrunddienst auch weiter, wenn Gaming Hub minimiert oder nur im Infobereich ist.",
+            "Beleuchtung: Der Farb-Keepalive sendet häufiger und verhindert dadurch das kurze Aussetzen der Tastaturbeleuchtung beim Tippen.",
+            "Version 0.6.1"
+        }),
         new("0.6.0", "22.10.2026 18:00", new[]
         {
             "Spielebibliothek: Apps lassen sich dauerhaft ausblenden. Einträge ohne Installationspfad oder ohne EXE werden automatisch ausgeblendet; über „Ausgeblendete“ können sie wieder eingeblendet werden.",

@@ -116,7 +116,8 @@
                                                 </StackPanel>
                                                 <StackPanel Grid.Column="1" Spacing="2" Margin="12,0">
                                                     <TextBlock Text="{Binding TodayText}" FontSize="13" FontWeight="Bold" />
-                                                    <TextBlock Text="{Binding LimitText}" FontSize="10" Foreground="#FACC15" />
+                                                    <TextBlock Text="{Binding LimitText}" FontSize="10"
+                                                               Foreground="{Binding LimitColor}" />
                                                 </StackPanel>
                                                 <TextBlock Grid.Column="2" Text="{Binding WeekText}" Classes="muted"
                                                            FontSize="11" VerticalAlignment="Center" ToolTip.Tip="Nutzung der letzten 7 Tage" />

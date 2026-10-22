@@ -26,6 +26,16 @@ const FEATURES = [
 
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   {
+    version: "0.6.1",
+    date: "22.10.2026 17:34",
+    items: [
+      "Bildschirmzeit: App-Limits werden wieder zuverlässig durchgesetzt; eine alte Tages-Deaktivierung und unterschiedliche Groß-/Kleinschreibung blockieren sie nicht mehr.",
+      "Premium: Tages- und Wochenlimits werden jetzt auch bei den meistgenutzten Apps angezeigt, inklusive Hinweis bei erreichtem Limit.",
+      "Cleanup: Einzelne Dateien, ganze Gruppen oder alle Gruppen lassen sich bequem auswählen; pro Gruppe bleibt ein Original erhalten.",
+      "Beleuchtung: Der Farbwechsel läuft im Hintergrund weiter, und die Tastaturbeleuchtung setzt beim Tippen nicht mehr kurz aus."
+    ]
+  },
+  {
     version: "0.6.0",
     date: "22.10.2026 18:00",
     items: [

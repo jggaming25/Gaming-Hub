@@ -72,4 +72,10 @@ public partial class DuplicateGroupViewModel : ViewModelBase
         foreach (var f in Files)
             f.IsSelected = false;
     }
+
+    [CommunityToolkit.Mvvm.Input.RelayCommand]
+    private void SelectAllButOneFiles() => SelectAllButOne();
+
+    [CommunityToolkit.Mvvm.Input.RelayCommand]
+    private void SelectNoFiles() => SelectNone();
 }

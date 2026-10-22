@@ -17,6 +17,7 @@ public sealed partial class ScreenTimeAppRow : ObservableObject
     [ObservableProperty] private string _todayText = "–";
     [ObservableProperty] private string _weekText = "–";
     [ObservableProperty] private string _limitText = string.Empty;
+    [ObservableProperty] private string _limitColor = "#FACC15";
 }
 
 /// <summary>Eine bearbeitbare Limit-Zeile. Änderungen werden sofort gespeichert.</summary>
@@ -324,18 +325,47 @@ public partial class ScreenTimeViewModel : ViewModelBase
         foreach (var (process, display, seconds) in service.GetTopApps())
         {
             int week = service.GetWeekSeconds(process);
-            var limit = service.ActiveProfile?.AppLimits.FirstOrDefault(a =>
-                string.Equals(a.ProcessName, process, StringComparison.OrdinalIgnoreCase));
-            string limitText = limit is null || limit.DailyMinutes <= 0
-                ? string.Empty
-                : $"Limit: {limit.DailyMinutes} min/Tag";
+            var limit = IsPremiumUser
+                ? service.ActiveProfile?.AppLimits.FirstOrDefault(a =>
+                    string.Equals(a.ProcessName, process, StringComparison.OrdinalIgnoreCase))
+                : null;
+
+            string limitText = string.Empty;
+            string limitColor = "#FACC15";
+            if (limit is not null)
+            {
+                var parts = new List<string>();
+                if (limit.DailyMinutes > 0) parts.Add($"{limit.DailyMinutes} min/Tag");
+                if (limit.WeeklyMinutes > 0) parts.Add($"{limit.WeeklyMinutes} min/Woche");
+
+                if (parts.Count > 0)
+                {
+                    bool dailyReached = limit.Enabled && limit.DailyMinutes > 0 &&
+                                        seconds >= limit.DailyMinutes * 60;
+                    bool weeklyReached = limit.Enabled && limit.WeeklyMinutes > 0 &&
+                                         week >= limit.WeeklyMinutes * 60;
+                    string prefix = limit.Enabled ? "Limit" : "Limit aus";
+                    string state = dailyReached
+                        ? " · Tageslimit erreicht"
+                        : weeklyReached
+                            ? " · Wochenlimit erreicht"
+                            : string.Empty;
+                    limitText = $"{prefix}: {string.Join(" · ", parts)}{state}";
+                    if (dailyReached || weeklyReached)
+                        limitColor = "#F87171";
+                    else if (!limit.Enabled)
+                        limitColor = "#94A3B8";
+                }
+            }
+
             TopApps.Add(new ScreenTimeAppRow
             {
                 ProcessName = process,
                 DisplayName = display,
                 TodayText = FormatDuration(seconds),
                 WeekText = FormatDuration(week),
-                LimitText = limitText
+                LimitText = limitText,
+                LimitColor = limitColor
             });
         }
         OnPropertyChanged(nameof(HasTopApps));
