@@ -36,8 +36,10 @@ public sealed class UpdateService
             {
                 try
                 {
+                    // Der statische Release-Feed umgeht die GitHub-API und damit
+                    // das Rate-Limit (HTTP 403) bei der Update-Suche.
                     _manager = new UpdateManager(
-                        new GithubSource(AppInfo.RepositoryUrl, accessToken: null, prerelease: false));
+                        new SimpleWebSource($"{AppInfo.RepositoryUrl}/releases/latest/download"));
                 }
                 catch (Exception ex)
                 {

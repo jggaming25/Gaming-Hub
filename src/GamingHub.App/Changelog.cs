@@ -8,6 +8,11 @@ public static class Changelog
 {
     public static readonly ChangelogEntry[] Entries =
     {
+        new("0.5.32", "22.10.2026 02:50", new[]
+        {
+            "Update-Suche: Die App nutzt jetzt den offiziellen Release-Feed statt der GitHub-API. Dadurch funktioniert die Suche auch dann zuverlässig, wenn das GitHub-API-Limit erreicht ist (Fehler 403).",
+            "Update-Installation: Neue Versionen werden weiterhin direkt aus dem neuesten Release geladen und wie gewohnt installiert."
+        }),
         new("0.5.31", "22.10.2026 02:35", new[]
         {
             "Premium: Treiber und Beleuchtung bleiben jetzt auch ohne Premium in der Navigation sichtbar, sind aber mit einem Schloss markiert.",

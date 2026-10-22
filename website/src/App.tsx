@@ -22,6 +22,14 @@ const FEATURES = [
 
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   {
+    version: "0.5.32",
+    date: "22.10.2026 02:50",
+    items: [
+      "Update-Suche: Die App nutzt jetzt den offiziellen Release-Feed statt der GitHub-API. Dadurch funktioniert die Suche auch dann zuverlässig, wenn das GitHub-API-Limit erreicht ist (Fehler 403).",
+      "Update-Installation: Neue Versionen werden weiterhin direkt aus dem neuesten Release geladen und wie gewohnt installiert."
+    ]
+  },
+  {
     version: "0.5.31",
     date: "22.10.2026 02:35",
     items: [
