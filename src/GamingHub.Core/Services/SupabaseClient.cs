@@ -194,7 +194,7 @@ public sealed class SupabaseClient
             await RefreshAsync();
 
         using var req = new HttpRequestMessage(HttpMethod.Post, $"{Url}/rest/v1/{table}");
-        AddApiKey(req); AddBearer(req);
+        AddApiKey(req); AddBearer(req); AddProfile(req);
         req.Headers.TryAddWithoutValidation("Prefer", "return=representation");
         req.Content = JsonContent(row);
         var resp = await _http.SendAsync(req);
@@ -208,7 +208,7 @@ public sealed class SupabaseClient
             await RefreshAsync();
 
         using var req = new HttpRequestMessage(HttpMethod.Get, $"{Url}/rest/v1/{table}?{query}");
-        AddApiKey(req); AddBearer(req);
+        AddApiKey(req); AddBearer(req); AddProfile(req);
         var resp = await _http.SendAsync(req);
         string text = await resp.Content.ReadAsStringAsync();
         return new RestResult(resp.IsSuccessStatusCode, resp.IsSuccessStatusCode ? text : (ExtractError(text) ?? text));
@@ -223,7 +223,7 @@ public sealed class SupabaseClient
 
         string query = string.IsNullOrWhiteSpace(filters) ? string.Empty : "?" + filters.TrimStart('?');
         using var req = new HttpRequestMessage(HttpMethod.Get, $"{Url}/rest/v1/{table}{query}");
-        AddApiKey(req); AddBearer(req);
+        AddApiKey(req); AddBearer(req); AddProfile(req);
         req.Headers.TryAddWithoutValidation("Prefer", "count=exact");
         req.Headers.TryAddWithoutValidation("Range-Unit", "items");
         req.Headers.TryAddWithoutValidation("Range", "0-0");
@@ -253,7 +253,7 @@ public sealed class SupabaseClient
             await RefreshAsync();
 
         using var req = new HttpRequestMessage(HttpMethod.Patch, $"{Url}/rest/v1/{table}?{query}");
-        AddApiKey(req); AddBearer(req);
+        AddApiKey(req); AddBearer(req); AddProfile(req);
         req.Headers.TryAddWithoutValidation("Prefer", "return=representation");
         req.Content = JsonContent(patch);
         var resp = await _http.SendAsync(req);
@@ -267,7 +267,7 @@ public sealed class SupabaseClient
             await RefreshAsync();
 
         using var req = new HttpRequestMessage(HttpMethod.Delete, $"{Url}/rest/v1/{table}?{query}");
-        AddApiKey(req); AddBearer(req);
+        AddApiKey(req); AddBearer(req); AddProfile(req);
         var resp = await _http.SendAsync(req);
         string text = await resp.Content.ReadAsStringAsync();
         return new RestResult(resp.IsSuccessStatusCode, resp.IsSuccessStatusCode ? text : (ExtractError(text) ?? text));
@@ -280,7 +280,7 @@ public sealed class SupabaseClient
             await RefreshAsync();
 
         using var req = new HttpRequestMessage(HttpMethod.Post, $"{Url}/rest/v1/rpc/{function}");
-        AddApiKey(req); AddBearer(req);
+        AddApiKey(req); AddBearer(req); AddProfile(req);
         req.Content = JsonContent(args);
         var resp = await _http.SendAsync(req);
         string text = await resp.Content.ReadAsStringAsync();
@@ -312,6 +312,17 @@ public sealed class SupabaseClient
     private void AddApiKey(HttpRequestMessage req)
     {
         req.Headers.TryAddWithoutValidation("apikey", AnonKey);
+    }
+
+    /// <summary>
+    /// Das Supabase-Projekt kann mehrere Schemas freigeben; ohne diesen Header
+    /// waehlt PostgREST das zuletzt konfigurierte Schema (hier "api"). Unsere
+    /// Tabellen und RPC-Funktionen liegen in "public".
+    /// </summary>
+    private static void AddProfile(HttpRequestMessage req)
+    {
+        req.Headers.TryAddWithoutValidation("Accept-Profile", "public");
+        req.Headers.TryAddWithoutValidation("Content-Profile", "public");
     }
 
     private void AddBearer(HttpRequestMessage req)

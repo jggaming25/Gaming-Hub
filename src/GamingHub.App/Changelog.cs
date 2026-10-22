@@ -8,6 +8,12 @@ public static class Changelog
 {
     public static readonly ChangelogEntry[] Entries =
     {
+        new("0.6.4", "22.10.2026 19:06", new[]
+        {
+            "Konto/Cloud: Die Meldung „Server nicht erreichbar“ beim Prüfen des Premium-Status ist behoben. Die App verwendet jetzt zuverlässig das richtige Supabase-Datenbank-Schema.",
+            "Konto/Cloud: Profil-, Abzeichen-, Bugtracker- und Premium-Abfragen funktionieren dadurch wieder vollständig.",
+            "Version 0.6.4"
+        }),
         new("0.6.3", "22.10.2026 18:36", new[]
         {
             "Bildschirmzeit: Die App-Sperre bleibt jetzt dauerhaft über der gesperrten App sichtbar und wird bei minimiertem Fenster wiederhergestellt.",

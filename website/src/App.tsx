@@ -26,6 +26,14 @@ const FEATURES = [
 
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   {
+    version: "0.6.4",
+    date: "22.10.2026 19:06",
+    items: [
+      "Konto/Cloud: Die Meldung „Server nicht erreichbar“ beim Prüfen des Premium-Status ist behoben; die App verwendet jetzt das richtige Supabase-Datenbank-Schema.",
+      "Konto/Cloud: Profil-, Abzeichen-, Bugtracker- und Premium-Abfragen funktionieren wieder vollständig."
+    ]
+  },
+  {
     version: "0.6.3",
     date: "22.10.2026 18:36",
     items: [
