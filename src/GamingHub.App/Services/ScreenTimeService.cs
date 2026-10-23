@@ -418,15 +418,13 @@ public sealed class ScreenTimeService : IDisposable
             }
         }
 
-        if (canEnforce && enforce)
-        {
-            EvaluateBlock(apps);
+        if (canEnforce)
             CheckLimitWarnings(apps);
-        }
+
+        if (canEnforce && enforce)
+            EvaluateBlock(apps);
         else
-        {
             SetBlock(null);
-        }
 
         if (DateTime.Now.Second % 10 == 0)
             Changed?.Invoke();

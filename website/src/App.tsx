@@ -26,6 +26,15 @@ const FEATURES = [
 
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   {
+    version: "0.6.5",
+    date: "23.10.2026 02:20",
+    items: [
+      "Bildschirmzeit: Änderungen an App-Limits sowie erlaubten Zeiten und Tageslimits werden erst nach Klick auf den jeweiligen Übernehmen-Knopf gespeichert und angewendet.",
+      "Bildschirmzeit: Die 15- und 2-Minuten-Warnungen für App-Limits erscheinen jetzt auch, wenn die Durchsetzung der Limits ausgeschaltet ist.",
+      "Benachrichtigungen: Werden Windows-Toasts durch Fokusassistent, Vollbild oder andere Systemzustände unterdrückt, zeigt Gaming Hub den Hinweis jetzt als In-App-Benachrichtigung."
+    ]
+  },
+  {
     version: "0.6.4",
     date: "22.10.2026 19:06",
     items: [

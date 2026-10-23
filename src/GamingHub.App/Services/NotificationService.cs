@@ -450,7 +450,7 @@ public sealed class NotificationService
         {
             var notifier = ToastNotificationManagerCompat.CreateToastNotifier();
             NativeEnabled = notifier.Setting == NotificationSetting.Enabled;
-            if (!NativeEnabled)
+            if (!NativeEnabled || GetUserNotificationState() != UserNotificationState.AcceptsNotifications)
                 return false;
 
             var content = new ToastContentBuilder()

@@ -20,11 +20,10 @@ public sealed partial class ScreenTimeAppRow : ObservableObject
     [ObservableProperty] private string _limitColor = "#FACC15";
 }
 
-/// <summary>Eine bearbeitbare Limit-Zeile. Änderungen werden sofort gespeichert.</summary>
+/// <summary>Eine bearbeitbare Limit-Zeile. Änderungen werden erst beim Bestätigen gespeichert.</summary>
 public sealed partial class ScreenTimeLimitRow : ObservableObject
 {
     private readonly AppLimit _model;
-    private readonly Action _save;
 
     public string ProcessName => _model.ProcessName;
 
@@ -34,10 +33,9 @@ public sealed partial class ScreenTimeLimitRow : ObservableObject
     [ObservableProperty] private bool _enabled;
     [ObservableProperty] private string _usageText = string.Empty;
 
-    public ScreenTimeLimitRow(AppLimit model, Action save)
+    public ScreenTimeLimitRow(AppLimit model)
     {
         _model = model;
-        _save = save;
         _displayName = string.IsNullOrWhiteSpace(model.DisplayName) ? model.ProcessName : model.DisplayName;
         _dailyMinutes = model.DailyMinutes;
         _weeklyMinutes = model.WeeklyMinutes;
@@ -48,30 +46,21 @@ public sealed partial class ScreenTimeLimitRow : ObservableObject
     {
         int clamped = Math.Clamp(value, 0, 24 * 60);
         if (value != clamped)
-        {
             DailyMinutes = clamped;
-            return;
-        }
-        _model.DailyMinutes = clamped;
-        _save();
     }
 
     partial void OnWeeklyMinutesChanged(int value)
     {
         int clamped = Math.Clamp(value, 0, 7 * 24 * 60);
         if (value != clamped)
-        {
             WeeklyMinutes = clamped;
-            return;
-        }
-        _model.WeeklyMinutes = clamped;
-        _save();
     }
 
-    partial void OnEnabledChanged(bool value)
+    public void Apply()
     {
-        _model.Enabled = value;
-        _save();
+        _model.DailyMinutes = Math.Clamp(DailyMinutes, 0, 24 * 60);
+        _model.WeeklyMinutes = Math.Clamp(WeeklyMinutes, 0, 7 * 24 * 60);
+        _model.Enabled = Enabled;
     }
 
     public void SetUsage(string text) => UsageText = text;
@@ -81,7 +70,6 @@ public sealed partial class ScreenTimeLimitRow : ObservableObject
 public sealed partial class ScreenTimeWeekdayRow : ObservableObject
 {
     private readonly ScreenTimeWeekdayRule _model;
-    private readonly Action _save;
 
     public DayOfWeek Day => _model.Day;
     public string DayLabel => _model.Day switch
@@ -99,37 +87,26 @@ public sealed partial class ScreenTimeWeekdayRow : ObservableObject
     [ObservableProperty] private string _allowedEnd;
     [ObservableProperty] private int _totalLimitMinutes;
 
-    public ScreenTimeWeekdayRow(ScreenTimeWeekdayRule model, Action save)
+    public ScreenTimeWeekdayRow(ScreenTimeWeekdayRule model)
     {
         _model = model;
-        _save = save;
         _allowedStart = model.AllowedStart;
         _allowedEnd = model.AllowedEnd;
         _totalLimitMinutes = model.TotalLimitMinutes;
-    }
-
-    partial void OnAllowedStartChanged(string value)
-    {
-        _model.AllowedStart = value;
-        _save();
-    }
-
-    partial void OnAllowedEndChanged(string value)
-    {
-        _model.AllowedEnd = value;
-        _save();
     }
 
     partial void OnTotalLimitMinutesChanged(int value)
     {
         int clamped = Math.Clamp(value, 0, 24 * 60);
         if (value != clamped)
-        {
             TotalLimitMinutes = clamped;
-            return;
-        }
-        _model.TotalLimitMinutes = clamped;
-        _save();
+    }
+
+    public void Apply()
+    {
+        _model.AllowedStart = AllowedStart?.Trim() ?? string.Empty;
+        _model.AllowedEnd = AllowedEnd?.Trim() ?? string.Empty;
+        _model.TotalLimitMinutes = Math.Clamp(TotalLimitMinutes, 0, 24 * 60);
     }
 }
 
@@ -269,27 +246,38 @@ public partial class ScreenTimeViewModel : ViewModelBase
 
         Limits.Clear();
         foreach (var limit in profile.AppLimits)
-            Limits.Add(new ScreenTimeLimitRow(limit, SaveLimits));
+            Limits.Add(new ScreenTimeLimitRow(limit));
 
         Weekdays.Clear();
         foreach (var rule in profile.Weekdays.OrderBy(r => ((int)r.Day + 6) % 7))
-            Weekdays.Add(new ScreenTimeWeekdayRow(rule, SaveWeekdays));
+            Weekdays.Add(new ScreenTimeWeekdayRow(rule));
         _suppressProfileWrite = false;
 
         OnPropertyChanged(nameof(HasLimits));
     }
 
-    private void SaveWeekdays()
+    [RelayCommand]
+    private void ApplyLimitChanges()
     {
-        if (_suppressProfileWrite || !IsPremiumUser) return;
+        if (!IsPremiumUser) return;
+
+        foreach (var row in Limits)
+            row.Apply();
         AppServices.ScreenTime.UpdateActiveProfile(_ => { });
         RefreshUsage();
+        StatusText = "App-Limits übernommen.";
     }
 
-    private void SaveLimits()
+    [RelayCommand]
+    private void ApplyWeekdayChanges()
     {
+        if (_suppressProfileWrite || !IsPremiumUser) return;
+
+        foreach (var row in Weekdays)
+            row.Apply();
         AppServices.ScreenTime.UpdateActiveProfile(_ => { });
         RefreshUsage();
+        StatusText = "Zeiten und Tageslimits übernommen.";
     }
 
     private void SaveProfileSettings()

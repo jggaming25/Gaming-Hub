@@ -8,6 +8,13 @@ public static class Changelog
 {
     public static readonly ChangelogEntry[] Entries =
     {
+        new("0.6.5", "23.10.2026 02:20", new[]
+        {
+            "Bildschirmzeit: Änderungen an App-Limits sowie erlaubten Zeiten und Tageslimits werden erst nach Klick auf den jeweiligen Übernehmen-Knopf gespeichert und angewendet.",
+            "Bildschirmzeit: Die 15- und 2-Minuten-Warnungen für App-Limits erscheinen jetzt auch, wenn die Durchsetzung der Limits ausgeschaltet ist.",
+            "Benachrichtigungen: Werden Windows-Toasts durch Fokusassistent, Vollbild oder andere Systemzustände unterdrückt, zeigt Gaming Hub den Hinweis jetzt als In-App-Benachrichtigung.",
+            "Version 0.6.5"
+        }),
         new("0.6.4", "22.10.2026 19:06", new[]
         {
             "Konto/Cloud: Die Meldung „Server nicht erreichbar“ beim Prüfen des Premium-Status ist behoben. Die App verwendet jetzt zuverlässig das richtige Supabase-Datenbank-Schema.",

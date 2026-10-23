@@ -133,8 +133,8 @@
                             IsVisible="{Binding ShowLimitFeatures}">
                         <StackPanel Spacing="10">
                             <TextBlock Text="⛔ Limits pro App" FontWeight="SemiBold" FontSize="15" />
-                            <TextBlock Text="0 = kein Limit. Änderungen werden sofort gespeichert."
-                                       Classes="muted" FontSize="11" />
+                            <TextBlock Text="0 = kein Limit. Änderungen werden erst mit „App-Limits übernehmen“ gespeichert."
+                                       Classes="muted" FontSize="11" TextWrapping="Wrap" />
 
                             <ItemsControl ItemsSource="{Binding Limits}">
                                 <ItemsControl.ItemTemplate>
@@ -167,6 +167,10 @@
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
+
+                            <Button Content="App-Limits übernehmen" Classes="accent"
+                                    HorizontalAlignment="Stretch"
+                                    Command="{Binding ApplyLimitChangesCommand}" />
 
                             <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
                                 <ComboBox Grid.Column="0" IsEditable="True"
@@ -228,7 +232,10 @@
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
-                            <TextBlock Text="0 = kein Tageslimit. Die erlaubten Zeiten und Tageslimits gelten pro Wochentag und werden um 00:00 Uhr zurückgesetzt."
+                            <Button Content="Zeiten &amp; Tageslimits übernehmen" Classes="accent"
+                                    HorizontalAlignment="Stretch"
+                                    Command="{Binding ApplyWeekdayChangesCommand}" />
+                            <TextBlock Text="0 = kein Tageslimit. Änderungen werden erst mit „Zeiten &amp; Tageslimits übernehmen“ gespeichert. Die Regeln gelten pro Wochentag und werden um 00:00 Uhr zurückgesetzt."
                                        Classes="muted" FontSize="11" TextWrapping="Wrap" />
                         </StackPanel>
                     </Border>
