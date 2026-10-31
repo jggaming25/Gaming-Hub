@@ -60,6 +60,12 @@ public partial class DriversViewModel : ViewModelBase
     [ObservableProperty] private bool _hasUpdates;
     [ObservableProperty] private bool _isAdministrator;
 
+    // Fortschritt der Treiberprüfung (x/y Treiber bzw. Updates)
+    [ObservableProperty] private bool _isCheckProgressVisible;
+    [ObservableProperty] private bool _isCheckProgressIndeterminate;
+    [ObservableProperty] private double _checkProgressValue;
+    [ObservableProperty] private string _checkProgressText = string.Empty;
+
     public bool IsNotAdministrator => !IsAdministrator;
 
     partial void OnSearchTextChanged(string value) => ApplyFilter();
@@ -147,12 +153,20 @@ public partial class DriversViewModel : ViewModelBase
             return;
         }
         IsCheckingUpdates = true;
+        IsCheckProgressVisible = true;
+        IsCheckProgressIndeterminate = true;
+        CheckProgressValue = 0;
+        CheckProgressText = "Treiberprüfung wird vorbereitet…";
         UpdateStatusText = "Frage Windows Update nach Treiber-Updates ab…";
         try
         {
+            var progress = new Progress<DriverCheckProgress>(p =>
+                Dispatcher.UIThread.Post(() => ApplyCheckProgress(p)));
+            int knownTotal = _allDrivers.Count;
+
             var (updates, error) = await Task.Run(() =>
             {
-                var list = DriverUpdateService.SearchDriverUpdates(out var err);
+                var list = DriverUpdateService.SearchDriverUpdates(out var err, progress, knownTotal);
                 return (list, err);
             });
 
@@ -181,7 +195,18 @@ public partial class DriversViewModel : ViewModelBase
         finally
         {
             IsCheckingUpdates = false;
+            IsCheckProgressVisible = false;
         }
+    }
+
+    private void ApplyCheckProgress(DriverCheckProgress progress)
+    {
+        IsCheckProgressVisible = true;
+        IsCheckProgressIndeterminate = progress.IsIndeterminate;
+        CheckProgressValue = progress.Percent;
+        CheckProgressText = progress.Total > 0
+            ? $"{progress.Checked}/{progress.Total} · {progress.Phase}"
+            : progress.Phase;
     }
 
     [RelayCommand]

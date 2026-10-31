@@ -30,16 +30,43 @@ public sealed class ScreenTimeService : IDisposable
     /// </summary>
     public static bool IsGamingHubProcess(string? processName)
     {
-        if (string.IsNullOrWhiteSpace(processName)) return false;
-
-        string name = processName.Trim();
-        if (name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-            name = name[..^4];
-
+        string name = NormalizeProcessName(processName);
         return name.Equals("gaminghub", StringComparison.OrdinalIgnoreCase)
             || name.Equals("gaminghub.app", StringComparison.OrdinalIgnoreCase)
             || name.Equals(Process.GetCurrentProcess().ProcessName, StringComparison.OrdinalIgnoreCase);
     }
+
+    public static string NormalizeProcessName(string? processName)
+    {
+        if (string.IsNullOrWhiteSpace(processName)) return string.Empty;
+
+        string name = processName.Trim();
+        if (name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+            name = name[..^4];
+        return name.Trim();
+    }
+
+    /// <summary>
+    /// Launcher-Prozesse (z. B. SpotifyLauncher) sind nicht die App, deren
+    /// Nutzung erfasst wird. Für Limits zählt deshalb der eigentliche App-Name.
+    /// </summary>
+    public static string CanonicalProcessName(string? processName)
+    {
+        string name = NormalizeProcessName(processName);
+        foreach (var suffix in new[] { "launcher", "bootstrapper" })
+        {
+            if (name.Length <= suffix.Length || !name.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            string canonical = name[..^suffix.Length].TrimEnd(' ', '-', '_');
+            if (canonical.Length > 0)
+                return canonical;
+        }
+        return name;
+    }
+
+    public static bool IsSameAppProcess(string? left, string? right) =>
+        string.Equals(CanonicalProcessName(left), CanonicalProcessName(right), StringComparison.OrdinalIgnoreCase);
 
     private readonly string _dataPath;
     private readonly object _gate = new();
@@ -199,6 +226,46 @@ public sealed class ScreenTimeService : IDisposable
         lock (_gate) return DisplayNameLocked(processName);
     }
 
+    public IReadOnlyList<(string Process, string Display)> GetKnownApps()
+    {
+        lock (_gate)
+        {
+            var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var (process, display) in _data.AppNames)
+                result[process] = string.IsNullOrWhiteSpace(display) ? process : display;
+
+            foreach (var day in _data.Days.Values)
+            {
+                foreach (var process in day.AppSeconds.Keys)
+                {
+                    if (!result.ContainsKey(process))
+                        result[process] = DisplayNameLocked(process);
+                }
+            }
+
+            return result
+                .OrderBy(kv => kv.Value, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase)
+                .Select(kv => (kv.Key, kv.Value))
+                .ToList();
+        }
+    }
+
+    public int GetLimitTodaySeconds(string processName)
+    {
+        lock (_gate) return GetLimitTodaySecondsLocked(processName);
+    }
+
+    public int GetLimitWeekSeconds(string processName)
+    {
+        lock (_gate) return GetLimitWeekSecondsLocked(processName);
+    }
+
+    public string ResolvePreferredProcessName(string processName)
+    {
+        lock (_gate) return ResolvePreferredProcessNameLocked(processName);
+    }
+
     public void EnsureProfile()
     {
         lock (_gate)
@@ -230,22 +297,30 @@ public sealed class ScreenTimeService : IDisposable
 
     public void AddAppLimit(string processName, string displayName)
     {
-        if (string.IsNullOrWhiteSpace(processName) || IsGamingHubProcess(processName)) return;
+        string normalized = NormalizeProcessName(processName);
+        if (string.IsNullOrWhiteSpace(normalized) || IsGamingHubProcess(normalized)) return;
+
         lock (_gate)
         {
             var profile = _data.Profiles.FirstOrDefault(p => p.Id == _data.ActiveProfileId)
                           ?? _data.Profiles.FirstOrDefault();
             if (profile is null) return;
-            if (profile.AppLimits.Any(a => string.Equals(a.ProcessName, processName, StringComparison.OrdinalIgnoreCase)))
+
+            string target = ResolvePreferredProcessNameLocked(normalized);
+            if (profile.AppLimits.Any(a => IsSameAppProcess(a.ProcessName, target)))
                 return;
+
+            string targetDisplay = !string.IsNullOrWhiteSpace(displayName) && IsSameAppProcess(normalized, target)
+                ? displayName
+                : DisplayNameLocked(target);
 
             profile.AppLimits.Add(new AppLimit
             {
-                ProcessName = processName,
-                DisplayName = string.IsNullOrWhiteSpace(displayName) ? processName : displayName
+                ProcessName = target,
+                DisplayName = targetDisplay
             });
-            if (!_data.AppNames.ContainsKey(processName) && !string.IsNullOrWhiteSpace(displayName))
-                _data.AppNames[processName] = displayName;
+            if (!_data.AppNames.ContainsKey(target) && !string.IsNullOrWhiteSpace(targetDisplay))
+                _data.AppNames[target] = targetDisplay;
             MarkDirty();
         }
         Changed?.Invoke();
@@ -257,7 +332,7 @@ public sealed class ScreenTimeService : IDisposable
         {
             var profile = ActiveProfileLocked();
             if (profile is null) return;
-            profile.AppLimits.RemoveAll(a => string.Equals(a.ProcessName, processName, StringComparison.OrdinalIgnoreCase));
+            profile.AppLimits.RemoveAll(a => IsSameAppProcess(a.ProcessName, processName));
             MarkDirty();
         }
         Changed?.Invoke();
@@ -466,15 +541,14 @@ public sealed class ScreenTimeService : IDisposable
                 {
                     foreach (var app in GetLimitCandidatesLocked(profile, apps))
                     {
-                        var limit = profile.AppLimits.FirstOrDefault(a =>
-                            a.Enabled && string.Equals(a.ProcessName, app.ProcessName, StringComparison.OrdinalIgnoreCase));
+                        var limit = FindLimitForProcessLocked(profile, app.ProcessName);
                         if (limit is null) continue;
 
                         var displayName = string.IsNullOrWhiteSpace(app.DisplayName)
                             ? DisplayNameLocked(app.ProcessName)
                             : app.DisplayName;
-                        int today = GetTodaySecondsLocked(app.ProcessName);
-                        int week = GetWeekSecondsLocked(app.ProcessName);
+                        int today = GetLimitTodaySecondsLocked(limit.ProcessName);
+                        int week = GetLimitWeekSecondsLocked(limit.ProcessName);
                         if (limit.DailyMinutes > 0 && today >= limit.DailyMinutes * 60)
                         {
                             block = new ScreenTimeBlock
@@ -535,11 +609,15 @@ public sealed class ScreenTimeService : IDisposable
                     "Bildschirmzeit");
             }
 
+            var checkedLimits = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var app in GetLimitCandidatesLocked(profile, apps))
             {
-                var limit = profile.AppLimits.FirstOrDefault(a =>
-                    a.Enabled && string.Equals(a.ProcessName, app.ProcessName, StringComparison.OrdinalIgnoreCase));
+                var limit = FindLimitForProcessLocked(profile, app.ProcessName);
                 if (limit is null) continue;
+
+                string limitKey = CanonicalProcessName(limit.ProcessName);
+                if (!checkedLimits.Add(limitKey))
+                    continue;
 
                 string displayName = string.IsNullOrWhiteSpace(app.DisplayName)
                     ? DisplayNameLocked(app.ProcessName)
@@ -547,9 +625,9 @@ public sealed class ScreenTimeService : IDisposable
 
                 if (limit.DailyMinutes > 0)
                 {
-                    int remaining = limit.DailyMinutes * 60 - GetTodaySecondsLocked(app.ProcessName);
+                    int remaining = limit.DailyMinutes * 60 - GetLimitTodaySecondsLocked(limit.ProcessName);
                     AddLimitWarningLocked(warnings,
-                        $"app:{app.ProcessName}:daily:{limit.DailyMinutes}",
+                        $"app:{limitKey}:daily:{limit.DailyMinutes}",
                         remaining,
                         $"Tageslimit {limit.DailyMinutes} Min.",
                         displayName);
@@ -557,9 +635,9 @@ public sealed class ScreenTimeService : IDisposable
 
                 if (limit.WeeklyMinutes > 0)
                 {
-                    int remaining = limit.WeeklyMinutes * 60 - GetWeekSecondsLocked(app.ProcessName);
+                    int remaining = limit.WeeklyMinutes * 60 - GetLimitWeekSecondsLocked(limit.ProcessName);
                     AddLimitWarningLocked(warnings,
-                        $"app:{app.ProcessName}:weekly:{limit.WeeklyMinutes}",
+                        $"app:{limitKey}:weekly:{limit.WeeklyMinutes}",
                         remaining,
                         $"Wochenlimit {limit.WeeklyMinutes} Min.",
                         displayName);
@@ -620,16 +698,90 @@ public sealed class ScreenTimeService : IDisposable
                 continue;
             if (IsGamingHubProcess(limit.ProcessName))
                 continue;
-            if (result.ContainsKey(limit.ProcessName) || !IsProcessRunning(limit.ProcessName))
+
+            string target = ResolveLimitTargetLocked(limit.ProcessName, apps);
+            if (result.ContainsKey(target) || !IsProcessRunning(target))
                 continue;
 
             string displayName = string.IsNullOrWhiteSpace(limit.DisplayName)
-                ? DisplayNameLocked(limit.ProcessName)
+                ? DisplayNameLocked(target)
                 : limit.DisplayName;
-            result[limit.ProcessName] = new OpenWindowApp(limit.ProcessName, displayName);
+            result[target] = new OpenWindowApp(target, displayName);
         }
 
         return result.Values.ToList();
+    }
+
+    private string ResolveLimitTargetLocked(string processName, IReadOnlyList<OpenWindowApp> apps)
+    {
+        string normalized = NormalizeProcessName(processName);
+        string canonical = CanonicalProcessName(normalized);
+        if (!string.Equals(canonical, normalized, StringComparison.OrdinalIgnoreCase))
+        {
+            bool canonicalVisible = apps.Any(app =>
+                string.Equals(app.ProcessName, canonical, StringComparison.OrdinalIgnoreCase));
+            if (canonicalVisible || IsProcessRunning(canonical))
+                return canonical;
+        }
+
+        return normalized;
+    }
+
+    private string ResolvePreferredProcessNameLocked(string processName)
+    {
+        string normalized = NormalizeProcessName(processName);
+        string canonical = CanonicalProcessName(normalized);
+        if (string.Equals(canonical, normalized, StringComparison.OrdinalIgnoreCase))
+            return normalized;
+
+        bool canonicalKnown = _data.AppNames.ContainsKey(canonical) || IsProcessRunning(canonical);
+        if (!canonicalKnown)
+        {
+            foreach (var day in _data.Days.Values)
+            {
+                if (day.AppSeconds.ContainsKey(canonical))
+                {
+                    canonicalKnown = true;
+                    break;
+                }
+            }
+        }
+
+        return canonicalKnown ? canonical : normalized;
+    }
+
+    private static AppLimit? FindLimitForProcessLocked(ScreenTimeProfile profile, string processName) =>
+        profile.AppLimits.FirstOrDefault(limit =>
+            limit.Enabled && IsSameAppProcess(limit.ProcessName, processName));
+
+    private int GetLimitTodaySecondsLocked(string processName)
+    {
+        var day = GetDayLocked(TodayKey);
+        int total = 0;
+        foreach (var (app, seconds) in day.AppSeconds)
+        {
+            if (IsSameAppProcess(processName, app))
+                total += seconds;
+        }
+        return total;
+    }
+
+    private int GetLimitWeekSecondsLocked(string processName)
+    {
+        int total = 0;
+        for (int i = 0; i < 7; i++)
+        {
+            string key = DateTime.Now.AddDays(-i).ToString("yyyy-MM-dd");
+            if (!_data.Days.TryGetValue(key, out var day))
+                continue;
+
+            foreach (var (app, seconds) in day.AppSeconds)
+            {
+                if (IsSameAppProcess(processName, app))
+                    total += seconds;
+            }
+        }
+        return total;
     }
 
     private static bool IsProcessRunning(string processName)
@@ -955,6 +1107,18 @@ public sealed class ScreenTimeService : IDisposable
             profile.Weekdays ??= new List<ScreenTimeWeekdayRule>();
             if (profile.AppLimits.RemoveAll(a => IsGamingHubProcess(a.ProcessName)) > 0)
                 MarkDirty();
+
+            foreach (var limit in profile.AppLimits)
+            {
+                string target = ResolvePreferredProcessNameLocked(limit.ProcessName);
+                if (string.Equals(target, NormalizeProcessName(limit.ProcessName), StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                limit.ProcessName = target;
+                limit.DisplayName = DisplayNameLocked(target);
+                MarkDirty();
+            }
+
             EnsureWeekdaysLocked(profile);
         }
         _lastDayKey = TodayKey;

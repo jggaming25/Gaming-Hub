@@ -236,20 +236,21 @@
                                     <TextBlock Grid.Row="1" Text="50" FontSize="9" Classes="muted" HorizontalAlignment="Right" VerticalAlignment="Center" />
                                     <TextBlock Grid.Row="2" Text="0" FontSize="9" Classes="muted" HorizontalAlignment="Right" />
                                 </Grid>
-                                <Grid Grid.Column="2" ClipToBounds="True" Background="#0C1120">
-                                    <Border VerticalAlignment="Top" Height="1" Background="#18FFFFFF" />
-                                    <Border VerticalAlignment="Center" Height="1" Background="#18FFFFFF" />
-                                    <Border VerticalAlignment="Bottom" Height="1" Background="#18FFFFFF" />
-                                    <Grid ColumnDefinitions="*,*,*,*" IsHitTestVisible="False">
-                                        <Border Grid.Column="1" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
-                                        <Border Grid.Column="2" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
-                                        <Border Grid.Column="3" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
+                                <ScrollViewer Grid.Column="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                                    <Grid Width="{Binding HistoryChartWidth}" Height="72" ClipToBounds="True" Background="#0C1120">
+                                        <Border VerticalAlignment="Top" Height="1" Background="#18FFFFFF" />
+                                        <Border VerticalAlignment="Center" Height="1" Background="#18FFFFFF" />
+                                        <Border VerticalAlignment="Bottom" Height="1" Background="#18FFFFFF" />
+                                        <Grid ColumnDefinitions="*,*,*,*" IsHitTestVisible="False">
+                                            <Border Grid.Column="1" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
+                                            <Border Grid.Column="2" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
+                                            <Border Grid.Column="3" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
+                                        </Grid>
+                                        <Polyline Stretch="None"
+                                                  Points="{Binding CpuSeries, Converter={x:Static vm:CommonConverters.SeriesToPoints}, ConverterParameter=4x72x100}"
+                                                  Stroke="#22D3EE" StrokeThickness="2" />
                                     </Grid>
-                                    <Polyline Stretch="Fill"
-                                              Points="{Binding CpuSeries, Converter={x:Static vm:CommonConverters.SeriesToPoints}}"
-                                              Stroke="#22D3EE" StrokeThickness="2" />
-
-                                </Grid>
+                                </ScrollViewer>
                             </Grid>
 
                             <!-- RAM -->
@@ -266,20 +267,21 @@
                                     <TextBlock Grid.Row="1" Text="50" FontSize="9" Classes="muted" HorizontalAlignment="Right" VerticalAlignment="Center" />
                                     <TextBlock Grid.Row="2" Text="0" FontSize="9" Classes="muted" HorizontalAlignment="Right" />
                                 </Grid>
-                                <Grid Grid.Column="2" ClipToBounds="True" Background="#0C1120">
-                                    <Border VerticalAlignment="Top" Height="1" Background="#18FFFFFF" />
-                                    <Border VerticalAlignment="Center" Height="1" Background="#18FFFFFF" />
-                                    <Border VerticalAlignment="Bottom" Height="1" Background="#18FFFFFF" />
-                                    <Grid ColumnDefinitions="*,*,*,*" IsHitTestVisible="False">
-                                        <Border Grid.Column="1" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
-                                        <Border Grid.Column="2" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
-                                        <Border Grid.Column="3" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
+                                <ScrollViewer Grid.Column="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                                    <Grid Width="{Binding HistoryChartWidth}" Height="72" ClipToBounds="True" Background="#0C1120">
+                                        <Border VerticalAlignment="Top" Height="1" Background="#18FFFFFF" />
+                                        <Border VerticalAlignment="Center" Height="1" Background="#18FFFFFF" />
+                                        <Border VerticalAlignment="Bottom" Height="1" Background="#18FFFFFF" />
+                                        <Grid ColumnDefinitions="*,*,*,*" IsHitTestVisible="False">
+                                            <Border Grid.Column="1" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
+                                            <Border Grid.Column="2" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
+                                            <Border Grid.Column="3" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
+                                        </Grid>
+                                        <Polyline Stretch="None"
+                                                  Points="{Binding RamSeries, Converter={x:Static vm:CommonConverters.SeriesToPoints}, ConverterParameter=4x72x100}"
+                                                  Stroke="#4ADE80" StrokeThickness="2" />
                                     </Grid>
-                                    <Polyline Stretch="Fill"
-                                              Points="{Binding RamSeries, Converter={x:Static vm:CommonConverters.SeriesToPoints}}"
-                                              Stroke="#4ADE80" StrokeThickness="2" />
-
-                                </Grid>
+                                </ScrollViewer>
                             </Grid>
 
                             <!-- GPU -->
@@ -296,20 +298,21 @@
                                     <TextBlock Grid.Row="1" Text="50" FontSize="9" Classes="muted" HorizontalAlignment="Right" VerticalAlignment="Center" />
                                     <TextBlock Grid.Row="2" Text="0" FontSize="9" Classes="muted" HorizontalAlignment="Right" />
                                 </Grid>
-                                <Grid Grid.Column="2" ClipToBounds="True" Background="#0C1120">
-                                    <Border VerticalAlignment="Top" Height="1" Background="#18FFFFFF" />
-                                    <Border VerticalAlignment="Center" Height="1" Background="#18FFFFFF" />
-                                    <Border VerticalAlignment="Bottom" Height="1" Background="#18FFFFFF" />
-                                    <Grid ColumnDefinitions="*,*,*,*" IsHitTestVisible="False">
-                                        <Border Grid.Column="1" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
-                                        <Border Grid.Column="2" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
-                                        <Border Grid.Column="3" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
+                                <ScrollViewer Grid.Column="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                                    <Grid Width="{Binding HistoryChartWidth}" Height="72" ClipToBounds="True" Background="#0C1120">
+                                        <Border VerticalAlignment="Top" Height="1" Background="#18FFFFFF" />
+                                        <Border VerticalAlignment="Center" Height="1" Background="#18FFFFFF" />
+                                        <Border VerticalAlignment="Bottom" Height="1" Background="#18FFFFFF" />
+                                        <Grid ColumnDefinitions="*,*,*,*" IsHitTestVisible="False">
+                                            <Border Grid.Column="1" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
+                                            <Border Grid.Column="2" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
+                                            <Border Grid.Column="3" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
+                                        </Grid>
+                                        <Polyline Stretch="None"
+                                                  Points="{Binding GpuSeries, Converter={x:Static vm:CommonConverters.SeriesToPoints}, ConverterParameter=4x72x100}"
+                                                  Stroke="#A855F7" StrokeThickness="2" />
                                     </Grid>
-                                    <Polyline Stretch="Fill"
-                                              Points="{Binding GpuSeries, Converter={x:Static vm:CommonConverters.SeriesToPoints}}"
-                                              Stroke="#A855F7" StrokeThickness="2" />
-
-                                </Grid>
+                                </ScrollViewer>
                             </Grid>
 
                             <!-- Prozesse -->
@@ -326,20 +329,21 @@
                                     <TextBlock Grid.Row="1" Text="50" FontSize="9" Classes="muted" HorizontalAlignment="Right" VerticalAlignment="Center" />
                                     <TextBlock Grid.Row="2" Text="0" FontSize="9" Classes="muted" HorizontalAlignment="Right" />
                                 </Grid>
-                                <Grid Grid.Column="2" ClipToBounds="True" Background="#0C1120">
-                                    <Border VerticalAlignment="Top" Height="1" Background="#18FFFFFF" />
-                                    <Border VerticalAlignment="Center" Height="1" Background="#18FFFFFF" />
-                                    <Border VerticalAlignment="Bottom" Height="1" Background="#18FFFFFF" />
-                                    <Grid ColumnDefinitions="*,*,*,*" IsHitTestVisible="False">
-                                        <Border Grid.Column="1" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
-                                        <Border Grid.Column="2" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
-                                        <Border Grid.Column="3" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
+                                <ScrollViewer Grid.Column="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                                    <Grid Width="{Binding HistoryChartWidth}" Height="72" ClipToBounds="True" Background="#0C1120">
+                                        <Border VerticalAlignment="Top" Height="1" Background="#18FFFFFF" />
+                                        <Border VerticalAlignment="Center" Height="1" Background="#18FFFFFF" />
+                                        <Border VerticalAlignment="Bottom" Height="1" Background="#18FFFFFF" />
+                                        <Grid ColumnDefinitions="*,*,*,*" IsHitTestVisible="False">
+                                            <Border Grid.Column="1" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
+                                            <Border Grid.Column="2" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
+                                            <Border Grid.Column="3" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
+                                        </Grid>
+                                        <Polyline Stretch="None"
+                                                  Points="{Binding ProcSeries, Converter={x:Static vm:CommonConverters.SeriesToPoints}, ConverterParameter=4x72x100}"
+                                                  Stroke="#FACC15" StrokeThickness="2" />
                                     </Grid>
-                                    <Polyline Stretch="Fill"
-                                              Points="{Binding ProcSeries, Converter={x:Static vm:CommonConverters.SeriesToPoints}}"
-                                              Stroke="#FACC15" StrokeThickness="2" />
-
-                                </Grid>
+                                </ScrollViewer>
                             </Grid>
                             <!-- Zeitachse -->
                             <Grid ColumnDefinitions="132,26,*" Margin="0,2,0,0">
@@ -564,10 +568,11 @@
                                     <TextBlock Text="{Binding WebVersionNote}" FontSize="11" Foreground="#22D3EE" TextWrapping="Wrap" IsVisible="{Binding HasWebResult}" />
                                     <ItemsControl ItemsSource="{Binding WebSources}">
                                         <ItemsControl.ItemTemplate>
-                                            <DataTemplate x:DataType="svc:WebResearchSource">
+                                            <DataTemplate x:DataType="vm:WebSourceRow">
                                                 <StackPanel Margin="0,4,0,0">
                                                     <TextBlock Text="{Binding Title}" FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                                                    <TextBlock Text="{Binding Snippet}" FontSize="11" Classes="muted" TextWrapping="Wrap" MaxLines="3" />
+                                                    <TextBlock Text="{Binding Snippet}" FontSize="11" Classes="muted" TextWrapping="Wrap" MaxLines="3"
+                                                               IsVisible="{Binding ShowSnippet}" />
                                                 </StackPanel>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>

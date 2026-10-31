@@ -24,7 +24,14 @@ public partial class MainViewModel : ViewModelBase
     private readonly List<NavItem> _allNav = new();
     private NavItem? _lastSelected;
     private readonly DispatcherTimer _premiumAccessTimer;
+    private readonly DispatcherTimer _updateCheckTimer;
     private bool _lastPremiumAccess;
+    private bool _isCheckingForUpdates;
+
+    /// <summary>Leichter Hintergrund-Check: alle 30 Sekunden nachsehen, ob es
+    /// eine neue Version gibt. Es wird nichts heruntergeladen – die Installation
+    /// startet der Nutzer direkt über den Hinweis in der Navigation.</summary>
+    private static readonly TimeSpan UpdateCheckInterval = TimeSpan.FromSeconds(30);
 
     private readonly Dictionary<string, bool> _flags = new()
     {
@@ -55,8 +62,10 @@ public partial class MainViewModel : ViewModelBase
     public bool IsInstallingUpdate { get; private set; }
 
     public string UpdateBannerText => HasUpdate && !RestartPending
-        ? $"Update {UpdateVersion} verfügbar – klicken zum Installieren"
+        ? $"Update {UpdateVersion} verfügbar"
         : string.Empty;
+
+    public string UpdateBannerHint => "Jetzt installieren – Gaming Hub startet danach neu";
 
     public bool ShowUpdateBanner => HasUpdate && !RestartPending && !IsInstallingUpdate;
     public bool ShowUpdateInstalling => IsInstallingUpdate;
@@ -134,7 +143,7 @@ public partial class MainViewModel : ViewModelBase
                 AppServices.Notifications.Show("Update fehlgeschlagen",
                     "Das Update konnte nicht automatisch installiert werden. Bitte nutze den Download auf der Website.");
                 IsInstallingUpdate = false;
-                OnPropertyChanged(nameof(ShowUpdateBanner));
+                NotifyUpdateStateChanged();
                 OnPropertyChanged(nameof(ShowUpdateInstalling));
             }
         }
@@ -145,7 +154,7 @@ public partial class MainViewModel : ViewModelBase
             AppServices.Notifications.Show("Update fehlgeschlagen",
                 "Der Download war nicht erfolgreich. Details stehen im Log unter Einstellungen.");
             IsInstallingUpdate = false;
-            OnPropertyChanged(nameof(ShowUpdateBanner));
+            NotifyUpdateStateChanged();
             OnPropertyChanged(nameof(ShowUpdateInstalling));
         }
     }
@@ -198,7 +207,48 @@ public partial class MainViewModel : ViewModelBase
         };
         _premiumAccessTimer.Start();
 
+        // Autonomer Update-Check alle 30 Sekunden. Der Start-Check läuft bereits
+        // im Splash, deshalb beginnt der Timer erst nach dem ersten Intervall.
+        _updateCheckTimer = new DispatcherTimer { Interval = UpdateCheckInterval };
+        _updateCheckTimer.Tick += async (_, _) => await CheckForUpdatesInBackgroundAsync();
+        _updateCheckTimer.Start();
+
         _ = LoadFlagsAsync();
+    }
+
+    private async Task CheckForUpdatesInBackgroundAsync()
+    {
+        if (_isCheckingForUpdates || IsInstallingUpdate || RestartPending)
+            return;
+
+        // Respektiert die Einstellung und vermeidet sinnlose Anfragen offline.
+        if (!AppServices.Settings.Settings.AutoCheckUpdates || AppServices.Internet.OfflineMode)
+            return;
+
+        _isCheckingForUpdates = true;
+        try
+        {
+            await AppServices.Updater.CheckForUpdatesAsync();
+            NotifyUpdateStateChanged();
+        }
+        catch (Exception ex)
+        {
+            // Ein fehlgeschlagener Hintergrund-Check darf die App nie stören.
+            LogService.Warn("Hintergrund-Update-Check fehlgeschlagen.", ex);
+        }
+        finally
+        {
+            _isCheckingForUpdates = false;
+        }
+    }
+
+    private void NotifyUpdateStateChanged()
+    {
+        OnPropertyChanged(nameof(HasUpdate));
+        OnPropertyChanged(nameof(UpdateVersion));
+        OnPropertyChanged(nameof(UpdateBannerText));
+        OnPropertyChanged(nameof(UpdateBannerHint));
+        OnPropertyChanged(nameof(ShowUpdateBanner));
     }
 
     private async Task LoadFlagsAsync()

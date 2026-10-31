@@ -144,22 +144,25 @@ public sealed class HistoryService
     {
         try
         {
-            DateTimeOffset first = AppServices.Settings.Settings.FirstEverLaunchUtc ?? DateTimeOffset.UtcNow;
             int retentionDays = IsPremium ? 28 : 7;
-            int currentCycle = (int)((DateTimeOffset.UtcNow.Date - first.Date).TotalDays / retentionDays);
-            int oldestKept = currentCycle - 1;
+            // Ein Tag Puffer, damit der Rand des Zeitraums nicht zu früh gelöscht wird.
+            DateTime cutoff = DateTime.UtcNow.AddDays(-(retentionDays + 1));
 
             foreach (var dir in Directory.GetDirectories(HistoryDirectory, "cycle-*"))
             {
                 string name = Path.GetFileName(dir);
-                if (!name.StartsWith("cycle-", StringComparison.OrdinalIgnoreCase)) continue;
-                if (int.TryParse(name.AsSpan("cycle-".Length), NumberStyles.Integer, CultureInfo.InvariantCulture, out int c))
+                string csv = Path.Combine(dir, "history.csv");
+                DateTime lastWrite = File.Exists(csv)
+                    ? File.GetLastWriteTimeUtc(csv)
+                    : Directory.GetLastWriteTimeUtc(dir);
+
+                // Nach dem tatsächlichen Alter löschen – nicht nach der Zyklusnummer.
+                // So bleiben Daten erhalten, wenn zwischen Basis und Premium
+                // gewechselt wurde und dadurch mehrere Zyklen parallel existieren.
+                if (lastWrite < cutoff)
                 {
-                    if (c < oldestKept)
-                    {
-                        Directory.Delete(dir, recursive: true);
-                        LogService.Info($"Telemetrie: alter Zyklus {name} gelöscht (Aufbewahrung {retentionDays} Tage).");
-                    }
+                    Directory.Delete(dir, recursive: true);
+                    LogService.Info($"Telemetrie: alter Zyklus {name} gelöscht (Aufbewahrung {retentionDays} Tage).");
                 }
             }
         }
@@ -177,24 +180,37 @@ public sealed class HistoryService
         return all.Where(p => p.TimestampUtc >= cutoff).ToList();
     }
 
-    /// <summary>Lädt den vollständigen aktuellen Zyklus für die Diagramme.</summary>
+    /// <summary>
+    /// Lädt den kompletten Aufbewahrungszeitraum (1 Woche bzw. 4 Wochen mit
+    /// Premium) für die Diagramme. Alle Zyklus-Ordner werden gelesen und über
+    /// den Zeitstempel gefiltert – so bleibt der Verlauf auch nach einem
+    /// Planwechsel oder Zykluswechsel vollständig. Zeiten, in denen der PC aus
+    /// war, zählen als normale Laufzeit des Zeitraums.
+    /// </summary>
     public List<HistoryPoint> LoadChartData()
     {
         var points = new List<HistoryPoint>();
         try
         {
-            DateTimeOffset first = AppServices.Settings.Settings.FirstEverLaunchUtc ?? DateTimeOffset.UtcNow;
-            int retentionDays = IsPremium ? 28 : 7;
-            int currentCycle = (int)((DateTimeOffset.UtcNow.Date - first.Date).TotalDays / retentionDays);
-            string csv = Path.Combine(HistoryDirectory, $"cycle-{currentCycle}", "history.csv");
-            if (!File.Exists(csv)) return points;
+            if (!Directory.Exists(HistoryDirectory))
+                return points;
 
-            foreach (var raw in File.ReadAllLines(csv))
+            int retentionDays = IsPremium ? 28 : 7;
+            DateTimeOffset cutoff = DateTimeOffset.UtcNow.AddDays(-retentionDays);
+
+            var byTimestamp = new Dictionary<long, HistoryPoint>();
+            foreach (var file in Directory.GetFiles(HistoryDirectory, "history.csv", SearchOption.AllDirectories))
             {
-                var p = ParseLine(raw);
-                if (p is not null)
-                    points.Add(p);
+                foreach (var raw in File.ReadAllLines(file))
+                {
+                    var p = ParseLine(raw);
+                    if (p is null || p.TimestampUtc < cutoff)
+                        continue;
+                    byTimestamp[p.TimestampUtc.UtcTicks] = p;
+                }
             }
+
+            points = byTimestamp.Values.OrderBy(p => p.TimestampUtc).ToList();
 
             double maxProcess = points.Count > 0 ? points.Max(p => (double)p.ProcessCount) : 1;
             if (maxProcess < 1) maxProcess = 1;

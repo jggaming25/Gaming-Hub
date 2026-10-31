@@ -191,11 +191,24 @@ public sealed class SeriesToPointsConverter : IValueConverter
             return points;
         }
 
-        double lastKnown = 0;
+        // Führende Lücken (noch keine Messung) werden übersprungen, damit die
+        // Linie nicht künstlich am Nullpunkt beginnt. Spätere Lücken werden mit
+        // dem letzten bekannten Wert überbrückt.
+        double? lastKnown = null;
         for (int i = 0; i < values.Count; i++)
         {
-            double raw = double.IsNaN(values[i]) ? lastKnown : values[i];
-            lastKnown = raw;
+            double raw = values[i];
+            if (double.IsNaN(raw))
+            {
+                if (lastKnown is null)
+                    continue;
+                raw = lastKnown.Value;
+            }
+            else
+            {
+                lastKnown = raw;
+            }
+
             double v = Math.Clamp(raw, 0, maxY);
             points.Add(new Point(i * spacing, height - (v / maxY) * height));
         }

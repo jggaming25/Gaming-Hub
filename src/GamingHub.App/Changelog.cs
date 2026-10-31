@@ -8,6 +8,19 @@ public static class Changelog
 {
     public static readonly ChangelogEntry[] Entries =
     {
+        new("0.6.6", "31.10.2026 11:35", new[]
+        {
+            "Updates: Gaming Hub prüft jetzt automatisch alle 30 Sekunden im Hintergrund, ob eine neue Version verfügbar ist. Der Hinweis erscheint unten in der Navigation und lässt sich dort mit einem Klick installieren.",
+            "System-Ressourcen: Das Verlaufsdiagramm zeigt jetzt den vollen Zeitraum (1 Woche, mit Premium 4 Wochen) und lässt sich horizontal scrollen. PC-Auszeiten werden als Laufzeit dargestellt.",
+            "Internet-Checker: Der Verlauf zeigt ebenfalls den vollen Zeitraum; die 1-MB-Testdatei wird nicht mehr auf die Festplatte geschrieben.",
+            "Treiber: Die Update-Suche zeigt den Fortschritt als „x/y Treiber“ bzw. „x/y Updates“.",
+            "Disk Cleanup: Duplikate werden nur noch innerhalb desselben Ordners erkannt – gleiche Größe, gleicher Name mit Zusatz wie „1“, „_1“, „Kopie“ oder „Copy“ und identischer Inhalt. Das Original bleibt erhalten.",
+            "Web-Recherche: Das Ergebnis wird nicht mehr doppelt untereinander angezeigt.",
+            "Ressourcen: Überflüssige doppelte Hilfsprozesse (z. B. Launcher oder Updater ohne Fenster) werden automatisch beendet, um Ressourcen freizugeben.",
+            "Bildschirmzeit: Während einer Voll-PC-Sperre öffnen Windows-Taste, Ctrl+Esc und Alt+Tab nicht mehr Taskleiste oder Startmenü.",
+            "Bildschirmzeit: App-Limits erkennen auch Launcher-Namen (z. B. SpotifyLauncher) und lassen sich bequem über eine App-Auswahl festlegen.",
+            "Version 0.6.6"
+        }),
         new("0.6.5", "23.10.2026 02:20", new[]
         {
             "Bildschirmzeit: Änderungen an App-Limits sowie erlaubten Zeiten und Tageslimits werden erst nach Klick auf den jeweiligen Übernehmen-Knopf gespeichert und angewendet.",

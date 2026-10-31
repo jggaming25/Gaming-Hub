@@ -49,6 +49,16 @@ public sealed partial class ProcessRow : ObservableObject
 
 public sealed record NetworkRow(string Name, string DownloadText, string UploadText);
 
+/// <summary>Eine Quelle der Web-Recherche. Der Auszug wird nur angezeigt,
+/// wenn er nicht ohnehin schon in der Zusammenfassung steht.</summary>
+public sealed class WebSourceRow
+{
+    public string Title { get; init; } = string.Empty;
+    public string Url { get; init; } = string.Empty;
+    public string Snippet { get; init; } = string.Empty;
+    public bool ShowSnippet { get; init; }
+}
+
 public partial class ResourcesViewModel : ViewModelBase
 {
     private readonly DispatcherTimer _timer;
@@ -104,6 +114,9 @@ public partial class ResourcesViewModel : ViewModelBase
     partial void OnSelectedProcessSortChanged(string value) => RebuildProcessItems(forceReorder: true);
 
     // Verlauf (Hintergrund-Aufzeichnung alle 5 Minuten, ca. 1 Woche / Premium 4 Wochen)
+    private const int HistoryBucketMinutes = 30;
+    private const double HistoryPointSpacing = 4;
+
     private IReadOnlyList<double> _cpuSeries = Array.Empty<double>();
     private IReadOnlyList<double> _ramSeries = Array.Empty<double>();
     private IReadOnlyList<double> _gpuSeries = Array.Empty<double>();
@@ -113,6 +126,11 @@ public partial class ResourcesViewModel : ViewModelBase
     public IReadOnlyList<double> RamSeries => _ramSeries;
     public IReadOnlyList<double> GpuSeries => _gpuSeries;
     public IReadOnlyList<double> ProcSeries => _procSeries;
+
+    /// <summary>Breite des scrollbaren Verlaufsdiagramms in Pixeln. Sie deckt
+    /// immer den kompletten Zeitraum ab (1 Woche bzw. 4 Wochen), auch wenn der
+    /// PC zwischendurch ausgeschaltet war.</summary>
+    [ObservableProperty] private double _historyChartWidth = 600;
 
     [ObservableProperty] private string _historyStatusText = "Zeichnet alle 5 Minuten auf…";
     [ObservableProperty] private string _historyRangeText = "—";
@@ -152,7 +170,7 @@ public partial class ResourcesViewModel : ViewModelBase
     [ObservableProperty] private string _webSummary = string.Empty;
     [ObservableProperty] private string _webVersionNote = string.Empty;
     [ObservableProperty] private string _webStatus = string.Empty;
-    public ObservableCollection<WebResearchSource> WebSources { get; } = new();
+    public ObservableCollection<WebSourceRow> WebSources { get; } = new();
 
     public bool HasNoWebResult => !HasWebResult;
 
@@ -226,24 +244,77 @@ public partial class ResourcesViewModel : ViewModelBase
         HistoryRetentionText = IsPremium ? "Premium: 4 Wochen" : "Aufbewahrung: 1 Woche (Premium: 4 Wochen)";
     }
 
-    /// <summary>Lädt die hintergrundaufgezeichneten Verkaufsdaten neu (CSV + Protokoll).</summary>
+    /// <summary>
+    /// Lädt die hintergrundaufgezeichneten Daten und legt sie über den
+    /// kompletten Zeitraum (1 Woche / 4 Wochen Premium) in feste Zeitscheiben.
+    /// Dadurch entspricht die Breite des Diagramms immer dem vollen Zeitraum –
+    /// auch wenn der PC zwischendurch aus war und Lücken entstanden sind.
+    /// </summary>
     private void ReloadHistory()
     {
         var points = AppServices.History.LoadChartData();
-        _cpuSeries = points.Select(p => p.CpuCol).ToList();
-        _ramSeries = points.Select(p => p.RamCol).ToList();
-        _gpuSeries = points.Where(p => p.HasGpu).Select(p => p.GpuCol).ToList();
+        int retentionDays = IsPremium ? 28 : 7;
+
+        DateTimeOffset end = DateTimeOffset.UtcNow;
+        DateTimeOffset start = end.AddDays(-retentionDays);
+        int bucketCount = retentionDays * (24 * 60 / HistoryBucketMinutes);
+
+        var cpuSum = new double[bucketCount];
+        var ramSum = new double[bucketCount];
+        var gpuSum = new double[bucketCount];
+        var procSum = new double[bucketCount];
+        var cpuCount = new int[bucketCount];
+        var ramCount = new int[bucketCount];
+        var gpuCount = new int[bucketCount];
+        var procCount = new int[bucketCount];
+
         double maxProc = points.Count > 0 ? Math.Max(1, points.Max(p => (double)p.ProcessCount)) : 1;
-        _procSeries = points.Select(p => Math.Clamp(p.ProcessCount / maxProc * 100.0, 0, 100)).ToList();
+
+        foreach (var p in points)
+        {
+            if (p.TimestampUtc < start || p.TimestampUtc > end)
+                continue;
+
+            int index = Math.Clamp(
+                (int)((p.TimestampUtc - start).TotalMinutes / HistoryBucketMinutes),
+                0, bucketCount - 1);
+
+            cpuSum[index] += p.CpuCol;
+            cpuCount[index]++;
+            ramSum[index] += p.RamCol;
+            ramCount[index]++;
+            procSum[index] += p.ProcessCount;
+            procCount[index]++;
+
+            if (p.HasGpu)
+            {
+                gpuSum[index] += p.GpuCol;
+                gpuCount[index]++;
+            }
+        }
+
+        static double Average(double sum, int count) => count > 0 ? sum / count : double.NaN;
+
+        _cpuSeries = Enumerable.Range(0, bucketCount)
+            .Select(i => Average(cpuSum[i], cpuCount[i])).ToList();
+        _ramSeries = Enumerable.Range(0, bucketCount)
+            .Select(i => Average(ramSum[i], ramCount[i])).ToList();
+        _gpuSeries = Enumerable.Range(0, bucketCount)
+            .Select(i => Average(gpuSum[i], gpuCount[i])).ToList();
+        _procSeries = Enumerable.Range(0, bucketCount)
+            .Select(i => procCount[i] > 0
+                ? Math.Clamp(procSum[i] / procCount[i] / maxProc * 100.0, 0, 100)
+                : double.NaN)
+            .ToList();
+
+        HistoryChartWidth = Math.Max(600, bucketCount * HistoryPointSpacing);
 
         HasHistory = points.Count > 0;
-        HistoryRangeText = points.Count == 0
-            ? "—"
-            : $"{points[0].TimestampUtc.ToLocalTime():dd.MM. HH:mm}  →  {points[^1].TimestampUtc.ToLocalTime():dd.MM. HH:mm}";
-        UpdateHistoryAxis(points);
+        HistoryRangeText = $"{start.ToLocalTime():dd.MM. HH:mm}  →  {end.ToLocalTime():dd.MM. HH:mm}";
+        UpdateHistoryAxis(start, end);
         HistoryStatusText = points.Count == 0
             ? "Noch keine Aufzeichnung vorhanden – die ersten Messdaten entstehen automatisch im Hintergrund (alle 5 Minuten). Das Protokoll wird unter „Datenordner → history“ gespeichert."
-            : $"Aufzeichnung aktiv: {points.Count} Messpunkte · letzter Punkt um {points[^1].TimestampUtc.ToLocalTime():HH:mm:ss} · max. {points.Max(p => p.ProcessCount)} Prozesse gleichzeitig.";
+            : $"Zeitraum: {retentionDays} Tage · {points.Count} Messpunkte · letzter Punkt um {points[^1].TimestampUtc.ToLocalTime():HH:mm:ss} · max. {points.Max(p => p.ProcessCount)} Prozesse gleichzeitig.";
 
         OnPropertyChanged(nameof(CpuSeries));
         OnPropertyChanged(nameof(RamSeries));
@@ -251,18 +322,12 @@ public partial class ResourcesViewModel : ViewModelBase
         OnPropertyChanged(nameof(ProcSeries));
     }
 
-    private void UpdateHistoryAxis(IReadOnlyList<HistoryPoint> points)
+    private void UpdateHistoryAxis(DateTimeOffset start, DateTimeOffset end)
     {
-        if (points.Count == 0)
-        {
-            HistoryAxisStart = HistoryAxisQuarter = HistoryAxisMiddle = HistoryAxisThreeQuarter = HistoryAxisEnd = string.Empty;
-            return;
-        }
-
         string At(double fraction)
         {
-            int index = (int)Math.Round((points.Count - 1) * fraction);
-            return points[Math.Clamp(index, 0, points.Count - 1)].TimestampUtc.ToLocalTime().ToString("dd.MM. HH:mm");
+            var time = start + TimeSpan.FromTicks((long)((end - start).Ticks * fraction));
+            return time.ToLocalTime().ToString("dd.MM. HH:mm");
         }
 
         HistoryAxisStart = At(0);
@@ -637,12 +702,27 @@ public partial class ResourcesViewModel : ViewModelBase
 
             WebSummary = res.Summary;
             WebVersionNote = res.VersionNote ?? string.Empty;
+
+            // Auszüge der Quellen nur zeigen, wenn sie nicht schon identisch in
+            // der Zusammenfassung stehen – sonst erscheint das Ergebnis doppelt.
+            string summaryKey = NormalizeForComparison(res.Summary);
             foreach (var s in res.Sources)
-                WebSources.Add(s);
+            {
+                string snippetKey = NormalizeForComparison(s.Snippet);
+                WebSources.Add(new WebSourceRow
+                {
+                    Title = s.Title,
+                    Url = s.Url,
+                    Snippet = s.Snippet,
+                    ShowSnippet = snippetKey.Length > 0 &&
+                                  !summaryKey.Contains(snippetKey, StringComparison.Ordinal)
+                });
+            }
+
             HasWebResult = res.Found;
             WebStatus = res.Found
                 ? (res.IsEstimate
-                    ? $"Ergebnisse für „{name}“ geladen (Schätzung ohne präzise Systemanforderungen) – Details: {res.Sources.FirstOrDefault()?.Title}."
+                    ? $"Ergebnisse für „{name}“ geladen (Schätzung ohne präzise Systemanforderungen)."
                     : $"Ergebnisse für „{name}“ geladen – Systemanforderungen gefunden.")
                 : res.Error is null ? "Keine Treffer gefunden." : "Fehler: " + res.Error;
         }
@@ -654,6 +734,20 @@ public partial class ResourcesViewModel : ViewModelBase
         {
             IsResearching = false;
         }
+    }
+
+    private static string NormalizeForComparison(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return string.Empty;
+
+        var sb = new StringBuilder(text.Length);
+        foreach (char c in text)
+        {
+            if (!char.IsWhiteSpace(c))
+                sb.Append(char.ToLowerInvariant(c));
+        }
+        return sb.ToString();
     }
 
     private static string FormatSystemAge(TimeSpan age)

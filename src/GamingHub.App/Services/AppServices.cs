@@ -26,6 +26,7 @@ public static class AppServices
     public static BadgeService Badges { get; }
     public static BugService Bugs { get; }
     public static ScreenTimeService ScreenTime { get; }
+    public static DuplicateProcessCleanupService DuplicateProcessCleanup { get; }
     public static NotificationService Notifications { get; } = new();
 
     public static void Shutdown()
@@ -33,6 +34,7 @@ public static class AppServices
         Internet.Stop();
         History.Stop();
         ScreenTime.Stop();
+        DuplicateProcessCleanup.Stop();
         Rgb.Disconnect();
         Auth.Stop();
         Notifications.Shutdown();
@@ -88,7 +90,10 @@ public static class AppServices
         Premium = new PremiumService();
         Bugs = new BugService();
         ScreenTime = new ScreenTimeService(Settings.DataDirectory);
+        DuplicateProcessCleanup = new DuplicateProcessCleanupService();
+        DuplicateProcessCleanup.Message += LogService.Info;
         Internet.Start();
         ScreenTime.Start();
+        DuplicateProcessCleanup.Start();
     }
 }

@@ -34,7 +34,8 @@ foreach (var v in new DiskUsageService().GetVolumes())
 string temp = Path.Combine(Path.GetTempPath(), "gh_smoke_" + Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(temp);
 File.WriteAllText(Path.Combine(temp, "a.txt"), new string('x', 5000));
-File.WriteAllText(Path.Combine(temp, "b_copy.txt"), new string('x', 5000));
+File.WriteAllText(Path.Combine(temp, "a (1).txt"), new string('x', 5000));
+File.WriteAllText(Path.Combine(temp, "a (2).txt"), new string('y', 5000));
 File.WriteAllText(Path.Combine(temp, "c_unique.txt"), "different content here");
 Console.WriteLine($"\n[Cleanup] Testordner: {temp}");
 var finder = new DuplicateFinderService();

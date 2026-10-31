@@ -20,6 +20,15 @@ public sealed partial class ScreenTimeAppRow : ObservableObject
     [ObservableProperty] private string _limitColor = "#FACC15";
 }
 
+public sealed class ProcessOption
+{
+    public string ProcessName { get; init; } = string.Empty;
+    public string DisplayName { get; init; } = string.Empty;
+    public string Label => string.Equals(DisplayName, ProcessName, StringComparison.OrdinalIgnoreCase)
+        ? DisplayName
+        : $"{DisplayName}  ·  {ProcessName}";
+}
+
 /// <summary>Eine bearbeitbare Limit-Zeile. Änderungen werden erst beim Bestätigen gespeichert.</summary>
 public sealed partial class ScreenTimeLimitRow : ObservableObject
 {
@@ -129,14 +138,14 @@ public partial class ScreenTimeViewModel : ViewModelBase
     public ObservableCollection<ScreenTimeWeekdayRow> Weekdays { get; } = new();
     public ObservableCollection<ScreenTimeChartBar> UsageChart { get; } = new();
     public ObservableCollection<ScreenTimeProfile> Profiles { get; } = new();
-    public ObservableCollection<string> Processes { get; } = new();
+    public ObservableCollection<ProcessOption> Processes { get; } = new();
 
     [ObservableProperty] private bool _enabled;
     [ObservableProperty] private bool _enforce;
     [ObservableProperty] private string _todayTotalText = "0 min";
     [ObservableProperty] private string _todayDateText = string.Empty;
     [ObservableProperty] private string _activeProfileName = "Standard";
-    [ObservableProperty] private string _newLimitProcess = string.Empty;
+    [ObservableProperty] private ProcessOption? _selectedProcess;
     [ObservableProperty] private string _newProfileName = string.Empty;
     [ObservableProperty] private string _statusText = string.Empty;
     [ObservableProperty] private ScreenTimeProfile? _selectedProfile;
@@ -162,6 +171,7 @@ public partial class ScreenTimeViewModel : ViewModelBase
 
     public bool ShowLimitFeatures => IsPremiumUser;
     public bool ShowLimitHint => !IsPremiumUser;
+    public bool ShowEnforceHint => ShowLimitFeatures && !Enforce;
 
     public string LimitHintText =>
         "Die Nutzung wird für alle erfasst. Limits, erlaubte Zeiten und Sperren sind mit " +
@@ -197,6 +207,7 @@ public partial class ScreenTimeViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsPremiumUser));
         OnPropertyChanged(nameof(ShowLimitFeatures));
         OnPropertyChanged(nameof(ShowLimitHint));
+        OnPropertyChanged(nameof(ShowEnforceHint));
         RefreshUsage();
     }
 
@@ -210,6 +221,7 @@ public partial class ScreenTimeViewModel : ViewModelBase
     {
         if (AppServices.ScreenTime.Enforce != value)
             AppServices.ScreenTime.Enforce = value;
+        OnPropertyChanged(nameof(ShowEnforceHint));
     }
 
     private void RefreshProfileList()
@@ -315,7 +327,7 @@ public partial class ScreenTimeViewModel : ViewModelBase
             int week = service.GetWeekSeconds(process);
             var limit = IsPremiumUser
                 ? service.ActiveProfile?.AppLimits.FirstOrDefault(a =>
-                    string.Equals(a.ProcessName, process, StringComparison.OrdinalIgnoreCase))
+                    ScreenTimeService.IsSameAppProcess(a.ProcessName, process))
                 : null;
 
             string limitText = string.Empty;
@@ -329,9 +341,9 @@ public partial class ScreenTimeViewModel : ViewModelBase
                 if (parts.Count > 0)
                 {
                     bool dailyReached = limit.Enabled && limit.DailyMinutes > 0 &&
-                                        seconds >= limit.DailyMinutes * 60;
+                                        service.GetLimitTodaySeconds(limit.ProcessName) >= limit.DailyMinutes * 60;
                     bool weeklyReached = limit.Enabled && limit.WeeklyMinutes > 0 &&
-                                         week >= limit.WeeklyMinutes * 60;
+                                         service.GetLimitWeekSeconds(limit.ProcessName) >= limit.WeeklyMinutes * 60;
                     string prefix = limit.Enabled ? "Limit" : "Limit aus";
                     string state = dailyReached
                         ? " · Tageslimit erreicht"
@@ -364,8 +376,8 @@ public partial class ScreenTimeViewModel : ViewModelBase
 
         foreach (var row in Limits)
         {
-            int today = service.GetTodaySeconds(row.ProcessName);
-            int week = service.GetWeekSeconds(row.ProcessName);
+            int today = service.GetLimitTodaySeconds(row.ProcessName);
+            int week = service.GetLimitWeekSeconds(row.ProcessName);
             row.SetUsage($"Heute {FormatDuration(today)} · Woche {FormatDuration(week)}");
         }
 
@@ -407,16 +419,38 @@ public partial class ScreenTimeViewModel : ViewModelBase
     private void LoadProcesses()
     {
         Processes.Clear();
-        var names = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
+        var options = new Dictionary<string, ProcessOption>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var (process, display) in AppServices.ScreenTime.GetKnownApps())
+        {
+            string name = ScreenTimeService.NormalizeProcessName(process);
+            if (string.IsNullOrWhiteSpace(name) || ScreenTimeService.IsGamingHubProcess(name))
+                continue;
+            options[name] = new ProcessOption
+            {
+                ProcessName = name,
+                DisplayName = string.IsNullOrWhiteSpace(display) ? name : display
+            };
+        }
+
         try
         {
             foreach (var process in Process.GetProcesses())
             {
                 try
                 {
-                    string name = process.ProcessName;
-                    if (!string.IsNullOrWhiteSpace(name) && !ScreenTimeService.IsGamingHubProcess(name))
-                        names.Add(name);
+                    string name = ScreenTimeService.NormalizeProcessName(process.ProcessName);
+                    if (string.IsNullOrWhiteSpace(name) || ScreenTimeService.IsGamingHubProcess(name) ||
+                        options.ContainsKey(name))
+                        continue;
+
+                    string display = name;
+                    try { display = process.MainModule?.FileVersionInfo?.FileDescription ?? name; }
+                    catch { /* Zugriff verweigert */ }
+                    if (string.IsNullOrWhiteSpace(display))
+                        display = name;
+
+                    options[name] = new ProcessOption { ProcessName = name, DisplayName = display };
                 }
                 catch { /* Zugriff verweigert */ }
                 finally { process.Dispose(); }
@@ -424,30 +458,44 @@ public partial class ScreenTimeViewModel : ViewModelBase
         }
         catch { /* ignore */ }
 
-        foreach (var name in names)
-            Processes.Add(name);
+        foreach (var option in options.Values.ToList())
+        {
+            string canonical = ScreenTimeService.CanonicalProcessName(option.ProcessName);
+            if (!string.Equals(canonical, option.ProcessName, StringComparison.OrdinalIgnoreCase) &&
+                options.ContainsKey(canonical))
+                options.Remove(option.ProcessName);
+        }
+
+        foreach (var option in options.Values
+                     .OrderBy(o => o.DisplayName, StringComparer.OrdinalIgnoreCase)
+                     .ThenBy(o => o.ProcessName, StringComparer.OrdinalIgnoreCase))
+            Processes.Add(option);
     }
 
     [RelayCommand]
     private void AddLimit()
     {
         if (!IsPremiumUser) return;
-        string process = NewLimitProcess.Trim();
-        if (string.IsNullOrWhiteSpace(process))
+        if (SelectedProcess is null)
         {
-            StatusText = "Bitte eine App auswählen oder eingeben.";
+            StatusText = "Bitte eine App auswählen.";
             return;
         }
 
+        string process = SelectedProcess.ProcessName;
         if (ScreenTimeService.IsGamingHubProcess(process))
         {
             StatusText = "Gaming Hub kann nicht gesperrt werden.";
             return;
         }
 
-        AppServices.ScreenTime.AddAppLimit(process, AppServices.ScreenTime.GetDisplayName(process));
-        NewLimitProcess = string.Empty;
-        StatusText = $"Limit für „{process}“ hinzugefügt.";
+        string target = AppServices.ScreenTime.ResolvePreferredProcessName(process);
+        string display = ScreenTimeService.IsSameAppProcess(process, target)
+            ? SelectedProcess.DisplayName
+            : AppServices.ScreenTime.GetDisplayName(target);
+        AppServices.ScreenTime.AddAppLimit(target, display);
+        SelectedProcess = null;
+        StatusText = $"Limit für „{display}“ hinzugefügt.";
         LoadActiveProfileIntoUi();
         RefreshUsage();
     }

@@ -28,8 +28,11 @@ public partial class DuplicateGroupViewModel : ViewModelBase
     public DuplicateGroupViewModel(DuplicateGroup group)
     {
         _group = group;
-        // Keep the oldest file as the original, delete the newer copies.
-        var ordered = group.Files.OrderBy(f => f.LastWriteUtc).ToList();
+        // Das Original (ohne Kopie-Suffix) bleibt erhalten, sonst die älteste Datei.
+        var ordered = group.Files
+            .OrderByDescending(f => string.Equals(f.Path, group.OriginalPath, StringComparison.OrdinalIgnoreCase))
+            .ThenBy(f => f.LastWriteUtc)
+            .ToList();
         for (int i = 0; i < ordered.Count; i++)
         {
             var vm = new DuplicateFileViewModel(ordered[i]) { IsKeepCandidate = i == 0 };

@@ -16,6 +16,9 @@ public sealed class UpdateService
     private UpdateManager? _manager;
     private UpdateInfo? _pendingUpdate;
 
+    // Verhindert parallele Checks (Splash, Einstellungen, 30-Sekunden-Timer).
+    private readonly SemaphoreSlim _checkGate = new(1, 1);
+
     /// <summary>Ergebnis des letzten Update-Checks (wird z. B. für die
     /// Update-Anzeige in der Navigation verwendet).</summary>
     public UpdateCheckResult? LastCheck { get; private set; }
@@ -54,16 +57,20 @@ public sealed class UpdateService
 
     public async Task<UpdateCheckResult> CheckForUpdatesAsync()
     {
-        var mgr = Manager;
-        if (mgr is null || !mgr.IsInstalled)
-        {
-            LogService.Info("Update-Check übersprungen (kein installierter Velopack-Build).");
-            return LastCheck = new UpdateCheckResult(false, null, null, null);
-        }
-
+        // Der Timer prüft alle 30 Sekunden. Läuft bereits ein Check (z. B. beim
+        // Start oder manuell in den Einstellungen), wird kurz gewartet statt
+        // mehrere Anfragen gleichzeitig abzusetzen.
+        await _checkGate.WaitAsync().ConfigureAwait(false);
         try
         {
-            var update = await mgr.CheckForUpdatesAsync();
+            var mgr = Manager;
+            if (mgr is null || !mgr.IsInstalled)
+            {
+                LogService.Info("Update-Check übersprungen (kein installierter Velopack-Build).");
+                return LastCheck = new UpdateCheckResult(false, null, null, null);
+            }
+
+            var update = await mgr.CheckForUpdatesAsync().ConfigureAwait(false);
             if (update is null)
             {
                 _pendingUpdate = null;
@@ -81,6 +88,10 @@ public sealed class UpdateService
         {
             LogService.Error("update-check", ex);
             return LastCheck = new UpdateCheckResult(false, null, null, ex);
+        }
+        finally
+        {
+            _checkGate.Release();
         }
     }
 

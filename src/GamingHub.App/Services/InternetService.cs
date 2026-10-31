@@ -45,6 +45,8 @@ public sealed class InternetService
     private DateTimeOffset _lastBackupCheck = DateTimeOffset.MinValue;
     private DateTimeOffset _lastSpeedTest = DateTimeOffset.MinValue;
     private DateTimeOffset _lastSlowNotification = DateTimeOffset.MinValue;
+    private List<InternetHistoryPoint>? _chartCache;
+    private string _chartCacheKey = string.Empty;
 
     public event Action? Changed;
 
@@ -448,29 +450,61 @@ public sealed class InternetService
         }
     }
 
+    /// <summary>
+    /// Lädt den Verlauf des kompletten Aufbewahrungszeitraums (1 Woche bzw.
+    /// 4 Wochen mit Premium). Es werden alle Zyklus-Ordner gelesen und über den
+    /// Zeitstempel gefiltert – so bleibt der Verlauf auch nach einem Planwechsel
+    /// oder einem Zykluswechsel vollständig. Ausfallzeiten des PCs zählen dabei
+    /// als normale Laufzeit des Zeitraums und verschieben den Beginn nicht.
+    /// </summary>
     public List<InternetHistoryPoint> LoadChartData()
     {
-        var points = new List<InternetHistoryPoint>();
         try
         {
             bool isPremium = AppServices.Profile.IsPremium;
             int retentionDays = isPremium ? HistoryRetentionDaysPremium : HistoryRetentionDaysBase;
-            DateTimeOffset first = AppServices.Settings.Settings.FirstEverLaunchUtc ?? DateTimeOffset.UtcNow;
-            int currentCycle = (int)((DateTimeOffset.UtcNow.Date - first.Date).TotalDays / retentionDays);
-            string csv = Path.Combine(_dataDirectory, $"cycle-{currentCycle}", "history.csv");
-            if (!File.Exists(csv)) return points;
+            DateTimeOffset cutoff = DateTimeOffset.UtcNow.AddDays(-retentionDays);
 
-            foreach (var raw in File.ReadAllLines(csv))
+            string[] files = Directory.Exists(_dataDirectory)
+                ? Directory.GetFiles(_dataDirectory, "history.csv", SearchOption.AllDirectories)
+                    .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
+                    .ToArray()
+                : Array.Empty<string>();
+
+            string key = retentionDays + "|" + string.Join("|", files.Select(f =>
             {
-                var p = ParseLine(raw);
-                if (p is not null) points.Add(p);
+                var info = new FileInfo(f);
+                return $"{info.FullName}:{info.Length}:{info.LastWriteTimeUtc.Ticks}";
+            }));
+
+            if (_chartCache is not null && string.Equals(key, _chartCacheKey, StringComparison.Ordinal))
+                return _chartCache;
+
+            // Mehrere Zyklus-Ordner können denselben Messpunkt enthalten
+            // (z. B. nach einem Wechsel zwischen Basis und Premium).
+            var byTimestamp = new Dictionary<long, InternetHistoryPoint>();
+            foreach (var file in files)
+            {
+                foreach (var raw in File.ReadAllLines(file))
+                {
+                    var p = ParseLine(raw);
+                    if (p is null || p.TimestampUtc < cutoff)
+                        continue;
+                    byTimestamp[p.TimestampUtc.UtcTicks] = p;
+                }
             }
+
+            _chartCache = byTimestamp.Values
+                .OrderBy(p => p.TimestampUtc)
+                .ToList();
+            _chartCacheKey = key;
+            return _chartCache;
         }
         catch (Exception ex)
         {
             LogService.Warn("Internet-Verlauf konnte nicht geladen werden.", ex);
+            return new List<InternetHistoryPoint>();
         }
-        return points;
     }
 
     private static InternetHistoryPoint? ParseLine(string raw)

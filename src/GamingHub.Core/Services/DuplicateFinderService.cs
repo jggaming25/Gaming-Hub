@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Security.Cryptography;
+using System.Text.RegularExpressions;
 using GamingHub.Core.Models;
 
 namespace GamingHub.Core.Services;
@@ -28,8 +29,14 @@ public sealed class DuplicateScanProgress
 }
 
 /// <summary>
-/// Finds byte-identical duplicate files using a size pre-filter, a fast partial
-/// hash and a final full SHA-256 confirmation (multi-stage, reliable).
+/// Findet doppelte Dateien bewusst konservativ:
+///  – nur innerhalb desselben Verzeichnisses,
+///  – nur bei identischer Dateigröße,
+///  – nur bei gleichem Namen, wobei typische Kopie-Suffixe wie
+///    „(1)“, „_1“, „ 2“, „- Kopie“ oder „ Copy“ ignoriert werden,
+///  – und nur wenn der Inhalt per SHA-256 tatsächlich identisch ist.
+/// Dadurch werden keine Dateien erfasst, die nur zufällig gleich groß sind
+/// oder an anderer Stelle liegen.
 /// </summary>
 public sealed class DuplicateFinderService
 {
@@ -38,6 +45,14 @@ public sealed class DuplicateFinderService
         "Windows", "System Volume Information", "$Recycle.Bin", "$WinREAgent",
         "ProgramData", "AppData", "node_modules", ".git", "Temp", "assembly", "WinSxS"
     };
+
+    /// <summary>Erkennt Kopie-Zusätze am Ende eines Dateinamens, z. B.
+    /// „Foto (1)“, „Foto_1“, „Foto 2“, „Foto - Kopie“ oder „Foto Copy (2)“.</summary>
+    private static readonly Regex CopySuffixPattern = new(
+        @"(?:\s*[\(\[]\s*(?:\d+|kopie|copy|duplikat|kopia)\s*[\)\]]" +
+        @"|[\s_-]+(?:kopie|copy|duplikat|kopia)(?:[\s_-]*\d+)?" +
+        @"|[\s_-]+\d+)\s*$",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     public Task<List<DuplicateGroup>> FindDuplicatesAsync(
         DuplicateScanOptions options,
@@ -83,8 +98,10 @@ public sealed class DuplicateFinderService
         if (total == 0)
             return new List<DuplicateGroup>();
 
-        // Phase 2: index files by size (fast, uses cached metadata).
-        var bySize = new Dictionary<long, List<string>>();
+        // Phase 2: Nach Verzeichnis und Größe gruppieren. Duplikate zählen nur
+        // innerhalb desselben Ordners – gleiche Dateien an anderer Stelle
+        // (z. B. Backups) werden bewusst nicht als Duplikat betrachtet.
+        var byDirectoryAndSize = new Dictionary<(string Directory, long Size), List<string>>();
         long inspected = 0;
 
         foreach (string file in allFiles)
@@ -98,8 +115,10 @@ public sealed class DuplicateFinderService
                 if (options.ExcludeSystemDirectories && IsExcluded(file))
                     continue;
 
-                if (!bySize.TryGetValue(info.Length, out var list))
-                    bySize[info.Length] = list = new List<string>();
+                string directory = Path.GetDirectoryName(file) ?? string.Empty;
+                var key = (directory, info.Length);
+                if (!byDirectoryAndSize.TryGetValue(key, out var list))
+                    byDirectoryAndSize[key] = list = new List<string>();
                 list.Add(file);
             }
             catch
@@ -114,67 +133,110 @@ public sealed class DuplicateFinderService
 
         progress?.Report(new DuplicateScanProgress { Phase = "Dateien werden indiziert", FilesInspected = inspected, TotalFiles = total, Percent = 50 });
 
-        var candidates = bySize.Where(kv => kv.Value.Count > 1).ToList();
-        long candidateFiles = candidates.Sum(c => (long)c.Value.Count);
+        // Phase 3: Innerhalb einer Verzeichnis-/Größen-Gruppe nur Dateien mit
+        // demselben Basisnamen (ohne Kopie-Suffix) und derselben Endung prüfen.
+        var candidates = new List<(long Size, string BaseName, List<string> Files)>();
+        foreach (var ((_, size), files) in byDirectoryAndSize)
+        {
+            if (files.Count < 2)
+                continue;
+
+            foreach (var nameGroup in files.GroupBy(NameKey))
+            {
+                if (nameGroup.Count() < 2)
+                    continue;
+
+                string baseStem = NormalizeStem(Path.GetFileNameWithoutExtension(nameGroup.First()));
+                candidates.Add((size, baseStem, nameGroup.ToList()));
+            }
+        }
+
+        long candidateFiles = candidates.Sum(c => (long)c.Files.Count);
         long hashed = 0;
         var result = new List<DuplicateGroup>();
 
-        // Phase 3: partial hash (parallel), then full hash (parallel) to confirm.
-        foreach (var (size, files) in candidates)
+        // Phase 4: Vollständigen SHA-256-Hash bilden und identischen Inhalt bestätigen.
+        foreach (var (size, baseName, files) in candidates)
         {
             ct.ThrowIfCancellationRequested();
 
-            var partials = new ConcurrentDictionary<string, string?>();
+            var fulls = new ConcurrentDictionary<string, string?>();
             Parallel.ForEach(files, new ParallelOptions { CancellationToken = ct }, file =>
             {
-                partials[file] = PartialHash(file, 131072);
+                fulls[file] = FullHash(file);
                 long done = Interlocked.Increment(ref hashed);
-                if (done % 100 == 0)
+                if (done % 50 == 0)
                 {
-                    int pct = (int)Math.Min(95, 50 + done * 45 / Math.Max(1, candidateFiles));
+                    int pct = (int)Math.Min(99, 50 + done * 49 / Math.Max(1, candidateFiles));
                     progress?.Report(new DuplicateScanProgress { Phase = "Dateien werden verglichen", FilesInspected = done, TotalFiles = candidateFiles, Percent = pct });
                 }
             });
 
-            var partialGroups = partials
-                .Where(kv => kv.Value is not null)
-                .GroupBy(kv => kv.Value!)
-                .Where(g => g.Count() > 1);
-
-            foreach (var group in partialGroups)
+            foreach (var dup in fulls
+                         .Where(kv => kv.Value is not null)
+                         .GroupBy(kv => kv.Value!)
+                         .Where(g => g.Count() > 1))
             {
-                ct.ThrowIfCancellationRequested();
-
-                var fulls = new ConcurrentDictionary<string, string?>();
-                Parallel.ForEach(group.Select(kv => kv.Key), new ParallelOptions { CancellationToken = ct }, file =>
+                var g = new DuplicateGroup { Hash = dup.Key, FileSize = size };
+                foreach (string f in dup.Select(kv => kv.Key))
                 {
-                    fulls[file] = FullHash(file);
-                });
-
-                foreach (var dup in fulls.Where(kv => kv.Value is not null).GroupBy(kv => kv.Value!).Where(g => g.Count() > 1))
-                {
-                    var g = new DuplicateGroup { Hash = dup.Key, FileSize = size };
-                    foreach (string f in dup.Select(kv => kv.Key))
+                    try
                     {
-                        try
+                        g.Files.Add(new DuplicateFile
                         {
-                            g.Files.Add(new DuplicateFile
-                            {
-                                Path = f,
-                                Size = size,
-                                LastWriteUtc = File.GetLastWriteTimeUtc(f)
-                            });
-                        }
-                        catch { /* skip */ }
+                            Path = f,
+                            Size = size,
+                            LastWriteUtc = File.GetLastWriteTimeUtc(f)
+                        });
                     }
-                    if (g.Files.Count > 1)
-                        result.Add(g);
+                    catch { /* skip */ }
                 }
+
+                if (g.Files.Count <= 1)
+                    continue;
+
+                // Als Original gilt die Datei ohne Kopie-Suffix, sonst die älteste.
+                g.OriginalPath = g.Files
+                    .OrderBy(f => IsOriginalName(f, baseName) ? 0 : 1)
+                    .ThenBy(f => f.FileName.Length)
+                    .ThenBy(f => f.LastWriteUtc)
+                    .First()
+                    .Path;
+                result.Add(g);
             }
         }
 
         progress?.Report(new DuplicateScanProgress { Phase = "Fertig", FilesInspected = inspected, GroupsFound = result.Count, Percent = 100 });
         return result.OrderByDescending(g => g.WastedBytes).ToList();
+    }
+
+    /// <summary>Gruppierungsschlüssel aus normalisiertem Basisnamen und Endung.</summary>
+    private static string NameKey(string path)
+    {
+        string stem = Path.GetFileNameWithoutExtension(path);
+        string extension = Path.GetExtension(path);
+        return NormalizeStem(stem).ToLowerInvariant() + "|" + extension.ToLowerInvariant();
+    }
+
+    /// <summary>Entfernt typische Kopie-Zusätze wie „(1)“, „_2“, „ 3“,
+    /// „- Kopie“ oder „ Copy“ vom Dateinamen (auch mehrfach hintereinander).</summary>
+    private static string NormalizeStem(string stem)
+    {
+        string current = stem.Trim();
+        for (int i = 0; i < 8; i++)
+        {
+            string next = CopySuffixPattern.Replace(current, string.Empty).TrimEnd(' ', '-', '_', '.');
+            if (next.Length == 0 || string.Equals(next, current, StringComparison.Ordinal))
+                return current;
+            current = next;
+        }
+        return current;
+    }
+
+    private static bool IsOriginalName(DuplicateFile file, string baseName)
+    {
+        string stem = Path.GetFileNameWithoutExtension(file.Path).Trim();
+        return string.Equals(stem, baseName, StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsExcluded(string path)
@@ -186,22 +248,6 @@ public sealed class DuplicateFinderService
                 return true;
         }
         return false;
-    }
-
-    private static string? PartialHash(string file, int bytes)
-    {
-        try
-        {
-            using var fs = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, 4096, FileOptions.SequentialScan);
-            int toRead = (int)Math.Min(bytes, fs.Length);
-            var buffer = new byte[toRead];
-            int read = fs.Read(buffer, 0, toRead);
-            return Convert.ToHexString(SHA256.HashData(buffer.AsSpan(0, read)));
-        }
-        catch
-        {
-            return null;
-        }
     }
 
     private static string? FullHash(string file)

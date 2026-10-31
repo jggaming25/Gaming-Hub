@@ -173,10 +173,16 @@
                                     Command="{Binding ApplyLimitChangesCommand}" />
 
                             <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
-                                <ComboBox Grid.Column="0" IsEditable="True"
+                                <ComboBox Grid.Column="0"
                                           ItemsSource="{Binding Processes}"
-                                          Text="{Binding NewLimitProcess, Mode=TwoWay}"
-                                          PlaceholderText="App/Prozess wählen…" />
+                                          SelectedItem="{Binding SelectedProcess, Mode=TwoWay}"
+                                          PlaceholderText="App auswählen…">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:ProcessOption">
+                                            <TextBlock Text="{Binding Label}" />
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
                                 <Button Grid.Column="1" Content="Hinzufügen" Classes="accent"
                                         Command="{Binding AddLimitCommand}" />
                                 <Button Grid.Column="2" Content="↻" Classes="ghost"

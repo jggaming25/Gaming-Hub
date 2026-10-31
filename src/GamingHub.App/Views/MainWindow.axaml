@@ -74,18 +74,28 @@
                                 <TextBlock Text="{Binding RestartBannerText}" FontSize="11" TextWrapping="Wrap" TextAlignment="Center" />
                             </Button>
 
+                            <!-- Update-Hinweis unten in der Navigation: direkter Einstieg -->
                             <Button Command="{Binding InstallUpdateCommand}"
                                     IsVisible="{Binding ShowUpdateBanner}"
                                     Classes="accent"
-                                    Padding="10,7"
+                                    Padding="12,9"
                                     HorizontalAlignment="Stretch"
-                                    HorizontalContentAlignment="Center"
+                                    HorizontalContentAlignment="Stretch"
                                     Cursor="Hand"
-                                    ToolTip.Tip="Klicken, um das Update direkt zu installieren">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <TextBlock Text="⬆" FontSize="12" />
-                                    <TextBlock Text="{Binding UpdateBannerText}" FontSize="11" TextWrapping="Wrap" TextAlignment="Center" />
-                                </StackPanel>
+                                    ToolTip.Tip="Klicken, um das Update herunterzuladen und Gaming Hub neu zu starten">
+                                <Grid ColumnDefinitions="Auto,*" VerticalAlignment="Center">
+                                    <Border Grid.Column="0" Width="26" Height="26" CornerRadius="13"
+                                            Background="#33FFFFFF" VerticalAlignment="Center">
+                                        <TextBlock Text="⬆" FontSize="13" HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center" />
+                                    </Border>
+                                    <StackPanel Grid.Column="1" Margin="9,0,0,0" Spacing="1" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding UpdateBannerText}" FontSize="11.5"
+                                                   FontWeight="SemiBold" TextWrapping="Wrap" />
+                                        <TextBlock Text="{Binding UpdateBannerHint}" FontSize="10"
+                                                   Opacity="0.85" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Grid>
                             </Button>
                             <ProgressBar IsVisible="{Binding ShowUpdateInstalling}" IsIndeterminate="True" Height="4" />
                             <TextBlock Text="{Binding UpdateStatusText}" IsVisible="{Binding IsInstallingUpdate}"

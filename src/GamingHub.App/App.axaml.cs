@@ -193,6 +193,7 @@ public partial class App : Application
                 AppServices.Games.SavePlaytime();
                 Dispatcher.UIThread.Invoke(() =>
                 {
+                    KeyboardLockService.SetFullScreenLock(false);
                     CloseBlockWindows();
                     CloseAppLimitWindow();
                 });
@@ -261,6 +262,8 @@ public partial class App : Application
     {
         Dispatcher.UIThread.Post(() =>
         {
+            KeyboardLockService.SetFullScreenLock(block?.Kind == ScreenTimeBlockKind.FullScreen);
+
             if (block is null)
             {
                 CloseBlockWindows();

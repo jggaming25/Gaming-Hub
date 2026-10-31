@@ -38,6 +38,9 @@ public sealed class DuplicateGroup
     public long FileSize { get; set; }
     public List<DuplicateFile> Files { get; set; } = new();
 
+    /// <summary>Datei, die als Original erhalten bleiben soll (ohne Kopie-Suffix).</summary>
+    public string OriginalPath { get; set; } = string.Empty;
+
     /// <summary>Bytes that can be reclaimed by keeping exactly one copy.</summary>
     public long WastedBytes => FileSize * Math.Max(0, Files.Count - 1);
 }

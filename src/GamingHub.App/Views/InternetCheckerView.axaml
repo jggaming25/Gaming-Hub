@@ -206,7 +206,7 @@
                                     <Border Canvas.Top="0" Width="{Binding ChartWidth}" Height="1" Background="#18FFFFFF" />
                                     <Border Canvas.Top="39" Width="{Binding ChartWidth}" Height="1" Background="#18FFFFFF" />
                                     <Border Canvas.Top="78" Width="{Binding ChartWidth}" Height="1" Background="#18FFFFFF" />
-                                    <Polyline Points="{Binding LatencyHistory, Converter={x:Static vm:CommonConverters.SeriesToPoints}, ConverterParameter=8x80x200}"
+                                    <Polyline Points="{Binding LatencyHistory, Converter={x:Static vm:CommonConverters.SeriesToPoints}, ConverterParameter=4x80x200}"
                                               Stroke="#22D3EE" StrokeThickness="2" StrokeJoin="Round" />
                                 </Canvas>
                             </ScrollViewer>
@@ -226,7 +226,7 @@
                                 <Canvas Width="{Binding ChartWidth}" Height="60" Background="#0C1120">
                                     <Border Canvas.Top="0" Width="{Binding ChartWidth}" Height="1" Background="#18FFFFFF" />
                                     <Border Canvas.Top="58" Width="{Binding ChartWidth}" Height="1" Background="#18FFFFFF" />
-                                    <Polyline Points="{Binding OnlineHistory, Converter={x:Static vm:CommonConverters.SeriesToPoints}, ConverterParameter=8x60x1}"
+                                    <Polyline Points="{Binding OnlineHistory, Converter={x:Static vm:CommonConverters.SeriesToPoints}, ConverterParameter=4x60x1}"
                                               Stroke="#4ADE80" StrokeThickness="2" StrokeJoin="Round" />
                                 </Canvas>
                             </ScrollViewer>
@@ -247,7 +247,7 @@
                                     <Border Canvas.Top="0" Width="{Binding ChartWidth}" Height="1" Background="#18FFFFFF" />
                                     <Border Canvas.Top="39" Width="{Binding ChartWidth}" Height="1" Background="#18FFFFFF" />
                                     <Border Canvas.Top="78" Width="{Binding ChartWidth}" Height="1" Background="#18FFFFFF" />
-                                    <Polyline Points="{Binding GatewayLatencyHistory, Converter={x:Static vm:CommonConverters.SeriesToPoints}, ConverterParameter=8x80x100}"
+                                    <Polyline Points="{Binding GatewayLatencyHistory, Converter={x:Static vm:CommonConverters.SeriesToPoints}, ConverterParameter=4x80x100}"
                                               Stroke="#FACC15" StrokeThickness="2" StrokeJoin="Round" />
                                 </Canvas>
                             </ScrollViewer>
@@ -268,7 +268,7 @@
                                     <Border Canvas.Top="0" Width="{Binding ChartWidth}" Height="1" Background="#18FFFFFF" />
                                     <Border Canvas.Top="39" Width="{Binding ChartWidth}" Height="1" Background="#18FFFFFF" />
                                     <Border Canvas.Top="78" Width="{Binding ChartWidth}" Height="1" Background="#18FFFFFF" />
-                                    <Polyline Points="{Binding DnsLatencyHistory, Converter={x:Static vm:CommonConverters.SeriesToPoints}, ConverterParameter=8x80x100}"
+                                    <Polyline Points="{Binding DnsLatencyHistory, Converter={x:Static vm:CommonConverters.SeriesToPoints}, ConverterParameter=4x80x100}"
                                               Stroke="#A855F7" StrokeThickness="2" StrokeJoin="Round" />
                                 </Canvas>
                             </ScrollViewer>

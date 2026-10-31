@@ -33,6 +33,21 @@ public sealed class DriverInstallResult
     public string Message { get; set; } = string.Empty;
 }
 
+/// <summary>Fortschritt der Treiberprüfung (x von y Treibern bzw. Updates).</summary>
+public sealed class DriverCheckProgress
+{
+    public int Checked { get; init; }
+    public int Total { get; init; }
+    public string Phase { get; init; } = string.Empty;
+
+    /// <summary>Ohne bekannte Gesamtzahl läuft die Anzeige unbestimmt.</summary>
+    public bool IsIndeterminate => Total <= 0;
+
+    public double Percent => Total > 0
+        ? Math.Clamp(Checked * 100.0 / Total, 0, 100)
+        : 0;
+}
+
 /// <summary>
 /// Liest installierte PnP-Treiber über WMI und sucht/installiert Treiber-Updates
 /// über den Windows Update Agent (WUA).
@@ -55,16 +70,37 @@ public static class DriverUpdateService
         }
     }
 
-    public static List<InstalledDriverInfo> GetInstalledDrivers()
+    public static List<InstalledDriverInfo> GetInstalledDrivers(
+        IProgress<DriverCheckProgress>? progress = null,
+        int knownTotal = 0)
     {
         var list = new List<InstalledDriverInfo>();
         try
         {
+            progress?.Report(new DriverCheckProgress
+            {
+                Checked = 0,
+                Total = knownTotal,
+                Phase = "Installierte Treiber werden gelesen"
+            });
+
+            int read = 0;
             using var searcher = new ManagementObjectSearcher(
                 "SELECT DeviceName, DeviceClass, DriverProviderName, DriverVersion, DriverDate, DeviceID " +
                 "FROM Win32_PnPSignedDriver");
             foreach (var obj in searcher.Get())
             {
+                read++;
+                if (read % 25 == 0)
+                {
+                    progress?.Report(new DriverCheckProgress
+                    {
+                        Checked = read,
+                        Total = knownTotal,
+                        Phase = "Installierte Treiber werden gelesen"
+                    });
+                }
+
                 string name = (obj["DeviceName"] as string)?.Trim() ?? string.Empty;
                 string version = (obj["DriverVersion"] as string)?.Trim() ?? string.Empty;
                 if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(version))
@@ -100,25 +136,64 @@ public static class DriverUpdateService
             // WMI kann auf manchen Systemen eingeschränkt sein.
         }
 
-        return list
+        var result = list
             .GroupBy(d => d.DeviceName + "|" + d.Version, StringComparer.OrdinalIgnoreCase)
             .Select(g => g.First())
             .OrderBy(d => d.DeviceName, StringComparer.OrdinalIgnoreCase)
             .ToList();
+
+        progress?.Report(new DriverCheckProgress
+        {
+            Checked = result.Count,
+            Total = result.Count,
+            Phase = "Installierte Treiber gelesen"
+        });
+
+        return result;
     }
 
-    public static List<DriverUpdateInfo> SearchDriverUpdates(out string? error)
+    public static List<DriverUpdateInfo> SearchDriverUpdates(
+        out string? error,
+        IProgress<DriverCheckProgress>? progress = null,
+        int knownDriverTotal = 0)
     {
         error = null;
         var list = new List<DriverUpdateInfo>();
         try
         {
+            // Phase 1: installierte Treiber einlesen und dabei x/y anzeigen.
+            // Die Zahl aus der bereits geladenen Liste dient als Gesamtwert,
+            // damit der Fortschritt determiniert bleibt.
+            var installed = GetInstalledDrivers(progress, knownDriverTotal);
+            int driverTotal = installed.Count > 0 ? installed.Count : knownDriverTotal;
+
+            // Die eigentliche Windows-Update-Abfrage liefert keinen Fortschritt –
+            // deshalb läuft die Anzeige in dieser Phase unbestimmt weiter.
+            progress?.Report(new DriverCheckProgress
+            {
+                Checked = 0,
+                Total = 0,
+                Phase = "Windows Update wird abgefragt"
+            });
+
             dynamic session = CreateCom("Microsoft.Update.Session");
             dynamic searcher = session.CreateUpdateSearcher();
             dynamic result = searcher.Search("IsInstalled=0 and Type='Driver'");
 
+            int updateTotal = (int)result.Updates.Count;
+            progress?.Report(new DriverCheckProgress
+            {
+                Checked = 0,
+                Total = updateTotal,
+                Phase = updateTotal == 0
+                    ? "Keine Treiber-Updates gefunden"
+                    : "Treiber-Updates werden gelesen"
+            });
+
+            int index = 0;
             foreach (dynamic update in result.Updates)
             {
+                index++;
                 try
                 {
                     list.Add(new DriverUpdateInfo
@@ -136,6 +211,16 @@ public static class DriverUpdateService
                 catch
                 {
                     // Einzelne Updates dürfen die Liste nicht stoppen.
+                }
+
+                if (index % 5 == 0 || index == updateTotal)
+                {
+                    progress?.Report(new DriverCheckProgress
+                    {
+                        Checked = index,
+                        Total = updateTotal,
+                        Phase = "Treiber-Updates werden gelesen"
+                    });
                 }
             }
         }
