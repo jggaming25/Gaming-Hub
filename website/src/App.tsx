@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { supabase, isCurrentUserAdmin, isCurrentUserPremium, isDownloadsEnabled } from "./supabase";
+import { supabase, isCurrentUserAdmin } from "./supabase";
 import { BugTracker } from "./BugTracker";
 import { Admin } from "./Admin";
 import {
@@ -437,9 +437,7 @@ function parseHash(): Page {
 export function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [isPremium, setIsPremium] = useState(false);
   const [page, setPage] = useState<Page>(parseHash());
-  const [downloadsEnabled, setDownloadsEnabled] = useState(true);
   const [releases, setReleases] = useState<ReleaseInfo[]>([]);
 
   useEffect(() => {
@@ -459,16 +457,10 @@ export function App() {
   useEffect(() => {
     if (session) {
       void isCurrentUserAdmin().then(setIsAdmin);
-      void isCurrentUserPremium().then(setIsPremium);
     } else {
       setIsAdmin(false);
-      setIsPremium(false);
     }
   }, [session]);
-
-  useEffect(() => {
-    void isDownloadsEnabled().then(setDownloadsEnabled);
-  }, []);
 
   useEffect(() => {
     void fetchReleases().then(setReleases);
