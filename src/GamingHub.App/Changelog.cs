@@ -8,6 +8,13 @@ public static class Changelog
 {
     public static readonly ChangelogEntry[] Entries =
     {
+        new("0.6.8", "08.11.2026", new[]
+        {
+            "Server: Premium-Code-Einlösung wiederholt bei kurzzeitigen Netzwerkabbrüchen automatisch (bis zu 3 Versuche) und zeigt den tatsächlichen Fehler an, statt nur „Server nicht erreichbar“.",
+            "Premium: Freischalt-Codes können von jedem Nutzer eingelöst werden – auch ohne vorherige Anmeldung.",
+            "Website: Downloads (Setup und Portable) sind für alle ohne Konto zugänglich.",
+            "Version 0.6.8"
+        }),
         new("0.6.7", "08.11.2026", new[]
         {
             "Premium: Jeder Nutzer kann jetzt Freischalt-Codes einlösen – auch ohne vorherige Anmeldung (bei Nicht-Anmeldung erscheint der Hinweis, sich zuerst anzumelden, damit der Code dem richtigen Konto gutgeschrieben wird).",

@@ -1,5 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
+using System.Threading;
+using GamingHub.Core.Services;
 
 namespace GamingHub.App.Services;
 
@@ -42,7 +44,7 @@ public sealed class PremiumService
         try
         {
             var before = AppServices.Profile.PremiumUntil;
-            var res = await client.RpcAsync("redeem_premium_code", new { p_code = code.Trim() });
+            var res = await RpcWithRetryAsync(client, "redeem_premium_code", new { p_code = code.Trim() });
             if (res.Ok)
             {
                 var parsed = TryParse(res.Body);
@@ -59,11 +61,11 @@ public sealed class PremiumService
                 string key = parsed.TryGetValue("error", out var e) ? e.GetString() ?? "" : "";
                 return (false, TranslateError(key), 0);
             }
-            return (false, "Server nicht erreichbar.", 0);
+            return (false, $"Server nicht erreichbar ({res.Body}).", 0);
         }
         catch (Exception ex)
         {
-            return (false, "Fehler: " + ex.Message, 0);
+            return (false, $"Fehler beim Verbinden mit dem Server: {ex.Message}", 0);
         }
     }
 
@@ -76,7 +78,7 @@ public sealed class PremiumService
 
         try
         {
-            var res = await client.RpcAsync("claim_activity_premium", new { p_milestone = milestone });
+            var res = await RpcWithRetryAsync(client, "claim_activity_premium", new { p_milestone = milestone });
             if (res.Ok)
             {
                 var parsed = TryParse(res.Body);
@@ -89,12 +91,53 @@ public sealed class PremiumService
                 }
                 return (false, TranslateError(parsed.TryGetValue("error", out var e) ? e.GetString() ?? "" : ""), 0);
             }
-            return (false, "Server nicht erreichbar.", 0);
+            return (false, $"Server nicht erreichbar ({res.Body}).", 0);
         }
-        catch
+        catch (Exception ex)
         {
-            return (false, "Fehler bei der Aktivitäts-Meldung.", 0);
+            return (false, $"Fehler bei der Aktivitäts-Meldung: {ex.Message}", 0);
         }
+    }
+
+    /// <summary>Führt einen Supabase-RPC-Aufruf mit bis zu 3 Wiederholungen
+    /// durch, damit kurzzeitige Netzwerkabbrüche das Einlösen von Codes
+    /// nicht verhindern.</summary>
+    private static async Task<SupabaseRpcResponse> RpcWithRetryAsync(
+        SupabaseClient client, string rpcName, object parameters, int maxAttempts = 3)
+    {
+        Exception? lastEx = null;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            try
+            {
+                var res = await client.RpcAsync(rpcName, parameters);
+                if (res.Ok || attempt == maxAttempts)
+                    return new SupabaseRpcResponse { Ok = res.Ok, Body = res.Body };
+                // Bei serverseitigem Fehler nicht wiederholen (außer letzter Versuch).
+                if (!res.Ok && !res.Body.Contains("timeout", StringComparison.OrdinalIgnoreCase))
+                    return new SupabaseRpcResponse { Ok = false, Body = res.Body };
+            }
+            catch (Exception ex)
+            {
+                lastEx = ex;
+            }
+
+            if (attempt < maxAttempts)
+                await Task.Delay(2000, CancellationToken.None);
+        }
+
+        // Falls alle Versuche fehlgeschlagen sind, gebe einen konstruierten Fehler zurück.
+        return new SupabaseRpcResponse
+        {
+            Ok = false,
+            Body = lastEx?.Message ?? "Unbekannter Fehler"
+        };
+    }
+
+    private sealed class SupabaseRpcResponse
+    {
+        public bool Ok { get; init; }
+        public string Body { get; init; } = string.Empty;
     }
 
     private async void OnBadgeGranted(string badgeId)

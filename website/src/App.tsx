@@ -26,16 +26,17 @@ const FEATURES = [
 
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   {
-    version: "0.6.7",
+    version: "0.6.8",
     date: "08.11.2026",
     items: [
-      "Premium: Jeder Nutzer kann jetzt Freischalt-Codes einlösen – auch ohne vorherige Anmeldung.",
+      "Server: Premium-Code-Einlösung wiederholt bei kurzzeitigen Netzwerkabbrüchen automatisch und zeigt den tatsächlichen Fehler an.",
+      "Premium: Freischalt-Codes können von jedem Nutzer eingelöst werden – auch ohne vorherige Anmeldung.",
       "Website: Downloads (Setup und Portable) sind für alle ohne Konto zugänglich."
     ]
   },
   {
-    version: "0.6.6",
-    date: "31.10.2026 11:35",
+    version: "0.6.7",
+    date: "08.11.2026",
     items: [
       "Updates: Gaming Hub prüft jetzt automatisch alle 30 Sekunden im Hintergrund, ob eine neue Version verfügbar ist. Der Hinweis erscheint unten in der Navigation und lässt sich dort mit einem Klick installieren.",
       "System-Ressourcen: Das Verlaufsdiagramm zeigt den vollen Zeitraum (1 Woche, mit Premium 4 Wochen) und lässt sich horizontal scrollen. PC-Auszeiten werden als Laufzeit dargestellt.",
