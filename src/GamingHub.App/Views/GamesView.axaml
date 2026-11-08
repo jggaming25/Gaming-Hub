@@ -8,33 +8,39 @@
              x:Class="GamingHub.App.Views.GamesView"
              x:DataType="vm:GamesViewModel">
 
-    <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" Margin="12">
-        <!-- Kopfzeile mit Suche, Laufwerken und Aktionen -->
-        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
-            <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center">
-                <TextBlock Text="Spielebibliothek" Classes="h1" />
-                <TextBlock Text="{Binding StatusText}" Classes="muted" FontSize="12"
-                           TextWrapping="Wrap" Margin="0,0,12,0" />
-                <TextBlock Text="{Binding HiddenInfoText}" FontSize="11" Foreground="#FACC15" />
-            </StackPanel>
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,*" Margin="12">
+        <!-- Kopfzeile: Titel -->
+        <StackPanel Grid.Row="0" Spacing="2" Margin="0,0,0,8">
+            <TextBlock Text="Spielebibliothek" Classes="h1" />
+            <TextBlock Text="{Binding StatusText}" Classes="muted" FontSize="12"
+                       TextWrapping="Wrap" Margin="0,0,12,0" />
+            <TextBlock Text="{Binding HiddenInfoText}" FontSize="11" Foreground="#FACC15" />
+        </StackPanel>
 
-            <WrapPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Right">
-                <TextBox Width="150" Margin="0,0,8,0" PlaceholderText="Suchen…"
-                         Text="{Binding SearchText, Mode=TwoWay}" />
-                <ComboBox Width="160" Margin="0,0,8,0" ItemsSource="{Binding DriveOptions}"
-                          SelectedItem="{Binding SelectedDrive, Mode=TwoWay}" />
-                <CheckBox Content="Ausgeblendete" IsChecked="{Binding ShowHidden, Mode=TwoWay}"
-                          Margin="0,0,8,0" VerticalAlignment="Center" />
-                <Button Content="Bibliothek scannen" Command="{Binding ScanCommand}"
-                        Classes="accent" Margin="0,0,6,0" />
-                <Button Content="Vollständig scannen" Command="{Binding FullRescanCommand}"
-                        Margin="0,0,6,0" />
-                <Button Content="Scan löschen" Command="{Binding ClearScanCommand}" />
-            </WrapPanel>
-        </Grid>
+        <!-- Werkzeugleiste: bricht bei schmalem Fenster automatisch um -->
+        <WrapPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
+            <TextBox Width="180" Margin="0,0,8,6" PlaceholderText="Suchen…"
+                     Text="{Binding SearchText, Mode=TwoWay}" />
+            <ComboBox Width="170" Margin="0,0,8,6" ItemsSource="{Binding DriveOptions}"
+                      SelectedItem="{Binding SelectedDrive, Mode=TwoWay}"
+                      ToolTip.Tip="Nach Laufwerk filtern" />
+            <ComboBox Width="180" Margin="0,0,8,6" ItemsSource="{Binding SortOptions}"
+                      SelectedItem="{Binding SelectedSort, Mode=TwoWay}"
+                      ToolTip.Tip="Sortierung der Bibliothek" />
+            <CheckBox Content="Nur laufende" IsChecked="{Binding OnlyRunning, Mode=TwoWay}"
+                      Margin="0,0,8,6" VerticalAlignment="Center"
+                      ToolTip.Tip="Nur gerade gestartete Spiele anzeigen" />
+            <CheckBox Content="Ausgeblendete" IsChecked="{Binding ShowHidden, Mode=TwoWay}"
+                      Margin="0,0,8,6" VerticalAlignment="Center" />
+            <Button Content="Bibliothek scannen" Command="{Binding ScanCommand}"
+                    Classes="accent" Margin="0,0,6,6" />
+            <Button Content="Vollständig scannen" Command="{Binding FullRescanCommand}"
+                    Margin="0,0,6,6" />
+            <Button Content="Scan löschen" Command="{Binding ClearScanCommand}" Margin="0,0,0,6" />
+        </WrapPanel>
 
         <!-- Kategorie-Reiter -->
-        <Border Grid.Row="1" Classes="card" Padding="8" Margin="0,0,0,10">
+        <Border Grid.Row="2" Classes="card" Padding="8" Margin="0,0,0,10">
             <ListBox ItemsSource="{Binding CategoryOptions}"
                      SelectedItem="{Binding SelectedCategory, Mode=TwoWay}"
                      Background="Transparent" BorderThickness="0" Padding="0">
@@ -52,7 +58,7 @@
         </Border>
 
         <!-- Laufwerke (kompakt) -->
-        <ItemsControl Grid.Row="2" ItemsSource="{Binding Volumes}" Margin="0,0,0,10">
+        <ItemsControl Grid.Row="3" ItemsSource="{Binding Volumes}" Margin="0,0,0,10">
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
                     <WrapPanel />
@@ -87,21 +93,22 @@
             </ItemsControl.ItemTemplate>
         </ItemsControl>
 
-        <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="10" Margin="0,0,0,4">
+        <StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="10" Margin="0,0,0,4">
             <ProgressBar IsIndeterminate="True" Width="140" Height="5" IsVisible="{Binding IsLoading}" />
         </StackPanel>
 
-        <!-- Karten-Grid -->
-        <ScrollViewer Grid.Row="4">
+        <!-- Karten-Grid: passt sich der Fensterbreite an -->
+        <ScrollViewer Grid.Row="5" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
             <ItemsControl ItemsSource="{Binding Games}">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
-                        <WrapPanel Orientation="Horizontal" ItemWidth="336" />
+                        <WrapPanel Orientation="Horizontal" />
                     </ItemsPanelTemplate>
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="vm:GameItemViewModel">
-                        <Border Classes="game-card" Margin="8" Width="320">
+                        <Border Classes="game-card" Margin="8"
+                                Width="{Binding $parent[ScrollViewer].Bounds.Width, Converter={x:Static vm:CommonConverters.CardWidth}}">
                             <Grid>
                                 <!-- Kompakte Karte -->
                                 <Border Classes="game-card-collapsed" CornerRadius="12" ClipToBounds="True"

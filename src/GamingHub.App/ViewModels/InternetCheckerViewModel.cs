@@ -101,6 +101,10 @@ public partial class InternetCheckerViewModel : ViewModelBase
     /// macht das Diagramm horizontal scrollbar (1 Woche frei, 4 Wochen Premium).</summary>
     [ObservableProperty] private double _chartWidth = 600;
 
+    /// <summary>Wird nach jedem Neuladen erhöht und scrollt alle Diagramme
+    /// automatisch an das rechte (neueste) Ende.</summary>
+    [ObservableProperty] private int _chartScrollToken;
+
     [ObservableProperty] private bool _hasHistory;
     [ObservableProperty] private string _historyRetentionText = "Aufbewahrung: 1 Woche (Premium: 4 Wochen)";
     [ObservableProperty] private string _historyStatusText = "Keine Daten aufgezeichnet.";
@@ -626,5 +630,8 @@ public partial class InternetCheckerViewModel : ViewModelBase
             ? "Noch keine Internet-Daten aufgezeichnet (alle 15 Sekunden ein Check)."
             : $"Zeitraum: {retentionDays} Tage · {all.Count} Messpunkte · letzte {all[^1].TimestampUtc.ToLocalTime():HH:mm:ss} · " +
               (all.Count(p => !p.IsOnline) > 0 ? $"{all.Count(p => !p.IsOnline)} Ausfälle" : "keine Ausfälle");
+
+        // Alle Diagramme direkt auf den neuesten Stand scrollen.
+        ChartScrollToken++;
     }
 }

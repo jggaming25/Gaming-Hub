@@ -47,9 +47,22 @@ public partial class GamesViewModel : ViewModelBase
 
     public ObservableCollection<DriveFilterOption> DriveOptions { get; } = new();
 
+    /// <summary>Sortierung der Bibliothek – für normale Nutzer direkt in der
+    /// Kopfzeile wählbar.</summary>
+    public ObservableCollection<string> SortOptions { get; } = new()
+    {
+        "Name (A–Z)",
+        "Größe (groß zuerst)",
+        "Zuletzt gespielt",
+        "Kategorie",
+        "Quelle"
+    };
+
     [ObservableProperty] private string _searchText = string.Empty;
     [ObservableProperty] private CategoryFilterOption _selectedCategory = null!;
     [ObservableProperty] private DriveFilterOption? _selectedDrive;
+    [ObservableProperty] private string _selectedSort = "Name (A–Z)";
+    [ObservableProperty] private bool _onlyRunning;
     [ObservableProperty] private bool _isLoading;
     [ObservableProperty] private bool _showHidden;
     [ObservableProperty] private string _statusText = "Bibliothek wird geladen…";
@@ -58,6 +71,8 @@ public partial class GamesViewModel : ViewModelBase
     partial void OnSearchTextChanged(string value) => ApplyFilter();
     partial void OnSelectedCategoryChanged(CategoryFilterOption value) => ApplyFilter();
     partial void OnSelectedDriveChanged(DriveFilterOption? value) => ApplyFilter();
+    partial void OnSelectedSortChanged(string value) => ApplyFilter();
+    partial void OnOnlyRunningChanged(bool value) => ApplyFilter();
     partial void OnShowHiddenChanged(bool value) => ApplyFilter();
 
     public GamesViewModel()
@@ -279,12 +294,12 @@ public partial class GamesViewModel : ViewModelBase
 
     private void ApplyFilter()
     {
-        Games.Clear();
         string q = SearchText?.Trim() ?? string.Empty;
         GameCategory? category = SelectedCategory?.Category;
         string? driveRoot = SelectedDrive?.Root;
         int hiddenCount = 0;
 
+        var filtered = new List<GameItemViewModel>();
         foreach (var g in _all)
         {
             if (g.Model.IsHidden)
@@ -293,6 +308,8 @@ public partial class GamesViewModel : ViewModelBase
                 if (!ShowHidden)
                     continue;
             }
+            if (OnlyRunning && !g.IsRunning)
+                continue;
             if (q.Length > 0 && !g.Name.Contains(q, StringComparison.OrdinalIgnoreCase))
                 continue;
             if (category is { } cat && g.Model.Category != cat)
@@ -300,8 +317,23 @@ public partial class GamesViewModel : ViewModelBase
             if (!string.IsNullOrWhiteSpace(driveRoot) &&
                 !(g.Model.InstallPath?.StartsWith(driveRoot, StringComparison.OrdinalIgnoreCase) ?? false))
                 continue;
-            Games.Add(g);
+            filtered.Add(g);
         }
+
+        IEnumerable<GameItemViewModel> sorted = SelectedSort switch
+        {
+            "Größe (groß zuerst)" => filtered.OrderByDescending(g => g.SizeBytes),
+            "Zuletzt gespielt" => filtered.OrderByDescending(g => g.Model.LastPlayedUtc ?? DateTime.MinValue),
+            "Kategorie" => filtered.OrderBy(g => g.CategoryDisplay, StringComparer.OrdinalIgnoreCase)
+                                   .ThenBy(g => g.Name, StringComparer.OrdinalIgnoreCase),
+            "Quelle" => filtered.OrderBy(g => g.SourceName, StringComparer.OrdinalIgnoreCase)
+                                .ThenBy(g => g.Name, StringComparer.OrdinalIgnoreCase),
+            _ => filtered.OrderBy(g => g.Name, StringComparer.OrdinalIgnoreCase)
+        };
+
+        Games.Clear();
+        foreach (var g in sorted)
+            Games.Add(g);
 
         HiddenInfoText = hiddenCount == 0
             ? string.Empty

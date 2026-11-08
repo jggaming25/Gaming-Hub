@@ -177,9 +177,38 @@ export interface PremiumCode {
   duration_days: number | null;
   valid_until: string | null;
   created_at: string;
+  disabled: boolean;
+  disabled_at: string | null;
   // Ein Code ist pro Nutzer einmal einlösbar – "uses" zählt die Einlösungen.
   uses: number;
   last_used_at: string | null;
+}
+
+export interface PremiumCodeUse {
+  code_id: string;
+  code: string;
+  user_id: string;
+  email: string | null;
+  display_name: string | null;
+  used_at: string;
+  revoked_at: string | null;
+  duration_days: number | null;
+  valid_until: string | null;
+  disabled: boolean;
+}
+
+export interface MyPremium {
+  premium_until: string | null;
+  premium_since: string | null;
+  premium_banned: boolean;
+}
+
+export interface MyPremiumUse {
+  code: string;
+  used_at: string;
+  revoked_at: string | null;
+  duration_days: number | null;
+  valid_until: string | null;
 }
 
 export async function fetchAppSettings(): Promise<{ settings: AppSetting[]; error?: string }> {
@@ -213,6 +242,99 @@ export async function fetchPremiumCodes(): Promise<{ codes: PremiumCode[]; error
   return { codes: (data as PremiumCode[]) ?? [] };
 }
 
+export async function fetchPremiumCodeUses(): Promise<{ uses: PremiumCodeUse[]; error?: string }> {
+  if (!supabase) return { uses: [], error: "Supabase ist nicht konfiguriert." };
+  const { data, error } = await supabase.rpc("fetch_premium_code_uses");
+  if (error) return { uses: [], error: error.message };
+  return { uses: (data as PremiumCodeUse[]) ?? [] };
+}
+
+export async function setPremiumCodeDisabled(codeId: string, disabled: boolean) {
+  if (!supabase) return { ok: false, error: "Supabase ist nicht konfiguriert." };
+  const { data, error } = await supabase.rpc("admin_set_premium_code_disabled", {
+    p_code_id: codeId,
+    p_disabled: disabled
+  });
+  if (error) return { ok: false, error: error.message };
+  const result = data as { ok?: boolean; error?: string } | null;
+  return result?.ok ? { ok: true } : { ok: false, error: result?.error ?? "Unbekannter Fehler" };
+}
+
+export async function revokePremiumCodeUse(codeId: string, userId: string) {
+  if (!supabase) return { ok: false, error: "Supabase ist nicht konfiguriert." };
+  const { data, error } = await supabase.rpc("admin_revoke_premium_code_use", {
+    p_code_id: codeId,
+    p_user_id: userId
+  });
+  if (error) return { ok: false, error: error.message };
+  const result = data as { ok?: boolean; error?: string } | null;
+  return result?.ok ? { ok: true } : { ok: false, error: result?.error ?? "Unbekannter Fehler" };
+}
+
+/// <summary>Lädt Premium-Status und eigene Code-Einlösungen des angemeldeten Nutzers.</summary>
+export async function fetchMyPremium(): Promise<{
+  ok: boolean;
+  premium: MyPremium | null;
+  uses: MyPremiumUse[];
+  error?: string;
+}> {
+  if (!supabase) return { ok: false, premium: null, uses: [], error: "Supabase ist nicht konfiguriert." };
+  const { data, error } = await supabase.rpc("fetch_my_premium_history");
+  if (error) return { ok: false, premium: null, uses: [], error: error.message };
+  const result = data as {
+    ok?: boolean;
+    premium?: MyPremium;
+    uses?: MyPremiumUse[];
+    error?: string;
+  } | null;
+  if (!result?.ok) return { ok: false, premium: null, uses: [], error: result?.error ?? "Unbekannter Fehler" };
+  return { ok: true, premium: result.premium ?? null, uses: result.uses ?? [] };
+}
+
+const REDEEM_ERRORS: Record<string, string> = {
+  login_required: "Bitte zuerst anmelden.",
+  premium_banned: "Dein Konto ist für Premium gesperrt.",
+  codes_disabled: "Freischalt-Codes sind derzeit deaktiviert.",
+  invalid_code: "Dieser Code ist ungültig.",
+  already_used: "Du hast diesen Code bereits eingelöst.",
+  code_disabled: "Dieser Code wurde deaktiviert."
+};
+
+/// <summary>Löst einen Freischalt-Code für den angemeldeten Nutzer ein.</summary>
+export async function redeemPremiumCode(code: string): Promise<{
+  ok: boolean;
+  message: string;
+  days?: number | null;
+}> {
+  if (!supabase) return { ok: false, message: "Supabase ist nicht konfiguriert." };
+  const trimmed = code.trim();
+  if (!trimmed) return { ok: false, message: "Bitte einen Code eingeben." };
+
+  try {
+    const { data, error } = await supabase.rpc("redeem_premium_code", { p_code: trimmed });
+    if (error) return { ok: false, message: error.message };
+    const result = data as {
+      ok?: boolean;
+      error?: string;
+      days_added?: number | null;
+    } | null;
+    if (!result?.ok) {
+      const key = result?.error ?? "";
+      return { ok: false, message: REDEEM_ERRORS[key] ?? key ?? "Code konnte nicht eingelöst werden." };
+    }
+    if (result.days_added === null || result.days_added === undefined) {
+      return { ok: true, message: "Premium dauerhaft aktiviert. Danke!", days: null };
+    }
+    return {
+      ok: true,
+      message: `Premium um ${result.days_added} ${result.days_added === 1 ? "Tag" : "Tage"} verlängert. Danke!`,
+      days: result.days_added
+    };
+  } catch (ex) {
+    return { ok: false, message: "Fehler beim Verbinden mit dem Server: " + (ex as Error).message };
+  }
+}
+
 function makePremiumCode(): string {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const rand = () => alphabet[Math.floor(Math.random() * alphabet.length)];
@@ -226,7 +348,7 @@ export async function createPremiumCodes(count: number, bonusDays: number) {
   const creatorId = userData.user?.id ?? null;
   const rows = Array.from({ length: Math.max(1, Math.min(count, 50)) }, () => ({
     code: makePremiumCode(),
-    bonus_days: Math.max(1, bonusDays),
+    duration_days: Math.max(1, bonusDays),
     created_by: creatorId
   }));
   const { data, error } = await supabase.from("premium_codes").insert(rows).select("code");

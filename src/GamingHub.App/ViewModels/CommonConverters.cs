@@ -219,9 +219,41 @@ public sealed class SeriesToPointsConverter : IValueConverter
         => throw new NotSupportedException();
 }
 
+/// <summary>Berechnet aus der verfügbaren Breite eine sinnvolle Kartenbreite,
+/// damit die Spielebibliothek auch bei einem kleinen Fenster ohne horizontales
+/// Überlaufen in ein bis mehrere Spalten umbricht.</summary>
+public sealed class WidthToCardWidthConverter : IValueConverter
+{
+    /// <summary>Kleinste angestrebte Kartenbreite (eine Karte pro Spalte).</summary>
+    public double Minimum { get; set; } = 260;
+
+    /// <summary>Reservierter Platz pro Karte für Außenabstände.</summary>
+    public double Gap { get; set; } = 16;
+
+    /// <summary>Maximale Kartenbreite, damit Karten bei sehr breiten Fenstern
+    /// nicht unnötig auseinandergezogen werden.</summary>
+    public double Maximum { get; set; } = 460;
+
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is not double rawWidth || double.IsNaN(rawWidth) || double.IsInfinity(rawWidth) || rawWidth <= 0)
+            return Maximum;
+
+        // Platz für Scrollbar und Seitenrand abziehen.
+        double available = Math.Max(180, rawWidth - 28);
+        int columns = Math.Max(1, (int)Math.Floor(available / (Minimum + Gap)));
+        double card = available / columns - Gap;
+        return Math.Clamp(card, 180, Maximum);
+    }
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
 public static class CommonConverters
 {
     public static readonly BoolToOpacityConverter BadgeOpacity = new() { True = 1.0, False = 0.4 };
+    public static readonly WidthToCardWidthConverter CardWidth = new();
     public static readonly BoolToOpacityConverter LockedOpacity = new() { True = 0.5, False = 1.0 };
     public static readonly StringNotEmptyConverter NotEmpty = new();
     public static readonly FirstCharConverter FirstChar = new();

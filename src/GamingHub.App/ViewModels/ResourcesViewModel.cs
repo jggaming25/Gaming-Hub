@@ -132,6 +132,14 @@ public partial class ResourcesViewModel : ViewModelBase
     /// PC zwischendurch ausgeschaltet war.</summary>
     [ObservableProperty] private double _historyChartWidth = 600;
 
+    /// <summary>Datums-Beschriftungen, die in jedem Diagramm direkt unter der
+    /// Kurve liegen und beim horizontalen Scrollen mitlaufen.</summary>
+    public ObservableCollection<HistoryDateLabel> HistoryDateLabels { get; } = new();
+
+    /// <summary>Wird nach jedem Neuladen erhöht und scrollt alle Diagramme
+    /// automatisch an das rechte (neueste) Ende.</summary>
+    [ObservableProperty] private int _historyScrollToken;
+
     [ObservableProperty] private string _historyStatusText = "Zeichnet alle 5 Minuten auf…";
     [ObservableProperty] private string _historyRangeText = "—";
     [ObservableProperty] private string _historyAxisStart = string.Empty;
@@ -320,6 +328,9 @@ public partial class ResourcesViewModel : ViewModelBase
         OnPropertyChanged(nameof(RamSeries));
         OnPropertyChanged(nameof(GpuSeries));
         OnPropertyChanged(nameof(ProcSeries));
+
+        // Alle Diagramme direkt auf den neuesten Stand scrollen.
+        HistoryScrollToken++;
     }
 
     private void UpdateHistoryAxis(DateTimeOffset start, DateTimeOffset end)
@@ -335,6 +346,18 @@ public partial class ResourcesViewModel : ViewModelBase
         HistoryAxisMiddle = At(0.5);
         HistoryAxisThreeQuarter = At(0.75);
         HistoryAxisEnd = At(1);
+
+        HistoryDateLabels.Clear();
+        int labelCount = Math.Clamp((int)(HistoryChartWidth / 130), 2, 18);
+        for (int i = 0; i < labelCount; i++)
+        {
+            double fraction = labelCount <= 1 ? 0 : (double)i / (labelCount - 1);
+            HistoryDateLabels.Add(new HistoryDateLabel
+            {
+                X = fraction * HistoryChartWidth,
+                Text = At(fraction)
+            });
+        }
     }
 
     private async Task LoadFlagsAsync()

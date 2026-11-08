@@ -213,6 +213,7 @@ public sealed class PremiumService
         "already_claimed" => "Für dieses Abzeichen hast du bereits Premium erhalten.",
         "invalid_milestone" => "Dieses Abzeichen ist nicht für Aktivitäts-Premium freigeschaltet.",
         "invalid_code" => "Diesen Code gibt es nicht.",
+        "code_disabled" => "Dieser Code wurde deaktiviert.",
         "invalid_or_used" => "Code ungültig oder bereits verwendet.",
         "already_used" => "Diesen Code hast du bereits eingelöst.",
         "premium_banned" => "Premium wurde für dein Konto gesperrt.",

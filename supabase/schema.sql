@@ -463,6 +463,19 @@ create table if not exists public.premium_code_uses (
     primary key (code_id, user_id)
 );
 
+-- Nachrüstbar für Bestandsdatenbanken:
+-- Codes lassen sich deaktivieren, ohne bereits eingelöste Nutzer zu beeinflussen.
+alter table public.premium_codes add column if not exists disabled boolean not null default false;
+alter table public.premium_codes add column if not exists disabled_at timestamptz;
+alter table public.premium_codes add column if not exists disabled_by uuid references auth.users(id) on delete set null;
+
+-- Einzelne Einlösungen können nachträglich zurückgenommen werden (Audit bleibt erhalten).
+alter table public.premium_code_uses add column if not exists revoked_at timestamptz;
+alter table public.premium_code_uses add column if not exists revoked_by uuid references auth.users(id) on delete set null;
+
+create index if not exists premium_code_uses_user_idx on public.premium_code_uses (user_id);
+create index if not exists premium_code_uses_code_idx on public.premium_code_uses (code_id);
+
 create table if not exists public.premium_claims (
     user_id    uuid not null references auth.users(id) on delete cascade,
     milestone  text not null,
@@ -543,6 +556,7 @@ declare
     v_code_id uuid;
     v_duration int;
     v_valid_until timestamptz;
+    v_disabled boolean;
     v_new_until timestamptz;
     v_base timestamptz;
     v_days_added int;
@@ -560,13 +574,18 @@ begin
         return jsonb_build_object('ok', false, 'error', 'codes_disabled');
     end if;
 
-    select id, duration_days, valid_until into v_code_id, v_duration, v_valid_until
+    select id, duration_days, valid_until, coalesce(disabled, false)
+      into v_code_id, v_duration, v_valid_until, v_disabled
       from public.premium_codes
      where code = upper(trim(p_code))
      limit 1;
 
     if v_code_id is null then
         return jsonb_build_object('ok', false, 'error', 'invalid_code');
+    end if;
+
+    if v_disabled then
+        return jsonb_build_object('ok', false, 'error', 'code_disabled');
     end if;
 
     begin
@@ -696,8 +715,10 @@ begin
         'duration_days', c.duration_days,
         'valid_until', c.valid_until,
         'created_at', c.created_at,
-        'uses', (select count(*) from public.premium_code_uses u where u.code_id = c.id),
-        'last_used_at', (select max(u.used_at) from public.premium_code_uses u where u.code_id = c.id)
+        'disabled', coalesce(c.disabled, false),
+        'disabled_at', c.disabled_at,
+        'uses', (select count(*) from public.premium_code_uses u where u.code_id = c.id and u.revoked_at is null),
+        'last_used_at', (select max(u.used_at) from public.premium_code_uses u where u.code_id = c.id and u.revoked_at is null)
     ) order by c.created_at desc), jsonb_build_array())
       into v_result from public.premium_codes c;
     return v_result;
@@ -705,6 +726,174 @@ end;
 $$;
 
 grant execute on function public.fetch_premium_codes() to authenticated;
+
+-- Admin: einen Code (auch bereits eingelöste) deaktivieren/aktivieren.
+create or replace function public.admin_set_premium_code_disabled(p_code_id uuid, p_disabled boolean)
+returns jsonb
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+    if auth.uid() is null or not public.is_admin() then
+        return jsonb_build_object('ok', false, 'error', 'admin_required');
+    end if;
+
+    update public.premium_codes
+       set disabled = p_disabled,
+           disabled_at = case when p_disabled then now() else null end,
+           disabled_by = case when p_disabled then auth.uid() else null end
+     where id = p_code_id;
+
+    if not found then
+        return jsonb_build_object('ok', false, 'error', 'not_found');
+    end if;
+
+    return jsonb_build_object('ok', true, 'disabled', p_disabled);
+end;
+$$;
+
+-- Admin: eine einzelne Einlösung zurücknehmen. Der Code bleibt für andere
+-- Nutzer nutzbar; die von ihm vergebene Premium-Zeit wird nach Möglichkeit
+-- wieder abgezogen. Die Einlösung bleibt als Audit-Eintrag erhalten.
+create or replace function public.admin_revoke_premium_code_use(p_code_id uuid, p_user_id uuid)
+returns jsonb
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+    v_used_at timestamptz;
+    v_revoked_at timestamptz;
+    v_duration int;
+    v_valid_until timestamptz;
+    v_until timestamptz;
+begin
+    if auth.uid() is null or not public.is_admin() then
+        return jsonb_build_object('ok', false, 'error', 'admin_required');
+    end if;
+
+    select u.used_at, u.revoked_at, c.duration_days, c.valid_until
+      into v_used_at, v_revoked_at, v_duration, v_valid_until
+      from public.premium_code_uses u
+      join public.premium_codes c on c.id = u.code_id
+     where u.code_id = p_code_id and u.user_id = p_user_id;
+
+    if v_used_at is null then
+        return jsonb_build_object('ok', false, 'error', 'not_found');
+    end if;
+    if v_revoked_at is not null then
+        return jsonb_build_object('ok', false, 'error', 'already_revoked');
+    end if;
+
+    update public.premium_code_uses
+       set revoked_at = now(), revoked_by = auth.uid()
+     where code_id = p_code_id and user_id = p_user_id;
+
+    select premium_until into v_until from public.profiles where id = p_user_id;
+
+    if v_until is not null then
+        if v_until = 'infinity'::timestamptz then
+            -- Unendlicher Code: Premium vollständig zurücknehmen.
+            if v_duration is null and v_valid_until is null then
+                update public.profiles set premium_until = now() where id = p_user_id;
+            end if;
+        elsif v_duration is not null then
+            update public.profiles
+               set premium_until = greatest(now(), v_until - make_interval(days => v_duration))
+             where id = p_user_id;
+        elsif v_valid_until is not null and v_until > now() then
+            -- Gültig-bis-Code: die damals gewährte Zeitspanne abziehen.
+            update public.profiles
+               set premium_until = greatest(now(), v_until - greatest(interval '0', v_valid_until - v_used_at))
+             where id = p_user_id;
+        end if;
+    end if;
+
+    return jsonb_build_object('ok', true);
+end;
+$$;
+
+-- Admin: alle Einlösungen inkl. Nutzer und Status.
+create or replace function public.fetch_premium_code_uses()
+returns jsonb
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+    v_result jsonb;
+begin
+    if auth.uid() is null or not public.is_admin() then
+        return jsonb_build_array();
+    end if;
+
+    select coalesce(jsonb_agg(jsonb_build_object(
+        'code_id', u.code_id,
+        'code', c.code,
+        'user_id', u.user_id,
+        'email', p.email,
+        'display_name', p.display_name,
+        'used_at', u.used_at,
+        'revoked_at', u.revoked_at,
+        'duration_days', c.duration_days,
+        'valid_until', c.valid_until,
+        'disabled', coalesce(c.disabled, false)
+    ) order by u.used_at desc), jsonb_build_array())
+      into v_result
+      from public.premium_code_uses u
+      join public.premium_codes c on c.id = u.code_id
+      left join public.profiles p on p.id = u.user_id;
+
+    return v_result;
+end;
+$$;
+
+-- Normaler Nutzer: eigener Premium-Status und eigene Einlösungs-Historie.
+create or replace function public.fetch_my_premium_history()
+returns jsonb
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+    v_uid uuid := auth.uid();
+    v_profile jsonb;
+    v_uses jsonb;
+begin
+    if v_uid is null then
+        return jsonb_build_object('ok', false, 'error', 'login_required');
+    end if;
+
+    select jsonb_build_object(
+        'premium_until', premium_until,
+        'premium_since', premium_since,
+        'premium_banned', coalesce(premium_banned, false)
+    ) into v_profile
+      from public.profiles where id = v_uid;
+
+    select coalesce(jsonb_agg(jsonb_build_object(
+        'code', c.code,
+        'used_at', u.used_at,
+        'revoked_at', u.revoked_at,
+        'duration_days', c.duration_days,
+        'valid_until', c.valid_until
+    ) order by u.used_at desc), jsonb_build_array())
+      into v_uses
+      from public.premium_code_uses u
+      join public.premium_codes c on c.id = u.code_id
+     where u.user_id = v_uid;
+
+    return jsonb_build_object('ok', true,
+                              'premium', coalesce(v_profile, '{}'::jsonb),
+                              'uses', v_uses);
+end;
+$$;
+
+revoke all on function public.admin_set_premium_code_disabled(uuid, boolean) from public, anon;
+revoke all on function public.admin_revoke_premium_code_use(uuid, uuid) from public, anon;
+revoke all on function public.fetch_premium_code_uses() from public, anon;
+revoke all on function public.fetch_my_premium_history() from public, anon;
+grant execute on function public.admin_set_premium_code_disabled(uuid, boolean) to authenticated;
+grant execute on function public.admin_revoke_premium_code_use(uuid, uuid) to authenticated;
+grant execute on function public.fetch_premium_code_uses() to authenticated;
+grant execute on function public.fetch_my_premium_history() to authenticated;
 
 -- ============================================================
 -- Admin-Statistik (nur aggregiert, keine personenbezogenen Daten)

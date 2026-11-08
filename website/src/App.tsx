@@ -3,6 +3,7 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase, isCurrentUserAdmin } from "./supabase";
 import { BugTracker } from "./BugTracker";
 import { Admin } from "./Admin";
+import { Account } from "./Account";
 import {
   DOWNLOAD_SETUP_URL,
   DOWNLOAD_PORTABLE_URL,
@@ -25,6 +26,18 @@ const FEATURES = [
 ];
 
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: "0.6.11",
+    date: "08.11.2026",
+    items: [
+      "Fenster-Modus: Die Spielebibliothek passt sich der Fensterbreite an (automatisch eine oder mehrere Spalten) und die Werkzeugleiste bricht bei kleinen Fenstern sauber um.",
+      "Spielebibliothek: Sortierung nach Name, Größe, zuletzt gespielt, Kategorie oder Quelle sowie der Filter „Nur laufende“.",
+      "Diagramme: Jedes Verlaufsdiagramm hat eine eigene Scrollbar mit Datums-Beschriftung und springt nach dem Neuladen automatisch auf den neuesten Stand.",
+      "Admin: Premium-Codes deaktivieren/aktivieren, unbenutzte Codes gesammelt deaktivieren, CSV-Export für Codes und Nutzung.",
+      "Admin: Liste aller Einlösungen (wer hat welchen Code genutzt) mit Suche, Filter und dem Zurücknehmen einzelner Einlösungen.",
+      "Mein Konto: Premium-Status, Code direkt auf der Website einlösen und die eigenen eingelösten Codes ansehen."
+    ]
+  },
   {
     version: "0.6.10",
     date: "08.11.2026",
@@ -433,7 +446,7 @@ const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   }
 ];
 
-type Page = "start" | "bugtracker" | "admin" | "changelog" | "versionen";
+type Page = "start" | "bugtracker" | "admin" | "changelog" | "versionen" | "konto";
 
 function parseHash(): Page {
   const h = window.location.hash.replace(/^#\/?/, "");
@@ -441,6 +454,7 @@ function parseHash(): Page {
   if (h.startsWith("bugs") || h.startsWith("bugtracker")) return "bugtracker";
   if (h.startsWith("versionen")) return "versionen";
   if (h.startsWith("changelog")) return "changelog";
+  if (h.startsWith("konto") || h.startsWith("account")) return "konto";
   return "start";
 }
 
@@ -513,6 +527,11 @@ export function App() {
           <button className={"navlink" + (page === "bugtracker" ? " active" : "")} onClick={() => go("bugtracker")}>
             Bugtracker
           </button>
+          {userEmail && (
+            <button className={"navlink" + (page === "konto" ? " active" : "")} onClick={() => go("konto")}>
+              Mein Konto
+            </button>
+          )}
           {isAdmin && (
             <button className={"navlink" + (page === "admin" ? " active" : "")} onClick={() => go("admin")}>
               Admin
@@ -638,6 +657,10 @@ export function App() {
         <section id="admin" style={{ marginTop: "24px" }}>
           <Admin />
         </section>
+      )}
+
+      {page === "konto" && (
+        <Account />
       )}
 
       {page === "changelog" && (

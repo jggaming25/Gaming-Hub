@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:GamingHub.App.ViewModels"
+             xmlns:behaviors="using:GamingHub.App.Behaviors"
              xmlns:svc="using:GamingHub.Core.Services"
              xmlns:models="using:GamingHub.Core.Models"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -223,7 +224,7 @@
 
                         <StackPanel Spacing="2" IsVisible="{Binding HasHistory}">
                             <!-- CPU -->
-                            <Grid ColumnDefinitions="132,26,*" Height="72">
+                            <Grid ColumnDefinitions="132,26,*">
                                 <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="3">
                                     <StackPanel Orientation="Horizontal" Spacing="6">
                                         <Border Width="10" Height="10" CornerRadius="2" Background="#22D3EE" VerticalAlignment="Center" />
@@ -236,25 +237,48 @@
                                     <TextBlock Grid.Row="1" Text="50" FontSize="9" Classes="muted" HorizontalAlignment="Right" VerticalAlignment="Center" />
                                     <TextBlock Grid.Row="2" Text="0" FontSize="9" Classes="muted" HorizontalAlignment="Right" />
                                 </Grid>
-                                <ScrollViewer Grid.Column="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-                                    <Grid Width="{Binding HistoryChartWidth}" Height="72" ClipToBounds="True" Background="#0C1120">
-                                        <Border VerticalAlignment="Top" Height="1" Background="#18FFFFFF" />
-                                        <Border VerticalAlignment="Center" Height="1" Background="#18FFFFFF" />
-                                        <Border VerticalAlignment="Bottom" Height="1" Background="#18FFFFFF" />
-                                        <Grid ColumnDefinitions="*,*,*,*" IsHitTestVisible="False">
-                                            <Border Grid.Column="1" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
-                                            <Border Grid.Column="2" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
-                                            <Border Grid.Column="3" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
+                                <ScrollViewer Grid.Column="2"
+                                              HorizontalScrollBarVisibility="Auto"
+                                              VerticalScrollBarVisibility="Disabled"
+                                              behaviors:AutoScroll.ToEndToken="{Binding HistoryScrollToken}">
+                                    <StackPanel Width="{Binding HistoryChartWidth}">
+                                        <Grid Width="{Binding HistoryChartWidth}" Height="72" ClipToBounds="True" Background="#0C1120">
+                                            <Border VerticalAlignment="Top" Height="1" Background="#18FFFFFF" />
+                                            <Border VerticalAlignment="Center" Height="1" Background="#18FFFFFF" />
+                                            <Border VerticalAlignment="Bottom" Height="1" Background="#18FFFFFF" />
+                                            <Grid ColumnDefinitions="*,*,*,*" IsHitTestVisible="False">
+                                                <Border Grid.Column="1" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
+                                                <Border Grid.Column="2" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
+                                                <Border Grid.Column="3" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
+                                            </Grid>
+                                            <Polyline Stretch="None"
+                                                      Points="{Binding CpuSeries, Converter={x:Static vm:CommonConverters.SeriesToPoints}, ConverterParameter=4x72x100}"
+                                                      Stroke="#22D3EE" StrokeThickness="2" />
                                         </Grid>
-                                        <Polyline Stretch="None"
-                                                  Points="{Binding CpuSeries, Converter={x:Static vm:CommonConverters.SeriesToPoints}, ConverterParameter=4x72x100}"
-                                                  Stroke="#22D3EE" StrokeThickness="2" />
-                                    </Grid>
+                                        <ItemsControl ItemsSource="{Binding HistoryDateLabels}" Width="{Binding HistoryChartWidth}" Height="16">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <Canvas />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.Styles>
+                                                <Style Selector="ContentPresenter">
+                                                    <Setter Property="Canvas.Left" Value="{ReflectionBinding X}" />
+                                                    <Setter Property="Canvas.Top" Value="0" />
+                                                </Style>
+                                            </ItemsControl.Styles>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate DataType="vm:HistoryDateLabel">
+                                                    <TextBlock Text="{Binding Text}" FontSize="9" Classes="muted" Margin="2,0,0,0" />
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
                                 </ScrollViewer>
                             </Grid>
 
                             <!-- RAM -->
-                            <Grid ColumnDefinitions="132,26,*" Height="72">
+                            <Grid ColumnDefinitions="132,26,*">
                                 <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="3">
                                     <StackPanel Orientation="Horizontal" Spacing="6">
                                         <Border Width="10" Height="10" CornerRadius="2" Background="#4ADE80" VerticalAlignment="Center" />
@@ -267,25 +291,48 @@
                                     <TextBlock Grid.Row="1" Text="50" FontSize="9" Classes="muted" HorizontalAlignment="Right" VerticalAlignment="Center" />
                                     <TextBlock Grid.Row="2" Text="0" FontSize="9" Classes="muted" HorizontalAlignment="Right" />
                                 </Grid>
-                                <ScrollViewer Grid.Column="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-                                    <Grid Width="{Binding HistoryChartWidth}" Height="72" ClipToBounds="True" Background="#0C1120">
-                                        <Border VerticalAlignment="Top" Height="1" Background="#18FFFFFF" />
-                                        <Border VerticalAlignment="Center" Height="1" Background="#18FFFFFF" />
-                                        <Border VerticalAlignment="Bottom" Height="1" Background="#18FFFFFF" />
-                                        <Grid ColumnDefinitions="*,*,*,*" IsHitTestVisible="False">
-                                            <Border Grid.Column="1" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
-                                            <Border Grid.Column="2" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
-                                            <Border Grid.Column="3" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
+                                <ScrollViewer Grid.Column="2"
+                                              HorizontalScrollBarVisibility="Auto"
+                                              VerticalScrollBarVisibility="Disabled"
+                                              behaviors:AutoScroll.ToEndToken="{Binding HistoryScrollToken}">
+                                    <StackPanel Width="{Binding HistoryChartWidth}">
+                                        <Grid Width="{Binding HistoryChartWidth}" Height="72" ClipToBounds="True" Background="#0C1120">
+                                            <Border VerticalAlignment="Top" Height="1" Background="#18FFFFFF" />
+                                            <Border VerticalAlignment="Center" Height="1" Background="#18FFFFFF" />
+                                            <Border VerticalAlignment="Bottom" Height="1" Background="#18FFFFFF" />
+                                            <Grid ColumnDefinitions="*,*,*,*" IsHitTestVisible="False">
+                                                <Border Grid.Column="1" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
+                                                <Border Grid.Column="2" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
+                                                <Border Grid.Column="3" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
+                                            </Grid>
+                                            <Polyline Stretch="None"
+                                                      Points="{Binding RamSeries, Converter={x:Static vm:CommonConverters.SeriesToPoints}, ConverterParameter=4x72x100}"
+                                                      Stroke="#4ADE80" StrokeThickness="2" />
                                         </Grid>
-                                        <Polyline Stretch="None"
-                                                  Points="{Binding RamSeries, Converter={x:Static vm:CommonConverters.SeriesToPoints}, ConverterParameter=4x72x100}"
-                                                  Stroke="#4ADE80" StrokeThickness="2" />
-                                    </Grid>
+                                        <ItemsControl ItemsSource="{Binding HistoryDateLabels}" Width="{Binding HistoryChartWidth}" Height="16">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <Canvas />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.Styles>
+                                                <Style Selector="ContentPresenter">
+                                                    <Setter Property="Canvas.Left" Value="{ReflectionBinding X}" />
+                                                    <Setter Property="Canvas.Top" Value="0" />
+                                                </Style>
+                                            </ItemsControl.Styles>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate DataType="vm:HistoryDateLabel">
+                                                    <TextBlock Text="{Binding Text}" FontSize="9" Classes="muted" Margin="2,0,0,0" />
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
                                 </ScrollViewer>
                             </Grid>
 
                             <!-- GPU -->
-                            <Grid ColumnDefinitions="132,26,*" Height="72">
+                            <Grid ColumnDefinitions="132,26,*">
                                 <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="3">
                                     <StackPanel Orientation="Horizontal" Spacing="6">
                                         <Border Width="10" Height="10" CornerRadius="2" Background="#A855F7" VerticalAlignment="Center" />
@@ -298,25 +345,48 @@
                                     <TextBlock Grid.Row="1" Text="50" FontSize="9" Classes="muted" HorizontalAlignment="Right" VerticalAlignment="Center" />
                                     <TextBlock Grid.Row="2" Text="0" FontSize="9" Classes="muted" HorizontalAlignment="Right" />
                                 </Grid>
-                                <ScrollViewer Grid.Column="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-                                    <Grid Width="{Binding HistoryChartWidth}" Height="72" ClipToBounds="True" Background="#0C1120">
-                                        <Border VerticalAlignment="Top" Height="1" Background="#18FFFFFF" />
-                                        <Border VerticalAlignment="Center" Height="1" Background="#18FFFFFF" />
-                                        <Border VerticalAlignment="Bottom" Height="1" Background="#18FFFFFF" />
-                                        <Grid ColumnDefinitions="*,*,*,*" IsHitTestVisible="False">
-                                            <Border Grid.Column="1" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
-                                            <Border Grid.Column="2" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
-                                            <Border Grid.Column="3" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
+                                <ScrollViewer Grid.Column="2"
+                                              HorizontalScrollBarVisibility="Auto"
+                                              VerticalScrollBarVisibility="Disabled"
+                                              behaviors:AutoScroll.ToEndToken="{Binding HistoryScrollToken}">
+                                    <StackPanel Width="{Binding HistoryChartWidth}">
+                                        <Grid Width="{Binding HistoryChartWidth}" Height="72" ClipToBounds="True" Background="#0C1120">
+                                            <Border VerticalAlignment="Top" Height="1" Background="#18FFFFFF" />
+                                            <Border VerticalAlignment="Center" Height="1" Background="#18FFFFFF" />
+                                            <Border VerticalAlignment="Bottom" Height="1" Background="#18FFFFFF" />
+                                            <Grid ColumnDefinitions="*,*,*,*" IsHitTestVisible="False">
+                                                <Border Grid.Column="1" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
+                                                <Border Grid.Column="2" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
+                                                <Border Grid.Column="3" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
+                                            </Grid>
+                                            <Polyline Stretch="None"
+                                                      Points="{Binding GpuSeries, Converter={x:Static vm:CommonConverters.SeriesToPoints}, ConverterParameter=4x72x100}"
+                                                      Stroke="#A855F7" StrokeThickness="2" />
                                         </Grid>
-                                        <Polyline Stretch="None"
-                                                  Points="{Binding GpuSeries, Converter={x:Static vm:CommonConverters.SeriesToPoints}, ConverterParameter=4x72x100}"
-                                                  Stroke="#A855F7" StrokeThickness="2" />
-                                    </Grid>
+                                        <ItemsControl ItemsSource="{Binding HistoryDateLabels}" Width="{Binding HistoryChartWidth}" Height="16">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <Canvas />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.Styles>
+                                                <Style Selector="ContentPresenter">
+                                                    <Setter Property="Canvas.Left" Value="{ReflectionBinding X}" />
+                                                    <Setter Property="Canvas.Top" Value="0" />
+                                                </Style>
+                                            </ItemsControl.Styles>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate DataType="vm:HistoryDateLabel">
+                                                    <TextBlock Text="{Binding Text}" FontSize="9" Classes="muted" Margin="2,0,0,0" />
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
                                 </ScrollViewer>
                             </Grid>
 
                             <!-- Prozesse -->
-                            <Grid ColumnDefinitions="132,26,*" Height="72">
+                            <Grid ColumnDefinitions="132,26,*">
                                 <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="3">
                                     <StackPanel Orientation="Horizontal" Spacing="6">
                                         <Border Width="10" Height="10" CornerRadius="2" Background="#FACC15" VerticalAlignment="Center" />
@@ -329,38 +399,47 @@
                                     <TextBlock Grid.Row="1" Text="50" FontSize="9" Classes="muted" HorizontalAlignment="Right" VerticalAlignment="Center" />
                                     <TextBlock Grid.Row="2" Text="0" FontSize="9" Classes="muted" HorizontalAlignment="Right" />
                                 </Grid>
-                                <ScrollViewer Grid.Column="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-                                    <Grid Width="{Binding HistoryChartWidth}" Height="72" ClipToBounds="True" Background="#0C1120">
-                                        <Border VerticalAlignment="Top" Height="1" Background="#18FFFFFF" />
-                                        <Border VerticalAlignment="Center" Height="1" Background="#18FFFFFF" />
-                                        <Border VerticalAlignment="Bottom" Height="1" Background="#18FFFFFF" />
-                                        <Grid ColumnDefinitions="*,*,*,*" IsHitTestVisible="False">
-                                            <Border Grid.Column="1" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
-                                            <Border Grid.Column="2" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
-                                            <Border Grid.Column="3" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
+                                <ScrollViewer Grid.Column="2"
+                                              HorizontalScrollBarVisibility="Auto"
+                                              VerticalScrollBarVisibility="Disabled"
+                                              behaviors:AutoScroll.ToEndToken="{Binding HistoryScrollToken}">
+                                    <StackPanel Width="{Binding HistoryChartWidth}">
+                                        <Grid Width="{Binding HistoryChartWidth}" Height="72" ClipToBounds="True" Background="#0C1120">
+                                            <Border VerticalAlignment="Top" Height="1" Background="#18FFFFFF" />
+                                            <Border VerticalAlignment="Center" Height="1" Background="#18FFFFFF" />
+                                            <Border VerticalAlignment="Bottom" Height="1" Background="#18FFFFFF" />
+                                            <Grid ColumnDefinitions="*,*,*,*" IsHitTestVisible="False">
+                                                <Border Grid.Column="1" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
+                                                <Border Grid.Column="2" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
+                                                <Border Grid.Column="3" Width="1" Background="#14FFFFFF" HorizontalAlignment="Left" />
+                                            </Grid>
+                                            <Polyline Stretch="None"
+                                                      Points="{Binding ProcSeries, Converter={x:Static vm:CommonConverters.SeriesToPoints}, ConverterParameter=4x72x100}"
+                                                      Stroke="#FACC15" StrokeThickness="2" />
                                         </Grid>
-                                        <Polyline Stretch="None"
-                                                  Points="{Binding ProcSeries, Converter={x:Static vm:CommonConverters.SeriesToPoints}, ConverterParameter=4x72x100}"
-                                                  Stroke="#FACC15" StrokeThickness="2" />
-                                    </Grid>
+                                        <ItemsControl ItemsSource="{Binding HistoryDateLabels}" Width="{Binding HistoryChartWidth}" Height="16">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <Canvas />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.Styles>
+                                                <Style Selector="ContentPresenter">
+                                                    <Setter Property="Canvas.Left" Value="{ReflectionBinding X}" />
+                                                    <Setter Property="Canvas.Top" Value="0" />
+                                                </Style>
+                                            </ItemsControl.Styles>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate DataType="vm:HistoryDateLabel">
+                                                    <TextBlock Text="{Binding Text}" FontSize="9" Classes="muted" Margin="2,0,0,0" />
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
                                 </ScrollViewer>
                             </Grid>
-                            <!-- Zeitachse -->
-                            <Grid ColumnDefinitions="132,26,*" Margin="0,2,0,0">
-                                <TextBlock Grid.Column="0" Text="Zeitraum" FontSize="9" Classes="muted" VerticalAlignment="Center" />
-                                <TextBlock Grid.Column="2" Text="{Binding HistoryRangeText}" FontSize="9" Classes="muted"
-                                           HorizontalAlignment="Stretch" TextAlignment="Center" />
-                            </Grid>
-                            <Grid ColumnDefinitions="132,26,*" Margin="0,1,0,0">
-                                <TextBlock Grid.Column="0" Text="Datum" FontSize="9" Classes="muted" VerticalAlignment="Center" />
-                                <Grid Grid.Column="2" ColumnDefinitions="*,*,*,*,*">
-                                    <TextBlock Grid.Column="0" Text="{Binding HistoryAxisStart}" FontSize="9" Classes="muted" HorizontalAlignment="Left" />
-                                    <TextBlock Grid.Column="1" Text="{Binding HistoryAxisQuarter}" FontSize="9" Classes="muted" HorizontalAlignment="Center" />
-                                    <TextBlock Grid.Column="2" Text="{Binding HistoryAxisMiddle}" FontSize="9" Classes="muted" HorizontalAlignment="Center" />
-                                    <TextBlock Grid.Column="3" Text="{Binding HistoryAxisThreeQuarter}" FontSize="9" Classes="muted" HorizontalAlignment="Center" />
-                                    <TextBlock Grid.Column="4" Text="{Binding HistoryAxisEnd}" FontSize="9" Classes="muted" HorizontalAlignment="Right" />
-                                </Grid>
-                            </Grid>
+                            <!-- Gesamtzeitraum (Datumslabels stehen inzwischen direkt unter jedem Diagramm) -->
+                            <TextBlock Text="{Binding HistoryRangeText}" FontSize="9" Classes="muted" Margin="0,2,0,0" />
                         </StackPanel>
                     </StackPanel>
                 </Border>

@@ -8,6 +8,17 @@ public static class Changelog
 {
     public static readonly ChangelogEntry[] Entries =
     {
+        new("0.6.11", "08.11.2026", new[]
+        {
+            "Fenster-Modus: Die Spielebibliothek passt sich der Fensterbreite an – aus einer Spalte werden automatisch mehrere, die Werkzeugleiste bricht bei kleinen Fenstern sauber um, und die Mindestfenstergröße ist kleiner.",
+            "Spielebibliothek: Neue Sortierung (Name, Größe, zuletzt gespielt, Kategorie, Quelle) und der Filter „Nur laufende“ direkt in der Kopfzeile.",
+            "Diagramme: Jedes Verlaufsdiagramm (Internet-Checker und System-Ressourcen) hat jetzt eine eigene Scrollbar inklusive Datums-Beschriftung, die mitscrollt. Nach jedem Neuladen springen alle Diagramme automatisch auf den neuesten Stand.",
+            "Admin-Website: Premium-Codes lassen sich einzeln deaktivieren und wieder aktivieren; unbenutzte Codes können gesammelt deaktiviert werden. Codes und Nutzung sind als CSV exportierbar.",
+            "Admin-Website: Neue Liste zeigt, welcher Nutzer welchen Code wann eingelöst hat – mit Suche, Filter und einem Knopf, um eine einzelne Einlösung zurückzunehmen (die gutgeschriebene Premium-Zeit wird abgezogen).",
+            "Website für alle: „Mein Konto“ zeigt den eigenen Premium-Status, erlaubt das direkte Einlösen eines Freischalt-Codes und listet die eigenen eingelösten Codes.",
+            "Server: Neue Funktionen für Deaktivierung, Einlösungs-Historie und Konto-Ansicht (Supabase-Schema aktualisieren).",
+            "Version 0.6.11"
+        }),
         new("0.6.10", "08.11.2026", new[]
         {
             "Server-Fix: EXECUTE-Recht für die Premium-Code-Funktion auch für nicht angemeldete Nutzer (anon) – statt „Permission denied“ gibt es jetzt eine klare Meldung („Bitte zuerst anmelden“).",

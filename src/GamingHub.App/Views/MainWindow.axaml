@@ -8,7 +8,7 @@
         x:DataType="vm:MainViewModel"
         Icon="/Assets/logo.ico"
         Title="Gaming Hub"
-        Width="1220" Height="780" MinWidth="980" MinHeight="640"
+        Width="1220" Height="780" MinWidth="820" MinHeight="600"
         Background="{DynamicResource AppBgGradient}">
 
     <Design.DataContext>
