@@ -475,7 +475,8 @@ export function App() {
   }, []);
 
   const userEmail = session?.user?.email;
-  const canViewVersions = Boolean(session) && (isPremium || isAdmin);
+  // Downloads und frühere Versionen sind für alle zugänglich – auch ohne Konto.
+  const canViewVersions = true;
 
   const signInDiscord = () => {
     void supabase?.auth.signInWithOAuth({
@@ -542,15 +543,10 @@ export function App() {
               komfortabel starten. Von Gamern für Gamer. Kostenlos für Windows.
             </p>
             <div className="hero-actions">
-              {(downloadsEnabled || isAdmin) && (
-                <>
-                  <a className="btn primary" href={DOWNLOAD_SETUP_URL}>Für Windows herunterladen</a>
-                  <a className="btn ghost" href={DOWNLOAD_PORTABLE_URL}>Portable (ZIP)</a>
-                </>
-              )}
-              {(!downloadsEnabled && !isAdmin) && (
-                <p className="muted small">Downloads sind aktuell deaktiviert.</p>
-              )}
+              <>
+                <a className="btn primary" href={DOWNLOAD_SETUP_URL}>Für Windows herunterladen</a>
+                <a className="btn ghost" href={DOWNLOAD_PORTABLE_URL}>Portable (ZIP)</a>
+              </>
             </div>
             <p className="muted small">
               Hinweis: Gaming Hub wird ohne Gewähr bereitgestellt. Nutzung auf eigene Gefahr.
@@ -702,7 +698,7 @@ export function App() {
             <div className="changelog">
               {releases.map((r, i) => {
                 const isLatest = i === 0;
-                const canDownload = isLatest || downloadsEnabled || isAdmin;
+                const canDownload = true;
                 return (
                   <div className="card changelog-item" key={r.version}>
                     <span className="changelog-check">⬇</span>
