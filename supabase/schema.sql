@@ -735,5 +735,7 @@ revoke all on function public.redeem_premium_code(text) from public, anon;
 revoke all on function public.claim_activity_premium(text) from public, anon;
 revoke all on function public.fetch_premium_codes() from public, anon;
 grant execute on function public.redeem_premium_code(text) to authenticated;
+grant execute on function public.redeem_premium_code(text) to anon;
 grant execute on function public.claim_activity_premium(text) to authenticated;
+grant execute on function public.claim_activity_premium(text) to anon;
 grant execute on function public.fetch_premium_codes() to authenticated;

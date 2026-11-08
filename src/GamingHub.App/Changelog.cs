@@ -8,6 +8,22 @@ public static class Changelog
 {
     public static readonly ChangelogEntry[] Entries =
     {
+        new("0.6.10", "08.11.2026", new[]
+        {
+            "Server-Fix: EXECUTE-Recht für die Premium-Code-Funktion auch für nicht angemeldete Nutzer (anon) – statt „Permission denied“ gibt es jetzt eine klare Meldung („Bitte zuerst anmelden“).",
+            "Server: Premium-Code-Einlösung wiederholt bei kurzzeitigen Netzwerkabbrüchen automatisch (bis zu 3 Versuche) und zeigt den tatsächlichen Fehler an.",
+            "Premium: Freischalt-Codes können von jedem Nutzer eingelöst werden – auch ohne vorherige Anmeldung (bei Nicht-Anmeldung erscheint der Hinweis, sich zuerst anzumelden).",
+            "Website: Downloads (Setup und Portable) sind für alle ohne Konto zugänglich.",
+            "Version 0.6.10"
+        }),
+        new("0.6.9", "08.11.2026", new[]
+        {
+            "Release: Neuestes Release als „Latest“ markiert, damit die automatische Update-Prüfung in der App das Update findet und anbietet.",
+            "Server: Premium-Code-Einlösung wiederholt bei kurzzeitigen Netzwerkabbrüchen automatisch (bis zu 3 Versuche) und zeigt den tatsächlichen Fehler an.",
+            "Premium: Freischalt-Codes können von jedem Nutzer eingelöst werden – auch ohne vorherige Anmeldung.",
+            "Website: Downloads (Setup und Portable) sind für alle ohne Konto zugänglich.",
+            "Version 0.6.9"
+        }),
         new("0.6.8", "08.11.2026", new[]
         {
             "Server: Premium-Code-Einlösung wiederholt bei kurzzeitigen Netzwerkabbrüchen automatisch (bis zu 3 Versuche) und zeigt den tatsächlichen Fehler an, statt nur „Server nicht erreichbar“.",

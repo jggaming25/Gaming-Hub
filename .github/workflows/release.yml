@@ -103,6 +103,7 @@ jobs:
           draft: false
           prerelease: false
           generate_release_notes: true
+          make_latest: true
           files: |
             ./Releases/GamingHub-win-Setup.exe
             ./portable/GamingHub-win-Portable.zip

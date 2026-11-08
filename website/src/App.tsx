@@ -26,16 +26,17 @@ const FEATURES = [
 
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   {
-    version: "0.6.8",
+    version: "0.6.10",
     date: "08.11.2026",
     items: [
-      "Server: Premium-Code-Einlösung wiederholt bei kurzzeitigen Netzwerkabbrüchen automatisch und zeigt den tatsächlichen Fehler an.",
+      "Server-Fix: EXECUTE-Recht für die Premium-Code-Funktion auch für nicht angemeldete Nutzer – statt „Permission denied“ gibt es eine klare Meldung.",
+      "Server: Premium-Code-Einlösung wiederholt bei Netzwerkabbrüchen automatisch und zeigt den tatsächlichen Fehler an.",
       "Premium: Freischalt-Codes können von jedem Nutzer eingelöst werden – auch ohne vorherige Anmeldung.",
       "Website: Downloads (Setup und Portable) sind für alle ohne Konto zugänglich."
     ]
   },
   {
-    version: "0.6.7",
+    version: "0.6.9",
     date: "08.11.2026",
     items: [
       "Updates: Gaming Hub prüft jetzt automatisch alle 30 Sekunden im Hintergrund, ob eine neue Version verfügbar ist. Der Hinweis erscheint unten in der Navigation und lässt sich dort mit einem Klick installieren.",
