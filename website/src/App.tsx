@@ -26,6 +26,14 @@ const FEATURES = [
 
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   {
+    version: "0.6.7",
+    date: "08.11.2026",
+    items: [
+      "Premium: Jeder Nutzer kann jetzt Freischalt-Codes einlösen – auch ohne vorherige Anmeldung.",
+      "Website: Downloads (Setup und Portable) sind für alle ohne Konto zugänglich."
+    ]
+  },
+  {
     version: "0.6.6",
     date: "31.10.2026 11:35",
     items: [

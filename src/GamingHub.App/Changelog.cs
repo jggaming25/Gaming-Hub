@@ -8,6 +8,12 @@ public static class Changelog
 {
     public static readonly ChangelogEntry[] Entries =
     {
+        new("0.6.7", "08.11.2026", new[]
+        {
+            "Premium: Jeder Nutzer kann jetzt Freischalt-Codes einlösen – auch ohne vorherige Anmeldung (bei Nicht-Anmeldung erscheint der Hinweis, sich zuerst anzumelden, damit der Code dem richtigen Konto gutgeschrieben wird).",
+            "Website: Downloads (Setup und Portable) sind für alle ohne Konto zugänglich.",
+            "Version 0.6.7"
+        }),
         new("0.6.6", "31.10.2026 11:35", new[]
         {
             "Updates: Gaming Hub prüft jetzt automatisch alle 30 Sekunden im Hintergrund, ob eine neue Version verfügbar ist. Der Hinweis erscheint unten in der Navigation und lässt sich dort mit einem Klick installieren.",

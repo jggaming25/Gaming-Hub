@@ -63,7 +63,10 @@
                         <TextBlock Text="🚫 Premium gesperrt – wende dich an den Support." FontSize="12" Foreground="#F87171" TextWrapping="Wrap" />
                     </Border>
 
-                    <StackPanel Spacing="8" IsVisible="{Binding IsLoggedIn}">
+                    <!-- Premium-Code-Einlösung: Jeder kann einen Freischalt-Code eingeben.
+                         Wer nicht angemeldet ist, erhält beim Einlösen den Hinweis,
+                         sich zuerst anzumelden (der Code wird dem Konto gutgeschrieben). -->
+                    <StackPanel Spacing="8">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <TextBox Width="200" Text="{Binding PremiumCode, Mode=TwoWay}" PlaceholderText="Freischalt-Code, z. B. GH-ABCD-1234" />
                             <Button Content="Einlösen" Command="{Binding RedeemPremiumCommand}" Classes="accent" />
